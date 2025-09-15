@@ -1,0 +1,141 @@
+# Action-Reaction Full-Stack Architecture Document
+
+### Section 1: Introduction
+
+This document outlines the complete full-stack architecture for the "Action-Reaction" project, including backend systems, frontend implementation, and their integration. It serves as the single source of truth for AI-driven development, ensuring consistency across the entire technology stack. This unified approach combines what would traditionally be separate backend and frontend architecture documents, streamlining the development process for modern full-stack applications where these concerns are increasingly intertwined.
+
+**Starter Template or Existing Project**
+N/A - This is a Greenfield project that will be built from scratch based on the technology stack defined in this document.
+
+**Change Log**
+
+| Date | Version | Description | Author |
+| :--- | :--- | :--- | :--- |
+| 2025-09-15 | 1.0 | Initial Architecture Draft | Winston (Architect) |
+
+### Section 2: High Level Architecture
+
+**Technical Summary**
+The "Action-Reaction" platform will be a containerized, full-stack application deployed on Railway. It will utilize a **Monorepo** structure to manage a **Flutter** frontend (for web, Android, and iOS) and a **Python FastAPI** backend. The backend will follow a **Service-Oriented Architecture**, with a PostgreSQL database for primary data storage and Redis for caching and background job queuing. A `Makefile` will be used to orchestrate Docker commands and standardize the development workflow. This architecture is designed for scalability and extensibility, allowing for the seamless addition of new third-party service integrations as the platform grows, directly supporting the goals outlined in the PRD.
+
+**Platform and Infrastructure Choice**
+*   **Platform:** **Railway** has been selected as the deployment and hosting platform. Its infrastructure-as-code approach simplifies the management of services and environments.
+*   **Key Services:**
+    *   **App Service**: To run the containerized FastAPI backend.
+    *   **PostgreSQL**: For the primary relational database.
+    *   **Redis**: For caching and to serve as a message broker for the background automation engine.
+*   **Deployment Host and Regions:** Railway manages this automatically, optimizing for performance and availability.
+
+**Repository Structure**
+*   **Structure:** A **Monorepo** will be used to house the code for all parts of the application. This simplifies dependency management and ensures consistency.
+*   **Package Organization:** The monorepo will have a clear top-level directory structure:
+    *   `/app`: Containing the Flutter frontend code.
+    *   `/server`: Containing the FastAPI backend code.
+    *   A root `Makefile` will provide convenient commands for building, running, and testing the applications.
+
+**High Level Architecture Diagram**
+```mermaid
+graph TD
+    subgraph User Devices
+        U_Web[Web Browser]
+        U_Mobile[Mobile App - iOS/Android]
+    end
+
+    subgraph Third-Party Services
+        API1[Google API]
+        API2[Facebook API]
+        API3[Dropbox API]
+        API_Etc[...]
+    end
+
+    subgraph Railway Platform
+        Flutter[Flutter Client]
+        
+        subgraph Backend
+            FastAPI[FastAPI Application Server]
+            Engine[Automation Engine - Background Worker]
+        end
+
+        subgraph Data Stores
+            Postgres[PostgreSQL Database]
+            Redis[Redis Cache & Job Queue]
+        end
+
+        FastAPI --&gt;|REST API| Flutter
+        Engine --&gt;|OAuth2| API1
+        Engine --&gt;|OAuth2| API2
+        Engine --&gt;|OAuth2| API3
+        Engine --&gt;|OAuth2| API_Etc
+        FastAPI --&gt;|Read/Write| Postgres
+        FastAPI --&gt;|Cache| Redis
+        Engine --&gt;|Read/Write| Postgres
+        Engine --&gt;|Job Queue| Redis
+    end
+
+    U_Web --&gt; Flutter
+    U_Mobile --&gt; Flutter
+```
+
+**Architectural Patterns**
+*   **Monorepo Pattern:** A single repository will be used to manage the frontend and backend codebases, simplifying development workflows and dependency management.
+*   **Service-Oriented Architecture (Backend):** The FastAPI backend will be structured into logical services (e.g., `UserService`, `AutomationService`, `IntegrationService`) to ensure a clear separation of concerns and promote modularity.
+*   **Repository Pattern (Backend):** The data access logic will be abstracted into a repository layer. This will decouple the business logic from the database, making the application easier to test and maintain.
+*   **Background Worker Pattern (Backend):** The core automation engine will run as a separate background worker process. It will listen for jobs on a Redis queue, allowing the main API server to remain responsive while long-running automations are executed asynchronously.
+*   **Provider / BLoC Pattern (Frontend):** A standard state management pattern like Provider or BLoC will be used in the Flutter application to manage UI state, handle data fetching, and communicate with the backend API efficiently.
+
+### Section 3: Tech Stack
+
+This table represents the definitive technology selection for the entire project. All development must adhere to these choices to ensure consistency and maintainability. The latest stable versions of these technologies should be used.
+
+| Category | Technology | Purpose | Rationale |
+| :--- | :--- | :--- | :--- |
+| **Backend Language** | Python | Core language for the application server | Modern, stable, with excellent library support for web services. |
+| **Backend Framework**| FastAPI | Web framework for building the REST API | High performance, asynchronous support, and automatic API documentation. |
+| **Database ORM** | SQLAlchemy | Object-Relational Mapper | Industry-standard ORM for Python, excellent integration with FastAPI. |
+| **DB Migrations** | Alembic | Database migration tool | Handles database schema changes in a version-controlled manner. |
+| **Async Task Queue** | Celery | Background job processor | Robust, distributed task queue ideal for handling asynchronous automations. |
+| **Frontend Language** | Dart | Core language for the Flutter application | The required language for Flutter, optimized for building fast apps on any platform. |
+| **Frontend Framework**| Flutter | UI toolkit for web, mobile, and desktop | Single codebase for all clients, ensuring a consistent UI/UX. |
+| **State Management** | flutter_bloc | State management library for Flutter | Predictable and scalable state management, separating business logic from UI. |
+| **HTTP Client (FE)** | dio | HTTP client for Dart/Flutter | Powerful and easy-to-use HTTP client with support for interceptors and FormData. |
+| **Routing (FE)** | go_router | Declarative routing for Flutter | Simplifies navigation and handling of deep links. |
+| **Primary Database** | PostgreSQL | Relational data storage | Powerful, open-source object-relational database system. |
+| **Cache / Job Broker**| Redis | In-memory data store | Used for caching, session storage, and as a message broker for Celery. |
+| **Containerization** | Docker | Application containerization | Standardizes the development and production environments. |
+| **Orchestration** | Docker Compose | Multi-container application management | Defines and runs the multi-service application stack (server, db, etc.). |
+| **Build Tool** | Makefile | Command runner for development tasks | Provides simple, standardized commands for building, running, and testing. |
+| **Deployment** | Railway | Hosting and infrastructure platform | Simplifies deployment and management of the entire application stack. |
+| **Testing (Backend)**| pytest | Testing framework for Python | The standard for writing simple and scalable tests in Python. |
+| **Testing (Frontend)**| flutter_test | Unit and widget testing for Flutter | Built-in framework for testing Flutter applications. |
+| **Linting (Backend)**| Ruff | Python linter | Extremely fast and comprehensive linter to enforce code quality. |
+| **Linting (Frontend)**| flutter_lints | Dart linter for Flutter | Official set of lint rules to encourage good coding practices. |
+
+### Section 4: Data Models
+
+#### User Model
+**Purpose:** Represents an individual user account on the platform. This model stores authentication details, role, and subscription status.
+**Key Attributes:** `id`, `email`, `hashed_password`, `is_confirmed`, `role`, `subscription_status`, `created_at`, `updated_at`.
+**Relationships:** A `User` has many `ServiceConnections` and `AREAs`.
+
+#### ServiceConnection Model
+**Purpose:** Represents the link between a user on our platform and their account on a third-party service. This model securely stores the authentication tokens required to act on the user's behalf.
+**Key Attributes:** `id`, `user_id`, `service_name`, `encrypted_access_token`, `encrypted_refresh_token`, `expires_at`, `created_at`.
+**Relationships:** A `ServiceConnection` belongs to one `User`.
+
+#### AREA Model
+**Purpose:** Represents a user-defined automation workflow. For the MVP, this will be a direct link between one trigger `Action` and one resulting `REAction`.
+**Key Attributes:** `id`, `user_id`, `name`, `is_enabled`, `trigger_service`, `trigger_action`, `trigger_config`, `reaction_service`, `reaction_action`, `reaction_config`, `created_at`, `updated_at`.
+**Relationships:** An `AREA` belongs to one `User`.
+
+### Section 5: API Specification
+
+The application server will expose a RESTful API that adheres to the OpenAPI 3.0 specification. All endpoints will be prefixed with `/api/v1`. Authentication will be handled via bearer tokens (JWTs).
+
+**Core Endpoints:**
+*   `/auth/register`
+*   `/auth/login`
+*   `/auth/{provider}` & `/auth/{provider}/callback`
+*   `/users/me`
+*   `/services`
+*   `/connections` & `/connections/{connection_id}`
+*   `/areas` & `/areas/{area_id}`
