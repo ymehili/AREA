@@ -19,6 +19,12 @@ This project addresses the growing need for interoperability between the vast nu
 
 ### Section 2: Requirements
 
+Note on technology alignment
+
+- Frontend is implemented as Next.js for web and Expo React Native for mobile (Android/iOS).
+- Local development ports: API `8080`, Web `3000`, Mobile (Expo web preview) `19006`.
+- Any references to "Flutter" in acceptance criteria should be read as "client application (web/mobile)" implemented with the stack above.
+
 **Functional Requirements**
 *   **FR1**: A user must be able to register for an account using an email and password.
 *   **FR2**: A user must be able to register and log in using third-party OAuth2 providers (e.g., Google, Facebook).
@@ -34,7 +40,7 @@ This project addresses the growing need for interoperability between the vast nu
 **Non-Functional Requirements**
 *   **NFR1**: The entire project (server, web client, mobile client build process) must be containerized and managed via a `docker-compose.yml` file.
 *   **NFR2**: The application server must run on port `8080`.
-*   **NFR3**: The web client must run on port `8081`.
+*   **NFR3**: The web client must run on port `3000`.
 *   **NFR4**: The application server must provide a `/about.json` endpoint that returns server time, client IP, and a list of available services with their actions and reactions.
 *   **NFR5**: The web client must be able to serve the Android mobile client's `.apk` file from the `/client.apk` endpoint.
 *   **NFR6**: The platform must securely store and manage sensitive user credentials and third-party service tokens, with encryption for data at rest and in transit.
@@ -63,12 +69,12 @@ The application will target **WCAG 2.1 AA** compliance to ensure it is usable by
 No specific branding guidelines have been provided. The initial design should be clean, modern, and neutral, focusing on usability over a distinct visual style. The branding should be easily adaptable in the future.
 
 **Target Device and Platforms**
-The application will be built using **Flutter**, targeting **Web Responsive** (for browsers) and **Cross-Platform** mobile (Android and iOS) from a single codebase.
+The application will provide a **Next.js** web client and an **Expo React Native** mobile app (Android and iOS).
 
 ### Section 4: Technical Assumptions
 
 **Repository Structure**
-*   A **Monorepo** structure will be used to manage the shared logic and dependencies between the FastAPI backend and the Flutter frontend (web and mobile).
+*   A **Monorepo** structure will be used to manage the shared logic and dependencies between the FastAPI backend and the web/mobile clients.
 
 **Service Architecture**
 *   The backend will be developed with a **service-oriented architecture**. This approach will ensure that different domains of the application (e.g., user authentication, service integration, the AREA execution engine) are loosely coupled. This modularity is critical for future scalability and makes it easier to add new services without impacting existing functionality.
@@ -77,7 +83,7 @@ The application will be built using **Flutter**, targeting **Web Responsive** (f
 *   The project will require a combination of **Unit and Integration tests**. Unit tests will be used to validate individual functions and components in isolation. Integration tests will be crucial for verifying the connections between the application server, the database, and external third-party APIs.
 
 **Additional Technical Assumptions and Requests**
-*   **Frontend Framework**: The frontend for web, Android, and iOS will be built using **Flutter**.
+*   **Frontend Frameworks**: The frontend consists of **Next.js (web)** and **Expo React Native (mobile)**.
 *   **Backend Framework**: The backend REST API and automation engine will be built with **Python and FastAPI**.
 *   **Deployment Platform**: The application will be deployed on **Railway**.
 *   **Containerization**: The entire application stack must be containerized with **Docker** and managed via **Docker Compose**, as per the project constraints.
@@ -102,9 +108,9 @@ The application will be built using **Flutter**, targeting **Web Responsive** (f
 #### Story 1.1: Project Scaffolding and Containerization
 **As a** developer, **I want** a properly configured monorepo with a `docker-compose.yml` file, **so that** I can have a consistent development environment and a foundation for building the frontend and backend applications.
 **Acceptance Criteria**
-1.  A monorepo structure is created, with separate packages/directories for the Flutter frontend and the FastAPI backend.
+1.  A monorepo structure is created, with separate packages/directories for the web client, mobile app, and the FastAPI backend.
 2.  A root `docker-compose.yml` file is created.
-3.  The `docker-compose.yml` file defines three services: `server`, `client_web`, and `client_mobile`.
+3.  The `docker-compose.yml` file defines three services: `server`, `web`, and `mobile_web`.
 4.  Running `docker compose build` successfully builds placeholder Docker images for all three services without errors.
 5.  The `docker-compose.yml` correctly configures the service dependencies (`client_web` depends on `server`).
 
@@ -113,10 +119,10 @@ The application will be built using **Flutter**, targeting **Web Responsive** (f
 **Acceptance Criteria**
 1.  When `docker compose up` is run, the `server` service starts and exposes port `8080`.
 2.  A `GET` request to `http://localhost:8080/about.json` returns a valid JSON response with the required `client.host` and `server.current_time` fields.
-3.  The `client_web` service starts and exposes port `8081`.
-4.  A `GET` request to `http://localhost:8081` returns a placeholder "Welcome" page from the Flutter web application.
-5.  The `client_mobile` service successfully builds a placeholder Android `.apk` file and places it in a shared volume accessible by the `client_web` service.
-6.  A `GET` request to `http://localhost:8081/client.apk` successfully serves the Android application file.
+3.  The `web` service starts and exposes port `3000`.
+4.  A `GET` request to `http://localhost:3000` returns a placeholder page from the Next.js web application.
+5.  The `mobile_web` service starts the Expo web preview on port `19006`.
+6.  The Expo developer UI is accessible at `http://localhost:19006`.
 
 #### Story 1.3: User Model and Database Integration
 **As a** developer, **I want** the FastAPI server to connect to a database and have a defined User model, **so that** the application can persist and manage user data.

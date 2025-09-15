@@ -93,13 +93,13 @@ Over the next 1-2 years, the "Action-Reaction" platform aims to evolve from a po
 *   **Performance Requirements**: The application server's REST API should have a low latency (e.g., <500ms response time for typical requests) to ensure a smooth user experience on all clients.
 
 **Technology Preferences**
-*   **Frontend (Web & Mobile)**: **Flutter** will be used as the single, unified framework to build and maintain the codebase for the web, Android, and iOS clients, ensuring a consistent user experience across all platforms.
+*   **Frontend (Web & Mobile)**: **Next.js (web)** and **Expo React Native (mobile)** are used to build and maintain the web, Android, and iOS clients, ensuring a consistent user experience across platforms.
 *   **Backend**: The backend REST API and automation engine will be built using **Python** with the **FastAPI** framework, known for its high performance and modern features.
 *   **Database**: A combination of a primary relational database (like PostgreSQL) for user data and structured information, and a non-relational database (like Redis) for caching and managing job queues for the automation engine is recommended.
 *   **Hosting/Infrastructure**: The application will be deployed on the **Railway** platform. The entire application should be containerized using Docker and managed with Docker Compose to ensure consistent environments from local development to production on Railway.
 
 **Architecture Considerations**
-*   **Repository Structure**: A monorepo structure could be beneficial for managing the shared code between the server and the Flutter clients, but a polyrepo (separate repositories) is also a viable approach.
+*   **Repository Structure**: A monorepo structure is used for managing the shared code between the server and the web/mobile clients, though a polyrepo (separate repositories) is also a viable approach.
 *   **Service Architecture**: The backend should be designed with a service-oriented or microservices architecture to ensure that different parts of the system can be developed, deployed, and scaled independently.
 *   **Integration Requirements**: The architecture must be designed for extensibility, making it easy to add new third-party services in the future.
 *   **Security/Compliance**: The platform must handle user credentials and API keys for third-party services securely, using encryption for data at rest and in transit. OAuth2 will be the primary mechanism for service integrations.
@@ -110,10 +110,10 @@ Over the next 1-2 years, the "Action-Reaction" platform aims to evolve from a po
 *   **Budget**: Not specified in the project documentation. Assumed to be limited to free or low-cost tiers of any required third-party services.
 *   **Timeline**: The project is structured around three key milestones: 1) Planning, 2) Minimum Viable Product, and 3) Final Product. Specific dates are not defined.
 *   **Resources**: The project will be developed by a group of 'X' students.
-*   **Technical**: The project MUST be containerized using Docker and orchestrated with a `docker-compose.yml` file. This setup must include three specific services (`server`, `client_mobile`, `client_web`) with defined port mappings (8080 for the server, 8081 for the web client) and dependencies. The server must expose a specific `/about.json` endpoint, and the web client must be able to serve the mobile client's `.apk` file.
+*   **Technical**: The project MUST be containerized using Docker and orchestrated with a `docker-compose.yml` file. This setup includes three services (`server`, `web`, `mobile_web`) with defined port mappings (8080 for the server, 3000 for the web client, 19006 for Expo web preview) and dependencies. The server must expose a specific `/about.json` endpoint.
 
 **Key Assumptions**
-*   It is assumed that the development team possesses or will acquire the necessary skills to work with the chosen technology stack (Flutter, FastAPI, Docker, Railway).
+*   It is assumed that the development team possesses or will acquire the necessary skills to work with the chosen technology stack (Next.js, Expo React Native, FastAPI, Docker, Railway).
 *   It is assumed that the primary development effort will be "glue code," integrating a wide range of existing libraries rather than building everything from scratch.
 *   It is assumed that the web and mobile clients will remain "thin clients," containing only user interface logic, with all business logic residing on the application server and accessed via the REST API.
 *   It is assumed that the third-party services targeted for integration (e.g., Google, Facebook, etc.) will have accessible APIs and developer free tiers for the project's purposes.

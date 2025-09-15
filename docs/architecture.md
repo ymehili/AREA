@@ -16,7 +16,7 @@ N/A - This is a Greenfield project that will be built from scratch based on the 
 ### Section 2: High Level Architecture
 
 **Technical Summary**
-The "Action-Reaction" platform will be a containerized, full-stack application deployed on Railway. It will utilize a **Monorepo** structure to manage a **Flutter** frontend (for web, Android, and iOS) and a **Python FastAPI** backend. The backend will follow a **Service-Oriented Architecture**, with a PostgreSQL database for primary data storage and Redis for caching and background job queuing. A `Makefile` will be used to orchestrate Docker commands and standardize the development workflow. This architecture is designed for scalability and extensibility, allowing for the seamless addition of new third-party service integrations as the platform grows, directly supporting the goals outlined in the PRD.
+The "Action-Reaction" platform is a containerized, full-stack application. It utilizes a **Monorepo** structure to manage a **Next.js (web)** frontend, an **Expo React Native (mobile)** app, and a **Python FastAPI** backend. The backend follows a **Service-Oriented Architecture**, with a PostgreSQL database for primary data storage and Redis for caching and background job queuing. A root `Makefile` orchestrates Docker commands and standardizes the development workflow. This architecture is designed for scalability and extensibility, allowing for the seamless addition of new third-party service integrations as the platform grows, directly supporting the goals outlined in the PRD.
 
 **Platform and Infrastructure Choice**
 *   **Platform:** **Railway** has been selected as the deployment and hosting platform. Its infrastructure-as-code approach simplifies the management of services and environments.
@@ -27,11 +27,12 @@ The "Action-Reaction" platform will be a containerized, full-stack application d
 *   **Deployment Host and Regions:** Railway manages this automatically, optimizing for performance and availability.
 
 **Repository Structure**
-*   **Structure:** A **Monorepo** will be used to house the code for all parts of the application. This simplifies dependency management and ensures consistency.
-*   **Package Organization:** The monorepo will have a clear top-level directory structure:
-    *   `/app`: Containing the Flutter frontend code.
-    *   `/server`: Containing the FastAPI backend code.
-    *   A root `Makefile` will provide convenient commands for building, running, and testing the applications.
+*   **Structure:** A **Monorepo** houses all parts of the application. This simplifies dependency management and ensures consistency.
+*   **Package Organization:** The monorepo has the following top-level application directories:
+    *   `apps/web`: Next.js web client.
+    *   `apps/mobile`: Expo React Native mobile app.
+    *   `apps/server`: FastAPI backend.
+    *   A root `Makefile` provides convenient commands for building, running, and testing the applications.
 
 **High Level Architecture Diagram**
 ```mermaid
@@ -48,8 +49,9 @@ graph TD
         API_Etc[...]
     end
 
-    subgraph Railway Platform
-        Flutter[Flutter Client]
+    subgraph Platform
+        Web[Next.js Web Client]
+        Mobile[Expo React Native App]
         
         subgraph Backend
             FastAPI[FastAPI Application Server]
@@ -61,7 +63,8 @@ graph TD
             Redis[Redis Cache & Job Queue]
         end
 
-        FastAPI -->|REST API| Flutter
+        FastAPI -->|REST API| Web
+        FastAPI -->|REST API| Mobile
         Engine -->|OAuth2| API1
         Engine -->|OAuth2| API2
         Engine -->|OAuth2| API3
@@ -72,8 +75,8 @@ graph TD
         Engine -->|Job Queue| Redis
     end
 
-    U_Web --> Flutter
-    U_Mobile --> Flutter
+    U_Web --> Web
+    U_Mobile --> Mobile
 ```
 
 **Architectural Patterns**
@@ -81,7 +84,7 @@ graph TD
 *   **Service-Oriented Architecture (Backend):** The FastAPI backend will be structured into logical services (e.g., `UserService`, `AutomationService`, `IntegrationService`) to ensure a clear separation of concerns and promote modularity.
 *   **Repository Pattern (Backend):** The data access logic will be abstracted into a repository layer. This will decouple the business logic from the database, making the application easier to test and maintain.
 *   **Background Worker Pattern (Backend):** The core automation engine will run as a separate background worker process. It will listen for jobs on a Redis queue, allowing the main API server to remain responsive while long-running automations are executed asynchronously.
-*   **Provider / BLoC Pattern (Frontend):** A standard state management pattern like Provider or BLoC will be used in the Flutter application to manage UI state, handle data fetching, and communicate with the backend API efficiently.
+*   **Frontend State & Navigation:** React state and Context are used initially on web (Next.js); React Navigation is used on mobile (Expo RN). These may evolve to a more formal state manager as complexity grows.
 
 ### Section 3: Tech Stack
 
@@ -94,21 +97,21 @@ This table represents the definitive technology selection for the entire project
 | **Database ORM** | SQLAlchemy | Object-Relational Mapper | Industry-standard ORM for Python, excellent integration with FastAPI. |
 | **DB Migrations** | Alembic | Database migration tool | Handles database schema changes in a version-controlled manner. |
 | **Async Task Queue** | Celery | Background job processor | Robust, distributed task queue ideal for handling asynchronous automations. |
-| **Frontend Language** | Dart | Core language for the Flutter application | The required language for Flutter, optimized for building fast apps on any platform. |
-| **Frontend Framework**| Flutter | UI toolkit for web, mobile, and desktop | Single codebase for all clients, ensuring a consistent UI/UX. |
-| **State Management** | flutter_bloc | State management library for Flutter | Predictable and scalable state management, separating business logic from UI. |
-| **HTTP Client (FE)** | dio | HTTP client for Dart/Flutter | Powerful and easy-to-use HTTP client with support for interceptors and FormData. |
-| **Routing (FE)** | go_router | Declarative routing for Flutter | Simplifies navigation and handling of deep links. |
+| **Frontend Language** | TypeScript | Language for web and mobile clients | Strong typing for React-based web and React Native mobile apps. |
+| **Frontend Frameworks**| Next.js (web), Expo React Native (mobile) | UI frameworks for web and mobile | Aligns with current codebase: Next.js for web, Expo RN for mobile. |
+| **State Management** | React state/Context (initial) | Manage UI state and data flow | Simple, scalable baseline; can evolve to a dedicated manager if needed. |
+| **HTTP Client (FE)** | fetch (native) | Client-server communication | Standards-based API available in both web and React Native (via polyfill). |
+| **Routing (FE)** | Next.js App Router (web), React Navigation (mobile) | Navigation and routing | Matches frameworks used in each client. |
 | **Primary Database** | PostgreSQL | Relational data storage | Powerful, open-source object-relational database system. |
 | **Cache / Job Broker**| Redis | In-memory data store | Used for caching, session storage, and as a message broker for Celery. |
 | **Containerization** | Docker | Application containerization | Standardizes the development and production environments. |
 | **Orchestration** | Docker Compose | Multi-container application management | Defines and runs the multi-service application stack (server, db, etc.). |
 | **Build Tool** | Makefile | Command runner for development tasks | Provides simple, standardized commands for building, running, and testing. |
-| **Deployment** | Railway | Hosting and infrastructure platform | Simplifies deployment and management of the entire application stack. |
+| **Deployment** | Railway (planned) | Hosting and infrastructure platform | Simplifies deployment and management of the entire application stack. |
 | **Testing (Backend)**| pytest | Testing framework for Python | The standard for writing simple and scalable tests in Python. |
-| **Testing (Frontend)**| flutter_test | Unit and widget testing for Flutter | Built-in framework for testing Flutter applications. |
+| **Testing (Frontend)**| Jest + Testing Library (web), RNTL (mobile) | Unit/integration testing | Common testing stacks for React and React Native. |
 | **Linting (Backend)**| Ruff | Python linter | Extremely fast and comprehensive linter to enforce code quality. |
-| **Linting (Frontend)**| flutter_lints | Dart linter for Flutter | Official set of lint rules to encourage good coding practices. |
+| **Linting (Frontend)**| ESLint + Prettier | Linting/formatting for TypeScript/React | Standard tools for consistent code quality and style. |
 
 ### Section 4: Data Models
 
