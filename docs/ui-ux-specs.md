@@ -203,3 +203,10 @@ graph TD
 #### Key Screen Layout: AREA Creation Wizard (MVP)
 **Purpose:** To guide the user through the process of creating a simple, single-step automation in a clear and foolproof manner.
 **Key Elements:** Wizard Container, Progress Indicator, Step 1: "When this happens..." (Choose Trigger), Step 2: "Then do this..." (Choose REAction), Step 3: Review & Confirm, Navigation.
+
+### Implementation Notes (Mock)
+
+- A mock implementation of the above flows exists in this repo:
+  - Web (Next.js + shadcn/ui): `apps/web`
+  - Mobile (React Native TS via Expo): `apps/mobile`
+- See `docs/implementation-status.md` for routes, features coverage, and how to run.

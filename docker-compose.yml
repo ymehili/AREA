@@ -6,21 +6,20 @@ services:
     ports:
       - "8080:8080"
 
-  client_web:
+  web:
     build:
-      context: ./apps/client
-      dockerfile: Dockerfile.web
-    depends_on: 
+      context: ./apps/web
+      dockerfile: Dockerfile
+    depends_on:
       - server
-      - client_mobile
+    environment:
+      - PORT=3000
     ports:
-      - "8081:80"
-    volumes:
-      - ./shared:/usr/share/nginx/html/shared
+      - "3000:3000"
 
-  client_mobile:
+  mobile_web:
     build:
-      context: ./apps/client
-      dockerfile: Dockerfile.mobile
-    volumes:
-      - ./shared:/shared
+      context: ./apps/mobile
+      dockerfile: Dockerfile
+    ports:
+      - "19006:19006"
