@@ -49,11 +49,11 @@ yarn-error.log*
 AGENTS.md
 QWEN.md
 copilot-instructions.md
-PRPs
 .qwen
 .cursor
 .claude
 .codex
+PRPs
 
 # Package manager lock file
 pnpm-lock.yaml

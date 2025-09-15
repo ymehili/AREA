@@ -1,2 +1,14 @@
 FROM alpine:3.19
-RUN echo "mobile placeholder" > /app.txt
+
+# Install required packages
+RUN apk add --no-cache zip
+
+# Create directories
+RUN mkdir -p /app /shared
+
+# Copy script to generate APK
+COPY mobile/generate_placeholder_apk.sh /app/
+RUN chmod +x /app/generate_placeholder_apk.sh
+
+# Create APK on container start
+CMD ["/app/generate_placeholder_apk.sh"]

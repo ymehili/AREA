@@ -105,13 +105,13 @@ The application will be built using **Flutter**, targeting **Web Responsive** (f
 1.  A monorepo structure is created, with separate packages/directories for the Flutter frontend and the FastAPI backend.
 2.  A root `docker-compose.yml` file is created.
 3.  The `docker-compose.yml` file defines three services: `server`, `client_web`, and `client_mobile`.
-4.  Running `docker-compose build` successfully builds placeholder Docker images for all three services without errors.
+4.  Running `docker compose build` successfully builds placeholder Docker images for all three services without errors.
 5.  The `docker-compose.yml` correctly configures the service dependencies (`client_web` depends on `server`).
 
 #### Story 1.2: Basic Server and Client Health Checks
 **As a** developer, **I want** the application server and web client to be launchable via Docker and respond to basic requests, **so that** I can verify the container networking and deployment configuration is correct.
 **Acceptance Criteria**
-1.  When `docker-compose up` is run, the `server` service starts and exposes port `8080`.
+1.  When `docker compose up` is run, the `server` service starts and exposes port `8080`.
 2.  A `GET` request to `http://localhost:8080/about.json` returns a valid JSON response with the required `client.host` and `server.current_time` fields.
 3.  The `client_web` service starts and exposes port `8081`.
 4.  A `GET` request to `http://localhost:8081` returns a placeholder "Welcome" page from the Flutter web application.
