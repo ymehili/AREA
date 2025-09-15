@@ -38,23 +38,23 @@ graph TD
     end
 
     subgraph Authenticated User Area
-        B[Dashboard] --&gt; C[AREA Creation Wizard];
-        B --&gt; D[Service Connection Hub];
-        B --&gt; E[Account Management];
+        B[Dashboard] --> C[AREA Creation Wizard]
+        B --> D[Service Connection Hub]
+        B --> E[Account Management]
         
-        E --&gt; E1[User Profile];
-        E --&gt; E2[Automation History];
-        E --&gt; E3[Activity Log];
-        E --&gt; E4[Billing (Post-MVP)];
+        E --> E1[User Profile]
+        E --> E2[Automation History]
+        E --> E3[Activity Log]
+        E --> E4[Billing Post-MVP]
     end
     
     subgraph Admin Area
-        F[Admin Login] --&gt; G[Admin Dashboard];
-        G --&gt; H[User Management];
-        H --&gt; I[View User Details];
+        F[Admin Login] --> G[Admin Dashboard]
+        G --> H[User Management]
+        H --> I[View User Details]
     end
 
-    A --&gt; B;
+    A --> B
 ```
 
 **Navigation Structure**
@@ -115,18 +115,18 @@ graph TD
 **Flow Diagram**
 ```mermaid
 graph TD
-    A[Start: User is on the Service Connection Hub] --> B[Clicks "Connect" on a service, e.g., Google Drive];
+    A[Start: User is on the Service Connection Hub] --> B[Clicks Connect on a service, e.g., Google Drive];
     B --> C[Application redirects user to Google's OAuth consent screen];
     C --> D{User grants or denies permission?};
     D -->|Grants| E[Google redirects back to the application's callback URL];
     E --> F[Backend exchanges code for tokens];
     F --> G[Backend securely saves the connection];
     G --> H[Backend redirects user to a success page in the app];
-    H --> I[UI shows a "Successfully Connected" message];
-    I --> J[End: Service now appears in the "Connected" list];
+    H --> I[UI shows a Successfully Connected message];
+    I --> J[End: Service now appears in the Connected list];
 
     D -->|Denies| K[Google redirects back to the application];
-    K --> L[UI shows a "Permission Denied" message];
+    K --> L[UI shows a Permission Denied message];
     L --> A;
 ```
 
@@ -138,30 +138,30 @@ graph TD
 **Flow Diagram**
 ```mermaid
 graph TD
-    A[Start: User on Dashboard] --> B[Clicks "Create AREA"];
+    A[Start: User on Dashboard] --> B[Clicks Create AREA];
     B --> C[Wizard Step 1: Choose Trigger Service];
     C --> D{Has user connected services?};
-    D -->|No| E[Prompt: "Please connect a service first"];
+    D -->|No| E[Prompt: Please connect a service first];
     E --> F[Redirect to Service Connection Hub];
     F --> C;
     
     D -->|Yes| G[User selects a service, e.g., Gmail];
     G --> H[Wizard Step 2: Choose Action];
-    H --> I[User selects an Action, e.g., "On New Email"];
+    H --> I[User selects an Action, e.g., On New Email];
     I --> J[Wizard Step 3: Choose REAction Service];
     J --> K[User selects a service, e.g., Dropbox];
     K --> L[Wizard Step 4: Choose REAction];
-    L --> M[User selects a REAction, e.g., "Upload Attachment"];
+    L --> M[User selects a REAction, e.g., Upload Attachment];
     M --> N[Wizard Step 5: Review & Confirm];
-    N --> O[User reviews the summary: "If New Email in Gmail, then Upload Attachment to Dropbox"];
-    O --> P[Clicks "Finish"];
+    N --> O[User reviews the summary: If New Email in Gmail, then Upload Attachment to Dropbox];
+    O --> P[Clicks Finish];
     P --> Q[Frontend sends AREA config to Backend];
     Q --> R{Save successful?};
     R -->|Yes| S[Backend saves the new AREA];
-    S --> T[UI shows "AREA Created!" message];
+    S --> T[UI shows AREA Created! message];
     T --> U[End: Redirect to Dashboard, new AREA is listed];
 
-    R -->|No| V[UI shows "Error saving AREA" message];
+    R -->|No| V[UI shows Error saving AREA message];
     V --> N;
 ```
 
@@ -188,7 +188,7 @@ graph TD
         U2 --> U3[User drags Action nodes];
         U3 --> U4[User connects nodes with lines];
         U4 --> U5[User configures each node's settings];
-        U5 --> U6[User clicks "Save & Activate"];
+        U5 --> U6[User clicks Save & Activate];
     end
 
     U6 --> S[System saves the node graph and execution logic];

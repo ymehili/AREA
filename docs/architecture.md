@@ -61,19 +61,19 @@ graph TD
             Redis[Redis Cache & Job Queue]
         end
 
-        FastAPI --&gt;|REST API| Flutter
-        Engine --&gt;|OAuth2| API1
-        Engine --&gt;|OAuth2| API2
-        Engine --&gt;|OAuth2| API3
-        Engine --&gt;|OAuth2| API_Etc
-        FastAPI --&gt;|Read/Write| Postgres
-        FastAPI --&gt;|Cache| Redis
-        Engine --&gt;|Read/Write| Postgres
-        Engine --&gt;|Job Queue| Redis
+        FastAPI -->|REST API| Flutter
+        Engine -->|OAuth2| API1
+        Engine -->|OAuth2| API2
+        Engine -->|OAuth2| API3
+        Engine -->|OAuth2| API_Etc
+        FastAPI -->|Read/Write| Postgres
+        FastAPI -->|Cache| Redis
+        Engine -->|Read/Write| Postgres
+        Engine -->|Job Queue| Redis
     end
 
-    U_Web --&gt; Flutter
-    U_Mobile --&gt; Flutter
+    U_Web --> Flutter
+    U_Mobile --> Flutter
 ```
 
 **Architectural Patterns**
