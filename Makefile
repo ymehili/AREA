@@ -4,6 +4,8 @@
 
 # Configurable commands/paths
 DOCKER ?= docker compose
+COMPOSE_BASE := docker-compose.yml
+COMPOSE_DEV := docker-compose.dev.yml
 WEB_DIR := apps/web
 SERVER_DIR := apps/server
 MOBILE_DIR := apps/mobile
@@ -25,31 +27,50 @@ help: ## Show this help
 # -----------------------------
 .PHONY: up
 up: ## Build and start all services in background (S=<service> to scope)
-	$(DOCKER) up -d $(if $(S),$(S),$(SERVICES))
+	$(DOCKER) -f $(COMPOSE_BASE) up -d $(if $(S),$(S),$(SERVICES)) --build
 
 .PHONY: down
 down: ## Stop and remove containers, networks
-	$(DOCKER) down
+	$(DOCKER) -f $(COMPOSE_BASE) down
 
 .PHONY: clean
 clean: ## Stop and remove containers, networks, volumes, orphans
-	$(DOCKER) down -v --remove-orphans
+	$(DOCKER) -f $(COMPOSE_BASE) down -v --remove-orphans
 
 .PHONY: build
 build: ## Build images (S=<service> to scope)
-	$(DOCKER) build $(S)
+	$(DOCKER) -f $(COMPOSE_BASE) build $(S)
 
 .PHONY: logs
 logs: ## Tail logs for all or a single service (S=<service>)
-	$(DOCKER) logs -f $(S)
+	$(DOCKER) -f $(COMPOSE_BASE) logs -f $(S)
 
 .PHONY: ps
 ps: ## List compose services
-	$(DOCKER) ps
+	$(DOCKER) -f $(COMPOSE_BASE) ps
 
 .PHONY: restart
 restart: ## Restart services (S=<service> to scope)
-	$(DOCKER) restart $(if $(S),$(S),$(SERVICES))
+	$(DOCKER) -f $(COMPOSE_BASE) restart $(if $(S),$(S),$(SERVICES))
+
+# -----------------------------
+# Dev Compose (hot reload)
+# -----------------------------
+.PHONY: dev
+dev: ## Start dev stack with hot reload (S=<service> to scope)
+	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) up -d $(if $(S),$(S),$(SERVICES)) --build
+
+.PHONY: dev-down
+dev-down: ## Stop dev stack and remove containers
+	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) down
+
+.PHONY: dev-logs
+dev-logs: ## Tail dev stack logs (S=<service> to scope)
+	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) logs -f $(S)
+
+.PHONY: dev-restart
+dev-restart: ## Restart dev services (S=<service> to scope)
+	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) restart $(if $(S),$(S),$(SERVICES))
 
 # -----------------------------
 # Mobile (Expo) — local only
