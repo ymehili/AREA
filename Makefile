@@ -7,7 +7,8 @@ DOCKER ?= docker compose
 WEB_DIR := apps/web
 SERVER_DIR := apps/server
 MOBILE_DIR := apps/mobile
-SERVICES := server web mobile_web
+# Only server and web are managed by docker now
+SERVICES := server web
 
 # Usage: make [target]
 # You can scope compose targets to a service with S=<service>
@@ -50,3 +51,13 @@ ps: ## List compose services
 restart: ## Restart services (S=<service> to scope)
 	$(DOCKER) restart $(if $(S),$(S),$(SERVICES))
 
+# -----------------------------
+# Mobile (Expo) — local only
+# -----------------------------
+.PHONY: expo
+expo: ## Start Expo locally for the mobile app
+	cd $(MOBILE_DIR) && npm install && npm run start
+
+.PHONY: expo-web
+expo-web: ## Start Expo in web mode locally
+	cd $(MOBILE_DIR) && npm install && npm run web

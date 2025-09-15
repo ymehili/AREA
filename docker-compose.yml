@@ -16,10 +16,3 @@ services:
       - PORT=3000
     ports:
       - "3000:3000"
-
-  mobile_web:
-    build:
-      context: ./apps/mobile
-      dockerfile: Dockerfile
-    ports:
-      - "19006:19006"
