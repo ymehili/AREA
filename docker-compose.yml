@@ -3,8 +3,23 @@ services:
     build:
       context: ./apps/server
       dockerfile: Dockerfile
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql+psycopg://area:area@db:5432/area
     ports:
       - "8080:8080"
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=area
+      - POSTGRES_USER=area
+      - POSTGRES_PASSWORD=area
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   web:
     build:
@@ -16,3 +31,6 @@ services:
       - PORT=3000
     ports:
       - "3000:3000"
+
+volumes:
+  postgres_data:
