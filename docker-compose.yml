@@ -8,6 +8,9 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql+psycopg://area:area@db:5432/area
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    env_file:
+      - .env
     ports:
       - "8080:8080"
 
