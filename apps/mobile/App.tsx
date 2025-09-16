@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -41,12 +41,82 @@ function DashboardScreen() {
 }
 
 function ConnectionsScreen() {
+  const [services, setServices] = useState<{slug: string, name: string, description?: string}[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // For now, using a mock API call since we don't have the actual backend running
+        // In a real implementation, this would be:
+        // const response = await fetch('http://localhost:8000/api/v1/services/services');
+        // const data = await response.json();
+        // setServices(data.services);
+        
+        // Mock data for now
+        setTimeout(() => {
+          setServices([
+            {slug: "google_drive", name: "Google Drive", description: "Cloud storage service"},
+            {slug: "gmail", name: "Gmail", description: "Email service"},
+            {slug: "slack", name: "Slack", description: "Team communication platform"},
+            {slug: "github", name: "GitHub", description: "Code hosting platform"}
+          ]);
+          setLoading(false);
+        }, 500);
+      } catch (err) {
+        setError('Failed to load services. Please try again later.');
+        console.error('Error loading services:', err);
+        // Fallback to hardcoded services
+        setServices([
+          {slug: "google_drive", name: "Google Drive"},
+          {slug: "gmail", name: "Gmail"},
+          {slug: "slack", name: "Slack"},
+          {slug: "github", name: "GitHub"}
+        ]);
+        setLoading(false);
+      }
+    };
+
+    loadServices();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Service Connection Hub</Text>
+        <View style={styles.centered}>
+          <Text>Loading services...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Service Connection Hub</Text>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Retry" onPress={() => {
+            setLoading(true);
+            setError(null);
+          }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Service Connection Hub</Text>
-      {["Google Drive", "Gmail", "Slack", "GitHub"].map((s) => (
-        <View key={s} style={styles.rowBetween}>
-          <Text>{s}</Text>
+      {services.map((s) => (
+        <View key={s.slug} style={styles.rowBetween}>
+          <Text>{s.name}</Text>
           <Button title="Connect" onPress={() => {}} />
         </View>
       ))}
@@ -126,4 +196,5 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#eee" },
   card: { borderWidth: 1, borderColor: "#eee", borderRadius: 8, padding: 12, marginBottom: 12 },
   cardTitle: { fontWeight: "600", marginBottom: 4 },
+  errorText: { color: "red", textAlign: "center" },
 });
