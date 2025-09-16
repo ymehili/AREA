@@ -12,6 +12,19 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
+    secret_key: str = Field(
+        default="dev-secret-key",
+        alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        alias="JWT_ALGORITHM",
+    )
+    access_token_expire_minutes: int = Field(
+        default=30,
+        alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
