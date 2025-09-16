@@ -10,17 +10,23 @@ from app.core.config import settings
 
 
 def get_encryption_key() -> bytes:
-    """Retrieve the encryption key from settings, decoding it from base64 if necessary."""
-    # Try to get the key from environment variable first
-    env_key = os.environ.get("ENCRYPTION_KEY")
-    if env_key:
-        return base64.urlsafe_b64decode(env_key)
-    
-    key = settings.encryption_key
-    if isinstance(key, str):
-        # If the key is a string, it should be base64 encoded
-        return base64.urlsafe_b64decode(key)
-    return key
+    """Resolve the configured Fernet key, validating it is usable."""
+
+    key: str | bytes | None = os.environ.get("ENCRYPTION_KEY") or settings.encryption_key
+    if not key:
+        raise RuntimeError("ENCRYPTION_KEY environment variable or setting must be configured")
+
+    key_bytes = key.encode("utf-8") if isinstance(key, str) else key
+
+    try:
+        decoded = base64.urlsafe_b64decode(key_bytes)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("ENCRYPTION_KEY must be a 32-byte url-safe base64 string") from exc
+
+    if len(decoded) != 32:
+        raise ValueError("ENCRYPTION_KEY must decode to exactly 32 bytes for Fernet")
+
+    return key_bytes
 
 
 # Initialize the Fernet cipher suite with our encryption key
