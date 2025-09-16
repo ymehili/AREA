@@ -3,16 +3,32 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import Generator
-import sitecustomize  # noqa: F401  # ensures compatibility patches apply
-
 import httpx
 import pytest
+from cryptography.fernet import Fernet
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+def _ensure_test_encryption_key() -> None:
+    """Guarantee a valid Fernet key for the test environment."""
+
+    current = os.environ.get("ENCRYPTION_KEY")
+    if current:
+        try:
+            Fernet(current.encode() if isinstance(current, str) else current)
+            return
+        except ValueError:
+            pass
+
+    os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+
+_ensure_test_encryption_key()
 
 import main
 from app.db.base import Base
