@@ -54,6 +54,14 @@ restart: ## Restart services (S=<service> to scope)
 	$(DOCKER) -f $(COMPOSE_BASE) restart $(if $(S),$(S),$(SERVICES))
 
 # -----------------------------
+# Testing
+# -----------------------------
+.PHONY: test
+test: ## Run backend test suite inside docker
+	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) run --rm server \
+		sh -c "pip install --no-cache-dir -r requirements.txt >/tmp/pip-install.log && pytest"
+
+# -----------------------------
 # Dev Compose (hot reload)
 # -----------------------------
 .PHONY: dev
