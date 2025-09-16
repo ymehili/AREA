@@ -9,6 +9,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+psycopg://area:area@db:5432/area
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
