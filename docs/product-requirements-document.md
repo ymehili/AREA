@@ -23,7 +23,6 @@ Note on technology alignment
 
 - Frontend is implemented as Next.js for web and Expo React Native for mobile (Android/iOS).
 - Local development ports: API `8080`, Web `3000`, Mobile (Expo web preview) `19006`.
-- Any references to "Flutter" in acceptance criteria should be read as "client application (web/mobile)" implemented with the stack above.
 
 **Functional Requirements**
 *   **FR1**: A user must be able to register for an account using an email and password.
@@ -137,8 +136,8 @@ The application will provide a **Next.js** web client and an **Expo React Native
 **Acceptance Criteria**
 1.  The FastAPI backend provides a `/register` endpoint that accepts an email and password, hashes the password, and saves a new user to the database.
 2.  The FastAPI backend provides a `/login` endpoint that authenticates a user with an email and password and returns a JWT or session token upon success.
-3.  The Flutter frontend provides a registration form that calls the `/register` endpoint.
-4.  The Flutter frontend provides a login form that calls the `/login` endpoint and stores the authentication token upon success.
+3.  The client application (web/mobile) frontend provides a registration form that calls the `/register` endpoint.
+4.  The client application (web/mobile) frontend provides a login form that calls the `/login` endpoint and stores the authentication token upon success.
 5.  The application implements basic protected routes that are only accessible to authenticated users.
 
 #### Story 1.5: Third-Party OAuth2 Authentication
@@ -147,7 +146,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 1.  The FastAPI backend provides endpoints to handle the initiation and callback phases of an OAuth2 flow.
 2.  Upon successful OAuth callback, the system either finds an existing user or creates a new one and links the third-party account.
 3.  The system issues a JWT or session token for the authenticated user after a successful OAuth flow.
-4.  The Flutter frontend login/registration screen includes "Sign in with Google" (or another provider) buttons.
+4.  The client application (web/mobile) frontend login/registration screen includes "Sign in with Google" (or another provider) buttons.
 5.  Clicking the OAuth button on the client initiates the correct third-party authentication flow.
 
 #### Story 1.6: User Enrollment Confirmation
@@ -175,7 +174,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 **As a** user, **I want** to see a list of all the third-party services I can connect to the platform, **so that** I can choose which of my accounts I want to integrate.
 **Acceptance Criteria**
 1.  The FastAPI backend has a new endpoint (e.g., `/services`) that returns a list of all available services supported by the platform.
-2.  The Flutter frontend has a dedicated "Connections" or "Services" page.
+2.  The client application (web/mobile) frontend has a dedicated "Connections" or "Services" page.
 3.  This page fetches the list of available services from the backend and displays them in a user-friendly gallery or list format (e.g., with logos and names).
 4.  Each service in the list has a "Connect" button.
 
@@ -185,7 +184,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 1.  When a user clicks "Connect" for a service on the frontend, they are redirected to that service's OAuth2 consent screen.
 2.  After the user grants permission, the third-party service redirects back to a specified callback URL on our backend.
 3.  The backend handles the callback, exchanges the authorization code for an access/refresh token, and securely saves the new service connection in the database.
-4.  After a successful connection, the user is redirected back to a confirmation page in the Flutter application.
+4.  After a successful connection, the user is redirected back to a confirmation page in the client application (web/mobile) application.
 5.  If the OAuth flow fails or the user denies permission, they are redirected back to the app with an appropriate error message.
 
 #### Story 2.4: Display and Manage Connected Services
@@ -211,7 +210,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 #### Story 3.2: AREA Creation Wizard UI (Frontend)
 **As a** user, **I want** a step-by-step interface to guide me through creating an "AREA", **so that** I can easily set up my automation.
 **Acceptance Criteria**
-1.  The Flutter application has a "Create AREA" button that launches a wizard-style interface.
+1.  The client application (web/mobile) application has a "Create AREA" button that launches a wizard-style interface.
 2.  **Step 1**: The user is shown a list of their connected services and prompted to choose the trigger service (the "Action" service).
 3.  **Step 2**: After selecting a service, the user is shown the list of available `Actions` for that service and selects one.
 4.  **Step 3**: The user is then prompted to choose the target service (the "REAction" service).
@@ -224,7 +223,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 1.  A new database table (e.g., `AREAs`) is created to store the automations. It must link a user ID to a specific trigger `Action` and a specific `REAction`.
 2.  The backend provides a protected endpoint (e.g., `/areas`) that allows a user to `POST` a new AREA configuration, which is then saved to the database.
 3.  The backend provides a protected endpoint to `GET` a list of all AREAs created by the authenticated user.
-4.  The Flutter frontend's Dashboard page is updated to call the `GET` endpoint and display a list of the user's created AREAs.
+4.  The client application (web/mobile) frontend's Dashboard page is updated to call the `GET` endpoint and display a list of the user's created AREAs.
 5.  Each AREA displayed in the list has an option to enable/disable or delete it.
 
 #### Story 3.4: Implement the Core Automation Engine (Backend)
@@ -287,7 +286,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 #### Story 5.1: User Profile Management
 **As a** user, **I want** a profile page to manage my account settings, **so that** I can update my personal information and manage my login methods.
 **Acceptance Criteria**
-1.  A new "Profile" page is created in the Flutter application.
+1.  A new "Profile" page is created in the client application (web/mobile) application.
 2.  The user can view and update their basic information (e.g., name, email address).
 3.  The user can change their password if they registered with an email/password.
 4.  The user can see which third-party OAuth accounts (e.g., Google) are linked to their profile and can link or unlink them.
@@ -305,7 +304,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 **As a** user, **I want** to see a detailed history of when my AREAs have run, **so that** I can verify they are working correctly and troubleshoot any issues.
 **Acceptance Criteria**
 1.  The backend provides a protected endpoint to retrieve the execution history for a specific AREA or for the user as a whole.
-2.  The Flutter application has a new "History" tab or page.
+2.  The client application (web/mobile) application has a new "History" tab or page.
 3.  This page displays a chronological list of all AREA executions for the user.
 4.  Each entry clearly shows which AREA ran, when it ran, and whether it succeeded or failed.
 5.  Users can click on an entry to see more details, including the output of each step and any error messages for failed runs.
@@ -373,7 +372,7 @@ The application will provide a **Next.js** web client and an **Expo React Native
 #### Story 7.3: Upgrade & Billing UI (Frontend)
 **As a** user on the free plan, **I want** to be able to easily upgrade to a premium subscription, **so that** I can unlock advanced features.
 **Acceptance Criteria**
-1.  The Flutter application has a "Billing" or "Upgrade" page.
+1.  The client application (web/mobile) application has a "Billing" or "Upgrade" page.
 2.  This page clearly displays the benefits of the premium plan and the pricing.
 3.  An "Upgrade Now" button on this page initiates the Stripe checkout flow by calling the backend.
 4.  The UI provides clear feedback to the user upon a successful upgrade.
