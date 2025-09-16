@@ -5,6 +5,7 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+import time
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
@@ -30,15 +31,31 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def verify_connection() -> None:
-    """Ensure the database connection is reachable."""
+def verify_connection(max_attempts: int = 20, delay_seconds: float = 1.0) -> None:
+    """Ensure the database connection is reachable with simple retries.
 
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
-    except SQLAlchemyError as exc:
-        logger.error("Database connection verification failed", exc_info=exc)
-        raise
+    Args:
+        max_attempts: Maximum number of attempts before failing.
+        delay_seconds: Base delay between attempts; will use linear backoff.
+    """
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            if attempt > 1:
+                logger.info("Database connection established after %d attempt(s)", attempt)
+            return
+        except SQLAlchemyError as exc:
+            last_exc = exc
+            logger.warning(
+                "Database not ready (attempt %d/%d): %s", attempt, max_attempts, type(exc).__name__
+            )
+            time.sleep(delay_seconds * attempt)  # linear backoff
+
+    logger.error("Database connection verification failed after %d attempts", max_attempts, exc_info=last_exc)
+    raise last_exc if last_exc else RuntimeError("Database connection verification failed")
 
 
 __all__ = ["engine", "SessionLocal", "get_db", "verify_connection"]
