@@ -1,31 +1,24 @@
 import asyncio
 
-import pytest
-from fastapi.testclient import TestClient
-
 import main
-
-
-@pytest.fixture()
-def client():
-    with TestClient(main.app) as client:
-        yield client
+from tests.conftest import SyncASGITestClient
 
 
 def test_startup_event_sets_database_url(verify_connection_tracker):
     main.app.state.database_url = None
     asyncio.run(main.startup_event())
     assert verify_connection_tracker["calls"] == 1
+    assert verify_connection_tracker["migrations"] == 1
     assert main.app.state.database_url == main.settings.database_url
 
 
-def test_root_endpoint(client):
+def test_root_endpoint(client: SyncASGITestClient):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Server is running"}
 
 
-def test_about_endpoint_includes_catalog(client):
+def test_about_endpoint_includes_catalog(client: SyncASGITestClient):
     response = client.get("/about.json")
     assert response.status_code == 200
     payload = response.json()
@@ -35,8 +28,9 @@ def test_about_endpoint_includes_catalog(client):
     assert payload["services"], "catalog should not be empty"
 
 
-def test_list_service_actions_reactions(client):
-    response = client.get("/services/actions-reactions")
+def test_list_service_actions_reactions(client: SyncASGITestClient, auth_token: str):
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    response = client.get("/services/actions-reactions", headers=headers)
     assert response.status_code == 200
     payload = response.json()
     assert "services" in payload
