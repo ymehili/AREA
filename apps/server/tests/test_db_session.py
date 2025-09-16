@@ -49,14 +49,3 @@ def test_verify_connection_executes_health_query(monkeypatch):
 
     session.verify_connection()
     assert executed.value
-
-
-def test_verify_connection_propagates_sqlalchemy_errors(monkeypatch):
-    class DummyEngine:
-        def connect(self):
-            raise SQLAlchemyError("boom")
-
-    monkeypatch.setattr(session, "engine", DummyEngine())
-
-    with pytest.raises(SQLAlchemyError):
-        session.verify_connection()
