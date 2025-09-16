@@ -1,6 +1,7 @@
 """Database helpers and base exports."""
 
 from .base import Base
+from .migrations import run_migrations
 from .session import SessionLocal, engine, get_db, verify_connection
 
 __all__ = [
@@ -9,4 +10,5 @@ __all__ = [
     "SessionLocal",
     "get_db",
     "verify_connection",
+    "run_migrations",
 ]
