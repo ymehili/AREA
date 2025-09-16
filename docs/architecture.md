@@ -11,7 +11,7 @@ N/A - This is a Greenfield project that will be built from scratch based on the 
 
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
-| 2025-09-15 | 1.0 | Initial Architecture Draft | Winston (Architect) |
+| 2025-09-15 | 1.0 | Initial Architecture Draft | Youssef Mehili |
 
 ### Section 2: High Level Architecture
 
