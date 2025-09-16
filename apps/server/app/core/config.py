@@ -24,6 +24,11 @@ class Settings(BaseSettings):
         default=30,
         alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
+    
+    encryption_key: str = Field(
+        default="",
+        alias="ENCRYPTION_KEY",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
