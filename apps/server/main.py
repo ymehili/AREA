@@ -1,13 +1,16 @@
 """FastAPI application entrypoint."""
 
+import asyncio
 import logging
 from datetime import datetime
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.services import router as services_router
 from app.core.config import settings
+from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
 
@@ -32,6 +35,8 @@ async def startup_event() -> None:
 
     try:
         verify_connection()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, run_migrations)
         app.state.database_url = settings.database_url
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Database connection failed: %s", exc)
@@ -51,5 +56,6 @@ async def about(request: Request):
         "services": service_catalog_payload(),
     }
 
+app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")

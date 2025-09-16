@@ -8,16 +8,16 @@ def test_service_catalog_response_from_catalog_uses_schema_models():
     assert response.services
     assert len(response.services) == len(SERVICE_CATALOG)
 
-    for schema_service, dataclass_service in zip(response.services, SERVICE_CATALOG, strict=True):
+    for index, dataclass_service in enumerate(SERVICE_CATALOG):
+        schema_service = response.services[index]
         assert schema_service.slug == dataclass_service.slug
         assert schema_service.name == dataclass_service.name
         assert schema_service.description == dataclass_service.description
         assert len(schema_service.actions) == len(dataclass_service.actions)
         assert len(schema_service.reactions) == len(dataclass_service.reactions)
 
-        for schema_action, dataclass_action in zip(
-            schema_service.actions, dataclass_service.actions, strict=True
-        ):
+        for action_index, dataclass_action in enumerate(dataclass_service.actions):
+            schema_action = schema_service.actions[action_index]
             assert schema_action.key == dataclass_action.key
             assert schema_action.name == dataclass_action.name
             assert schema_action.description == dataclass_action.description
@@ -47,3 +47,4 @@ def test_schema_accepts_dataclass_like_objects():
     assert service.slug == "custom"
     assert service.actions[0].key == "do"
     assert service.reactions[0].key == "undo"
+
