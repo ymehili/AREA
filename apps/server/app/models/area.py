@@ -21,6 +21,7 @@ class Area(Base):
     __tablename__ = "areas"
     __table_args__ = (
         Index("ix_areas_user_id", "user_id"),
+        UniqueConstraint("user_id", "name", name="uq_areas_user_id_name"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

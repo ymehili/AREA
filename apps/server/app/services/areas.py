@@ -64,9 +64,17 @@ def create_area(db: Session, area_in: AreaCreate, user_id: str) -> Area:
     return area
 
 
-def update_area(db: Session, area_id: str, area_in: AreaUpdate) -> Area:
-    """Update an existing area."""
-    area = get_area_by_id(db, area_id)
+def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Optional[str] = None) -> Area:
+    """Update an existing area.
+
+    If user_id is provided, scope the lookup to that user to prevent cross-user updates.
+    """
+    if user_id is not None:
+        statement = select(Area).where(Area.id == area_id, Area.user_id == user_id)
+        result = db.execute(statement)
+        area = result.scalar_one_or_none()
+    else:
+        area = get_area_by_id(db, area_id)
     if area is None:
         raise AreaNotFoundError(area_id)
 
@@ -105,14 +113,14 @@ def delete_area(db: Session, area_id: str) -> bool:
     return True
 
 
-def enable_area(db: Session, area_id: str) -> Area:
+def enable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) -> Area:
     """Enable an area."""
-    return update_area(db, area_id, AreaUpdate(enabled=True))
+    return update_area(db, area_id, AreaUpdate(enabled=True), user_id=user_id)
 
 
-def disable_area(db: Session, area_id: str) -> Area:
+def disable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) -> Area:
     """Disable an area."""
-    return update_area(db, area_id, AreaUpdate(enabled=False))
+    return update_area(db, area_id, AreaUpdate(enabled=False), user_id=user_id)
 
 
 __all__ = [
