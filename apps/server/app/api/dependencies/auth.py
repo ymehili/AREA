@@ -56,8 +56,13 @@ def require_active_user(
     if user is None:
         raise _credentials_exception()
 
+    if not user.is_confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email address must be confirmed before accessing this resource.",
+        )
+
     return user
 
 
 __all__ = ["oauth2_scheme", "require_active_user"]
-

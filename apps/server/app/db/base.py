@@ -9,4 +9,12 @@ class Base(DeclarativeBase):
     pass
 
 
+# Import model modules so SQLAlchemy registers the mappers during startup.
+from app.models import (  # noqa: E402,F401
+    email_verification_token,
+    service_connection,
+    user,
+)
+
+
 __all__ = ["Base"]
