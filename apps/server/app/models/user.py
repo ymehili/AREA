@@ -6,13 +6,15 @@ import uuid
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import DateTime, Index, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Index, String, UniqueConstraint, func
+from sqlalchemy.sql import expression
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.email_verification_token import EmailVerificationToken
     from app.models.service_connection import ServiceConnection
 
 
@@ -38,6 +40,20 @@ class User(Base):
     google_oauth_sub: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     github_oauth_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     microsoft_oauth_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_confirmed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=expression.false(),
+    )
+    confirmed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    confirmation_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -55,6 +71,11 @@ class User(Base):
         "ServiceConnection", 
         back_populates="user",
         cascade="all, delete-orphan"
+    )
+    email_verification_tokens: Mapped[List["EmailVerificationToken"]] = relationship(
+        "EmailVerificationToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
 
