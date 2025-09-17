@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 import { ApiError, LoginResponse, UserResponse, loadStoredSession, requestJson, saveStoredSession } from "@/lib/api";
 
@@ -22,20 +22,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const session = loadStoredSession();
-    if (session) {
-      setToken(session.token);
-      setEmail(session.email ?? null);
-    }
-    setInitializing(false);
-  }, []);
 
   const persistSession = useCallback((nextToken: string | null, nextEmail: string | null) => {
     setToken(nextToken);
@@ -49,6 +41,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPendingConfirmationEmail(null);
     }
   }, []);
+
+  useEffect(() => {
+    const session = loadStoredSession();
+    if (session) {
+      setToken(session.token);
+      setEmail(session.email ?? null);
+    }
+    setInitializing(false);
+  }, []);
+
+  // Check for OAuth token in URL hash
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      if (hash.startsWith("#access_token=")) {
+        const accessToken = hash.substring(14); // Remove "#access_token=" prefix
+        persistSession(accessToken, null);
+        // Remove the token from URL
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        // Redirect to dashboard
+        router.replace("/dashboard");
+      }
+    }
+  }, [pathname, router, persistSession]);
 
   const login = useCallback(
     async (loginEmail: string, password: string) => {
