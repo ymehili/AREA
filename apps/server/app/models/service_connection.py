@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.user import User
+if TYPE_CHECKING:  # pragma: no cover - used only for type checking
+    from app.models.user import User
 
 
 class ServiceConnection(Base):
@@ -59,7 +60,7 @@ class ServiceConnection(Base):
     )
 
     # Relationship to User
-    user: Mapped[User] = relationship("User", back_populates="service_connections")
+    user: Mapped["User"] = relationship("User", back_populates="service_connections")
 
 
 __all__ = ["ServiceConnection"]
