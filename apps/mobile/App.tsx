@@ -694,7 +694,7 @@ function WizardScreen() {
           method: "POST",
           body: JSON.stringify({
             name: `${triggerService} → ${actionService}`,
-            trigger_service: trigger,
+            trigger_service: triggerService,
             trigger_action: trigger,
             reaction_service: actionService,
             reaction_action: action,
