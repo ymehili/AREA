@@ -365,6 +365,14 @@ function LoginScreen() {
         onPress={submit}
         disabled={auth.loading}
       />
+      <View style={{ height: 16 }} />
+      <Button
+        title="Sign in with Google"
+        onPress={() => {
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
+          window.open(`${apiUrl}/api/v1/oauth/google`, "_blank");
+        }}
+      />
     </SafeAreaView>
   );
 }
