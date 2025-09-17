@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from collections.abc import Generator
+from datetime import datetime, timezone
 import httpx
 import pytest
 from cryptography.fernet import Fernet
@@ -33,7 +34,10 @@ _ensure_test_encryption_key()
 import main
 from app.db.base import Base
 from app.db.session import get_db
+from app.models import email_verification_token as email_token_model  # noqa: F401 - ensure model registration
+from app.models import service_connection as service_connection_model  # noqa: F401 - ensure model registration
 from app.models import user as user_model  # noqa: F401 - ensure model registration
+from app.services import get_user_by_email
 
 
 @compiles(UUID, "sqlite")
@@ -144,12 +148,39 @@ def user_credentials() -> dict[str, str]:
     return {"email": "user@example.com", "password": "secret123"}
 
 
+@pytest.fixture(autouse=True)
+def capture_outbound_email(monkeypatch: pytest.MonkeyPatch) -> Generator[list[dict[str, str]], None, None]:
+    """Record outbound confirmation emails for assertions."""
+
+    sent: list[dict[str, str]] = []
+
+    def _capture(recipient: str, link: str) -> None:
+        sent.append({"recipient": recipient, "link": link})
+
+    monkeypatch.setattr("app.services.email.send_confirmation_email", _capture)
+    monkeypatch.setattr("app.services.users.send_confirmation_email", _capture)
+    monkeypatch.setattr("app.services.send_confirmation_email", _capture)
+    monkeypatch.setattr("app.api.routes.auth.send_confirmation_email", _capture)
+    yield sent
+
+
 @pytest.fixture()
-def auth_token(client: SyncASGITestClient, user_credentials: dict[str, str]) -> str:
-    """Create a user and return an authentication token."""
+def auth_token(
+    client: SyncASGITestClient,
+    db_session: Session,
+    user_credentials: dict[str, str],
+) -> str:
+    """Create and confirm a user, returning an authentication token."""
 
     register_response = client.post("/api/v1/auth/register", json=user_credentials)
     assert register_response.status_code == 201
+
+    user = get_user_by_email(db_session, user_credentials["email"])
+    assert user is not None
+    user.is_confirmed = True
+    user.confirmed_at = datetime.now(timezone.utc)
+    db_session.commit()
+
     login_response = client.post("/api/v1/auth/login", json=user_credentials)
     assert login_response.status_code == 200
     token_data = login_response.json()

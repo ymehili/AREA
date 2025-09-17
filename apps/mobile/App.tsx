@@ -18,6 +18,12 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080/api/v1").replace(/\/$/, "");
 const STORAGE_KEY = "area_mobile_session";
 
+class ApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const data = await response.json();
@@ -61,10 +67,10 @@ async function requestJson<T>(
 
   const response = await fetch(url, { ...options, headers });
   if (response.status === 401) {
-    throw new Error("unauthorized");
+    throw new ApiError(401, "Unauthorized");
   }
   if (!response.ok) {
-    throw new Error(await parseError(response));
+    throw new ApiError(response.status, await parseError(response));
   }
   return (await response.json()) as T;
 }
@@ -150,10 +156,18 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         await persistSession(data.access_token, loginEmail);
       } catch (error) {
-        if (error instanceof Error && error.message !== "unauthorized") {
-          throw error;
+        if (error instanceof ApiError) {
+          if (error.status === 403) {
+            throw new Error(
+              "Please confirm your email address before logging in. Check your inbox for the confirmation link.",
+            );
+          }
+          if (error.status === 401) {
+            throw new Error("Unable to log in. Please check your credentials.");
+          }
+          throw new Error(error.message);
         }
-        throw new Error("Unable to log in. Please check your credentials.");
+        throw new Error("Unable to log in. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -172,17 +186,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({ email: registerEmail, password }),
           },
         );
-        const data = await requestJson<{ access_token: string }>(
-          "/auth/login",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: registerEmail, password }),
-          },
-        );
-        await persistSession(data.access_token, registerEmail);
       } catch (error) {
-        if (error instanceof Error && error.message !== "unauthorized") {
-          throw error;
+        if (error instanceof ApiError) {
+          throw new Error(error.message);
         }
         throw new Error("Unable to create account. Please try again.");
       } finally {
@@ -218,7 +224,12 @@ function LoginScreen() {
         await auth.login(email, password);
       } else {
         await auth.register(email, password);
-        Alert.alert("Account created", "You are now signed in.");
+        setMode("login");
+        setPassword("");
+        Alert.alert(
+          "Check your email",
+          "We sent a confirmation link. Confirm your email before signing in.",
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
@@ -301,7 +312,7 @@ function ConnectionsScreen() {
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load services.";
-      if (message === "unauthorized") {
+      if (err instanceof ApiError && err.status === 401) {
         await auth.logout();
         return;
       }

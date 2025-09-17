@@ -10,9 +10,11 @@ export type AuthContextValue = {
   email: string | null;
   initializing: boolean;
   loading: boolean;
+  pendingConfirmationEmail: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  clearPendingConfirmation: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -23,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
 
   useEffect(() => {
     const session = loadStoredSession();
@@ -41,6 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       saveStoredSession(null);
     }
+    if (nextToken) {
+      setPendingConfirmationEmail(null);
+    }
   }, []);
 
   const login = useCallback(
@@ -55,8 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         );
         persistSession(data.access_token, loginEmail);
+        setPendingConfirmationEmail(null);
       } catch (error) {
         if (error instanceof ApiError) {
+          if (error.status === 403) {
+            setPendingConfirmationEmail(loginEmail);
+            throw new Error(
+              "Please confirm your email address before logging in. Check your inbox for the confirmation link.",
+            );
+          }
           throw new Error(error.message);
         }
         throw new Error("Unable to log in. Please try again.");
@@ -78,14 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({ email: registerEmail, password }),
           },
         );
-        const loginResponse = await requestJson<LoginResponse>(
-          "/auth/login",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: registerEmail, password }),
-          },
-        );
-        persistSession(loginResponse.access_token, registerEmail);
+        setPendingConfirmationEmail(registerEmail);
       } catch (error) {
         if (error instanceof ApiError) {
           throw new Error(error.message);
@@ -95,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [persistSession],
+    [],
   );
 
   const logout = useCallback(() => {
@@ -103,17 +109,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/");
   }, [persistSession, router]);
 
+  const clearPendingConfirmation = useCallback(() => {
+    setPendingConfirmationEmail(null);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       token,
       email,
       initializing,
       loading,
+      pendingConfirmationEmail,
       login,
       register,
       logout,
+      clearPendingConfirmation,
     }),
-    [email, initializing, loading, login, logout, register, token],
+    [
+      email,
+      initializing,
+      loading,
+      login,
+      logout,
+      pendingConfirmationEmail,
+      register,
+      token,
+      clearPendingConfirmation,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
