@@ -98,6 +98,21 @@ export default function AuthPage() {
                 <Button type="submit" className="w-full" disabled={isBusy}>
                   {isBusy ? "Signing in…" : "Continue"}
                 </Button>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                  </div>
+                </div>
+                <Button 
+                  type="button" 
+                  className="w-full bg-red-500 hover:bg-red-600 text-white"
+                  onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/oauth/google`}
+                >
+                  Sign in with Google
+                </Button>
               </form>
             </TabsContent>
             <TabsContent value="register">
