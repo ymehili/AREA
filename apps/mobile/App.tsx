@@ -370,16 +370,135 @@ function LoginScreen() {
 }
 
 function DashboardScreen() {
+  const auth = useAuth();
+  const [areas, setAreas] = useState<{ id: string; name: string; trigger: string; action: string; enabled: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAreas = useCallback(async () => {
+    if (!auth.token) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await requestJson<{ 
+        id: string; 
+        name: string; 
+        trigger_service: string; 
+        trigger_action: string; 
+        reaction_service: string; 
+        reaction_action: string; 
+        enabled: boolean;
+        created_at: string;
+        updated_at: string;
+      }[]>(
+        "/areas",
+        { method: "GET" },
+        auth.token,
+      );
+      const transformed = data.map(area => ({
+        id: area.id,
+        name: area.name,
+        trigger: `${area.trigger_service}: ${area.trigger_action}`,
+        action: `${area.reaction_service}: ${area.reaction_action}`,
+        enabled: area.enabled,
+      }));
+      setAreas(transformed);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load areas.";
+      if (err instanceof ApiError && err.status === 401) {
+        await auth.logout();
+        return;
+      }
+      setError(message);
+      Alert.alert("Failed to load areas", message);
+    } finally {
+      setLoading(false);
+    }
+  }, [auth]);
+
+  useEffect(() => {
+    void loadAreas();
+  }, [loadAreas]);
+
+  const toggleArea = async (id: string, enabled: boolean) => {
+    try {
+      const endpoint = enabled ? `/areas/${id}/enable` : `/areas/${id}/disable`;
+      await requestJson(
+        endpoint,
+        { method: "POST" },
+        auth.token,
+      );
+      setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, enabled } : a)));
+      Alert.alert("Success", `Area ${enabled ? "enabled" : "disabled"}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `Failed to ${enabled ? "enable" : "disable"} area.`;
+      if (err instanceof ApiError && err.status === 401) {
+        await auth.logout();
+        return;
+      }
+      Alert.alert("Error", message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Retry" onPress={() => void loadAreas()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (areas.length === 0) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <Text style={styles.muted}>You have no AREAs yet.</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Create your first AREA" onPress={() => {}} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Dashboard</Text>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Save Gmail invoices to Drive</Text>
-        <Text style={styles.muted}>When: Gmail - New Email w/ 'Invoice'</Text>
-        <Text style={styles.muted}>Then: Drive - Upload Attachment</Text>
-        <View style={{ height: 8 }} />
-        <Button title="Create AREA" onPress={() => {}} />
-      </View>
+      <ScrollView>
+        {areas.map((area) => (
+          <View key={area.id} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{area.name}</Text>
+              <Text style={styles.smallMuted}>{area.enabled ? "Enabled" : "Disabled"}</Text>
+            </View>
+            <Text style={styles.muted}>When: {area.trigger}</Text>
+            <Text style={styles.muted}>Then: {area.action}</Text>
+            <View style={{ height: 8 }} />
+            <Button 
+              title={area.enabled ? "Disable" : "Enable"} 
+              onPress={() => void toggleArea(area.id, !area.enabled)} 
+            />
+          </View>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
