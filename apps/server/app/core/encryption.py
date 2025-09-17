@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
+from functools import lru_cache
 from cryptography.fernet import Fernet
 
 from app.core.config import settings
@@ -29,22 +30,26 @@ def get_encryption_key() -> bytes:
     return key_bytes
 
 
-# Initialize the Fernet cipher suite with our encryption key
-_cipher_suite = Fernet(get_encryption_key())
+
+@lru_cache(maxsize=1)
+def _get_cipher_suite() -> Fernet:
+    """Return a cached Fernet instance configured with the encryption key."""
+
+    return Fernet(get_encryption_key())
 
 
 def encrypt_token(token: str | None) -> str | None:
     """Encrypt a token using Fernet encryption."""
     if token is None:
         return None
-    return _cipher_suite.encrypt(token.encode()).decode()
+    return _get_cipher_suite().encrypt(token.encode()).decode()
 
 
 def decrypt_token(encrypted_token: str | None) -> str | None:
     """Decrypt a token using Fernet encryption."""
     if encrypted_token is None:
         return None
-    return _cipher_suite.decrypt(encrypted_token.encode()).decode()
+    return _get_cipher_suite().decrypt(encrypted_token.encode()).decode()
 
 
 __all__ = [
