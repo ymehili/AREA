@@ -16,6 +16,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.email_verification_token import EmailVerificationToken
     from app.models.service_connection import ServiceConnection
+    from app.models.area import Area
 
 
 class User(Base):
@@ -77,6 +78,12 @@ class User(Base):
         "EmailVerificationToken",
         back_populates="user",
         cascade="all, delete-orphan",
+    )
+    # Relationship to Area
+    areas: Mapped[List["Area"]] = relationship(
+        "Area",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
 
 

@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMemo, useState } from "react";
+import { createArea } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -22,11 +24,13 @@ const actionsByService: Record<string, string[]> = {
 };
 
 export default function WizardPage() {
+  const auth = useAuth();
   const [step, setStep] = useState<Step>(1);
   const [triggerService, setTriggerService] = useState<string>("");
   const [trigger, setTrigger] = useState<string>("");
   const [actionService, setActionService] = useState<string>("");
   const [action, setAction] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
 
   const next = () => setStep((s) => Math.min(s + 1, 5) as Step);
   const back = () => setStep((s) => Math.max(s - 1, 1) as Step);
@@ -138,7 +142,27 @@ export default function WizardPage() {
                 Next
               </Button>
             ) : (
-              <Button onClick={() => (window.location.href = "/dashboard")}>Finish</Button>
+              <Button
+                disabled={submitting}
+                onClick={async () => {
+                  if (!auth.token) return;
+                  setSubmitting(true);
+                  try {
+                    await createArea(auth.token, {
+                      name: `${triggerService} → ${actionService}`,
+                      trigger_service: triggerService,
+                      trigger_action: trigger,
+                      reaction_service: actionService,
+                      reaction_action: action,
+                    });
+                    window.location.href = "/dashboard";
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+              >
+                {submitting ? "Saving..." : "Finish"}
+              </Button>
             )}
           </div>
         </CardContent>

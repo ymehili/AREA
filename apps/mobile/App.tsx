@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Button,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,12 +12,37 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080/api/v1").replace(/\/$/, "");
+function resolveApiBaseUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_URL;
+  if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
+    return explicit.replace(/\/$/, "");
+  }
+  // Try to derive LAN IP from Expo runtime (works in Expo Go)
+  const anyConstants = Constants as unknown as Record<string, any>;
+  const debuggerHost: string | undefined =
+    anyConstants?.expoGoConfig?.debuggerHost || anyConstants?.manifest?.debuggerHost;
+  const hostUri: string | undefined =
+    anyConstants?.expoConfig?.hostUri || anyConstants?.expoGoConfig?.hostUri;
+  const candidate = (debuggerHost || hostUri)?.split(":")[0];
+  if (candidate && /^\d+\.\d+\.\d+\.\d+$/.test(candidate)) {
+    return `http://${candidate}:8080/api/v1`;
+  }
+  // Emulators
+  if (Platform.OS === "android") {
+    // Android emulator maps host loopback to 10.0.2.2
+    return "http://10.0.2.2:8080/api/v1";
+  }
+  // iOS Simulator usually reaches host via localhost
+  return "http://localhost:8080/api/v1";
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 const STORAGE_KEY = "area_mobile_session";
 
 class ApiError extends Error {
@@ -66,7 +92,17 @@ async function requestJson<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (networkError) {
+    // Normalize network-level failures
+    const message =
+      networkError instanceof Error
+        ? `Network error: ${networkError.message}`
+        : "Network error: request failed";
+    throw new ApiError(0, message);
+  }
   if (response.status === 401) {
     throw new ApiError(401, "Unauthorized");
   }
@@ -154,6 +190,21 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
   github: "GitHub",
   microsoft: "Microsoft",
+};
+
+// Mirrored options from web wizard for a simple, consistent UX
+const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
+const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["New Email", "New Email w/ Attachment"],
+  "Google Drive": ["New File in Folder"],
+  Slack: ["New Message in Channel"],
+  GitHub: ["New Pull Request"],
+};
+const ACTIONS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["Send Email"],
+  "Google Drive": ["Upload File", "Create Folder"],
+  Slack: ["Send Message"],
+  GitHub: ["Create Issue"],
 };
 
 type AuthContextValue = {
@@ -370,16 +421,164 @@ function LoginScreen() {
 }
 
 function DashboardScreen() {
+  const auth = useAuth();
+  const navigation = useNavigation<any>();
+  const [areas, setAreas] = useState<{ id: string; name: string; trigger: string; action: string; enabled: boolean }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAreas = useCallback(async () => {
+    if (!auth.token) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await requestJson<{ 
+        id: string; 
+        name: string; 
+        trigger_service: string; 
+        trigger_action: string; 
+        reaction_service: string; 
+        reaction_action: string; 
+        enabled: boolean;
+        created_at: string;
+        updated_at: string;
+      }[]>(
+        "/areas",
+        { method: "GET" },
+        auth.token,
+      );
+      const transformed = data.map(area => ({
+        id: area.id,
+        name: area.name,
+        trigger: `${area.trigger_service}: ${area.trigger_action}`,
+        action: `${area.reaction_service}: ${area.reaction_action}`,
+        enabled: area.enabled,
+      }));
+      setAreas(transformed);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to load areas.";
+      if (err instanceof ApiError && err.status === 401) {
+        await auth.logout();
+        return;
+      }
+      setError(message);
+      Alert.alert("Failed to load areas", message);
+    } finally {
+      setLoading(false);
+    }
+  }, [auth]);
+
+  useEffect(() => {
+    void loadAreas();
+  }, [loadAreas]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadAreas();
+      return () => {};
+    }, [loadAreas]),
+  );
+
+  const toggleArea = async (id: string, enabled: boolean) => {
+    try {
+      const endpoint = enabled ? `/areas/${id}/enable` : `/areas/${id}/disable`;
+      await requestJson(
+        endpoint,
+        { method: "POST" },
+        auth.token,
+      );
+      setAreas((prev) => prev.map((a) => (a.id === id ? { ...a, enabled } : a)));
+      Alert.alert("Success", `Area ${enabled ? "enabled" : "disabled"}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `Failed to ${enabled ? "enable" : "disable"} area.`;
+      if (err instanceof ApiError && err.status === 401) {
+        await auth.logout();
+        return;
+      }
+      Alert.alert("Error", message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{error}</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Retry" onPress={() => void loadAreas()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (areas.length === 0) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <View style={styles.centered}>
+          <Text style={styles.muted}>You have no AREAs yet.</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Create your first AREA" onPress={() => navigation.navigate("Wizard") } />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Dashboard</Text>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Save Gmail invoices to Drive</Text>
-        <Text style={styles.muted}>When: Gmail - New Email w/ 'Invoice'</Text>
-        <Text style={styles.muted}>Then: Drive - Upload Attachment</Text>
-        <View style={{ height: 8 }} />
-        <Button title="Create AREA" onPress={() => {}} />
-      </View>
+      <ScrollView>
+        {areas.map((area) => (
+          <View key={area.id} style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{area.name}</Text>
+              <Text style={styles.smallMuted}>{area.enabled ? "Enabled" : "Disabled"}</Text>
+            </View>
+            <Text style={styles.muted}>When: {area.trigger}</Text>
+            <Text style={styles.muted}>Then: {area.action}</Text>
+            <View style={{ height: 8 }} />
+            <View style={styles.rowBetween}>
+              <Button 
+                title={area.enabled ? "Disable" : "Enable"} 
+                onPress={() => void toggleArea(area.id, !area.enabled)} 
+              />
+              <Button 
+                title="Delete" 
+                onPress={() => {
+                  Alert.alert("Delete AREA", "Are you sure?", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Delete", style: "destructive", onPress: () => {
+                      requestJson(`/areas/${area.id}`, { method: "DELETE" }, (auth as any).token)
+                        .then(() => {
+                          setAreas(prev => prev.filter(a => a.id !== area.id));
+                          Alert.alert("Deleted", "Area removed.");
+                        })
+                        .catch((err) => {
+                          const message = err instanceof ApiError ? err.message : "Failed to delete area.";
+                          Alert.alert("Error", message);
+                        });
+                    } },
+                  ]);
+                }} 
+              />
+            </View>
+          </View>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -461,13 +660,134 @@ function ConnectionsScreen() {
 }
 
 function WizardScreen() {
+  const auth = useAuth();
+  const navigation = useNavigation<any>();
   const [step, setStep] = useState(1);
+  const [triggerService, setTriggerService] = useState("");
+  const [trigger, setTrigger] = useState("");
+  const [actionService, setActionService] = useState("");
+  const [action, setAction] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const canNext = React.useMemo(() => {
+    if (step === 1) return !!triggerService;
+    if (step === 2) return !!trigger;
+    if (step === 3) return !!actionService;
+    if (step === 4) return !!action;
+    return true;
+  }, [step, triggerService, trigger, actionService, action]);
+
+  const submit = useCallback(async () => {
+    if (!auth.token) {
+      Alert.alert("Not signed in", "Please log in first.");
+      return;
+    }
+    if (!(triggerService && trigger && actionService && action)) {
+      Alert.alert("Missing info", "Complete all steps before creating the AREA.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await requestJson(
+        "/areas",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: `${triggerService} → ${actionService}`,
+            trigger_service: triggerService,
+            trigger_action: trigger,
+            reaction_service: actionService,
+            reaction_action: action,
+          }),
+        },
+        auth.token,
+      );
+      Alert.alert("Created", "Your AREA was created successfully.");
+      navigation.navigate("Dashboard");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Failed to create AREA.";
+      if (err instanceof ApiError && err.status === 401) {
+        await auth.logout();
+        return;
+      }
+      Alert.alert("Creation failed", message);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [auth, triggerService, trigger, actionService, action, navigation]);
+
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>AREA Creation Wizard</Text>
       <Text style={styles.muted}>Step {step} of 5</Text>
-      <View style={{ height: 12 }} />
-      <Button title="Next" onPress={() => setStep(Math.min(step + 1, 5))} />
+      <View style={{ height: 16 }} />
+
+      {step === 1 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Step 1: Choose Trigger Service</Text>
+          {SERVICES.map((s) => (
+            <View key={s} style={{ marginBottom: 8 }}>
+              <Button title={s} onPress={() => setTriggerService(s)} />
+            </View>
+          ))}
+          {triggerService ? <Text style={styles.muted}>Selected: {triggerService}</Text> : null}
+        </View>
+      )}
+
+      {step === 2 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Step 2: Choose Trigger</Text>
+          {(TRIGGERS_BY_SERVICE[triggerService] ?? []).map((t) => (
+            <View key={t} style={{ marginBottom: 8 }}>
+              <Button title={t} onPress={() => setTrigger(t)} />
+            </View>
+          ))}
+          {trigger ? <Text style={styles.muted}>Selected: {trigger}</Text> : null}
+        </View>
+      )}
+
+      {step === 3 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Step 3: Choose REAction Service</Text>
+          {SERVICES.map((s) => (
+            <View key={s} style={{ marginBottom: 8 }}>
+              <Button title={s} onPress={() => setActionService(s)} />
+            </View>
+          ))}
+          {actionService ? <Text style={styles.muted}>Selected: {actionService}</Text> : null}
+        </View>
+      )}
+
+      {step === 4 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Step 4: Choose REAction</Text>
+          {(ACTIONS_BY_SERVICE[actionService] ?? []).map((a) => (
+            <View key={a} style={{ marginBottom: 8 }}>
+              <Button title={a} onPress={() => setAction(a)} />
+            </View>
+          ))}
+          {action ? <Text style={styles.muted}>Selected: {action}</Text> : null}
+        </View>
+      )}
+
+      {step === 5 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Step 5: Review & Confirm</Text>
+          <Text style={styles.muted}>
+            If new "{trigger}" in {triggerService}, then "{action}" in {actionService}.
+          </Text>
+        </View>
+      )}
+
+      <View style={{ height: 16 }} />
+      <View style={styles.rowBetween}>
+        <Button title="Back" onPress={() => setStep(Math.max(1, step - 1))} />
+        {step < 5 ? (
+          <Button title="Next" onPress={() => setStep(Math.min(step + 1, 5))} disabled={!canNext} />
+        ) : (
+          <Button title={submitting ? "Creating..." : "Create AREA"} onPress={() => void submit()} disabled={submitting} />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
