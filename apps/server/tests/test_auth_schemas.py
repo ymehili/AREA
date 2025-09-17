@@ -13,6 +13,7 @@ def test_user_read_includes_confirmation_fields() -> None:
     now = datetime.now(timezone.utc)
     user = User(
         email="schema@example.com",
+        full_name="Schema Example",
         hashed_password="hashed",
         is_confirmed=True,
         confirmed_at=now,
@@ -25,3 +26,4 @@ def test_user_read_includes_confirmation_fields() -> None:
     assert serialized.is_confirmed is True
     assert serialized.confirmed_at == now
     assert serialized.email == "schema@example.com"
+    assert serialized.full_name == "Schema Example"

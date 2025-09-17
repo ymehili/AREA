@@ -15,6 +15,7 @@ export type AuthContextValue = {
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
   clearPendingConfirmation: () => void;
+  setEmail: (email: string | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -113,6 +114,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingConfirmationEmail(null);
   }, []);
 
+  const setEmailAddress = useCallback(
+    (nextEmail: string | null) => {
+      if (!token) {
+        setEmail(nextEmail);
+        return;
+      }
+      persistSession(token, nextEmail);
+    },
+    [persistSession, token],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       token,
@@ -124,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       logout,
       clearPendingConfirmation,
+      setEmail: setEmailAddress,
     }),
     [
       email,
@@ -135,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       register,
       token,
       clearPendingConfirmation,
+      setEmailAddress,
     ],
   );
 

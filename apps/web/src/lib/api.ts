@@ -140,3 +140,87 @@ export type UserResponse = {
   created_at: string;
   updated_at: string;
 };
+
+export type LoginMethodStatus = {
+  provider: string;
+  linked: boolean;
+  identifier?: string | null;
+};
+
+export type UserProfile = {
+  email: string;
+  full_name?: string | null;
+  is_confirmed: boolean;
+  has_password: boolean;
+  login_methods: LoginMethodStatus[];
+};
+
+export type UserProfileUpdatePayload = {
+  full_name?: string | null;
+  email?: string;
+};
+
+export type PasswordChangePayload = {
+  current_password: string;
+  new_password: string;
+};
+
+export async function fetchProfile(token: string): Promise<UserProfile> {
+  return requestJson<UserProfile>("/users/me", {}, token);
+}
+
+export async function updateProfile(
+  token: string,
+  payload: UserProfileUpdatePayload,
+): Promise<UserProfile> {
+  return requestJson<UserProfile>(
+    "/users/me",
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function changePassword(
+  token: string,
+  payload: PasswordChangePayload,
+): Promise<UserProfile> {
+  return requestJson<UserProfile>(
+    "/users/me/password",
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function linkLoginMethod(
+  token: string,
+  provider: string,
+  identifier: string,
+): Promise<LoginMethodStatus> {
+  return requestJson<LoginMethodStatus>(
+    `/users/me/login-methods/${provider}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ identifier }),
+    },
+    token,
+  );
+}
+
+export async function unlinkLoginMethod(
+  token: string,
+  provider: string,
+): Promise<LoginMethodStatus> {
+  return requestJson<LoginMethodStatus>(
+    `/users/me/login-methods/${provider}`,
+    {
+      method: 'DELETE',
+    },
+    token,
+  );
+}

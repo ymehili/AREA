@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.core.config import settings
 from app.db.migrations import run_migrations
@@ -57,5 +58,6 @@ async def about(request: Request):
     }
 
 app.include_router(auth_router, prefix="/api/v1/auth")
+app.include_router(profile_router, prefix="/api/v1/users")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")

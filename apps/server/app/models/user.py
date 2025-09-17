@@ -36,6 +36,7 @@ class User(Base):
         default=uuid.uuid4,
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     google_oauth_sub: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     github_oauth_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
