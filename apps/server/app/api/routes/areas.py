@@ -69,16 +69,24 @@ def update_user_area(
     db: Session = Depends(get_db),
 ) -> AreaResponse:
     """Update an existing area."""
+    # Load first and verify ownership BEFORE performing the update
+    # This avoids persisting changes for non-owners.
+    existing = db.query(Area).filter(Area.id == area_id).first()
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Area not found",
+        )
+    if str(existing.user_id) != str(current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to update this area",
+        )
     try:
-        area = update_area(db, area_id, area_in)
-        # Check if the area belongs to the current user
-        if str(area.user_id) != str(current_user.id):
-            raise HTTPException(
-                status_code=403,
-                detail="You don't have permission to update this area",
-            )
-        return AreaResponse.model_validate(area)
+        updated = update_area(db, area_id, area_in)
+        return AreaResponse.model_validate(updated)
     except AreaNotFoundError:
+        # In case service layer also checks and signals not found
         raise HTTPException(
             status_code=404,
             detail="Area not found",
