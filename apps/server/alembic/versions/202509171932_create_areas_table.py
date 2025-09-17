@@ -47,6 +47,7 @@ def upgrade() -> None:
             ["user_id"],
             ["users.id"],
         ),
+        sa.UniqueConstraint("user_id", "name", name="uq_areas_user_id_name"),
     )
     op.create_index(
         "ix_areas_user_id", "areas", ["user_id"]

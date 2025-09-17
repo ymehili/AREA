@@ -17,6 +17,7 @@ from app.services.areas import (
     enable_area,
     disable_area,
     AreaNotFoundError,
+    DuplicateAreaError,
 )
 
 router = APIRouter(tags=["areas"])
@@ -36,10 +37,10 @@ def create_user_area(
     try:
         area = create_area(db, area_in, str(current_user.id))
         return AreaResponse.model_validate(area)
-    except Exception as e:
+    except DuplicateAreaError:
         raise HTTPException(
-            status_code=400,
-            detail=str(e),
+            status_code=409,
+            detail="An area with this name already exists for your account.",
         )
 
 
@@ -83,7 +84,7 @@ def update_user_area(
             detail="You don't have permission to update this area",
         )
     try:
-        updated = update_area(db, area_id, area_in)
+        updated = update_area(db, area_id, area_in, user_id=str(current_user.id))
         return AreaResponse.model_validate(updated)
     except AreaNotFoundError:
         # In case service layer also checks and signals not found
@@ -149,7 +150,7 @@ def enable_user_area(
         )
     
     try:
-        area = enable_area(db, area_id)
+        area = enable_area(db, area_id, user_id=str(current_user.id))
         return AreaResponse.model_validate(area)
     except AreaNotFoundError:
         raise HTTPException(
@@ -185,7 +186,7 @@ def disable_user_area(
         )
     
     try:
-        area = disable_area(db, area_id)
+        area = disable_area(db, area_id, user_id=str(current_user.id))
         return AreaResponse.model_validate(area)
     except AreaNotFoundError:
         raise HTTPException(
