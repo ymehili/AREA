@@ -5,6 +5,7 @@ import {
   Alert,
   Button,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -75,6 +76,86 @@ async function requestJson<T>(
   return (await response.json()) as T;
 }
 
+type LoginMethodStatus = {
+  provider: string;
+  linked: boolean;
+  identifier?: string | null;
+};
+
+type UserProfile = {
+  email: string;
+  full_name?: string | null;
+  is_confirmed: boolean;
+  has_password: boolean;
+  login_methods: LoginMethodStatus[];
+};
+
+async function getProfile(token: string): Promise<UserProfile> {
+  return requestJson<UserProfile>("/users/me", {}, token);
+}
+
+async function updateProfileRequest(
+  token: string,
+  payload: { full_name?: string | null; email?: string },
+): Promise<UserProfile> {
+  return requestJson<UserProfile>(
+    "/users/me",
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+async function changePasswordRequest(
+  token: string,
+  payload: { current_password: string; new_password: string },
+): Promise<UserProfile> {
+  return requestJson<UserProfile>(
+    "/users/me/password",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+async function linkLoginProvider(
+  token: string,
+  provider: string,
+  identifier: string,
+): Promise<LoginMethodStatus> {
+  return requestJson<LoginMethodStatus>(
+    `/users/me/login-methods/${provider}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ identifier }),
+    },
+    token,
+  );
+}
+
+async function unlinkLoginProvider(
+  token: string,
+  provider: string,
+): Promise<LoginMethodStatus> {
+  return requestJson<LoginMethodStatus>(
+    `/users/me/login-methods/${provider}`,
+    {
+      method: "DELETE",
+    },
+    token,
+  );
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  microsoft: "Microsoft",
+};
+
 type AuthContextValue = {
   token: string | null;
   email: string | null;
@@ -83,6 +164,7 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setEmail: (email: string | null) => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
@@ -202,9 +284,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     await persistSession(null, null);
   }, [persistSession]);
 
+  const setEmailAddress = useCallback(
+    async (nextEmail: string | null) => {
+      if (!token) {
+        setEmail(nextEmail);
+        return;
+      }
+      await persistSession(token, nextEmail);
+    },
+    [persistSession, token],
+  );
+
   const value = useMemo<AuthContextValue>(
-    () => ({ token, email, initializing, loading, login, register, logout }),
-    [email, initializing, loading, login, logout, register, token],
+    () => ({ token, email, initializing, loading, login, register, logout, setEmail: setEmailAddress }),
+    [email, initializing, loading, login, logout, register, token, setEmailAddress],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -379,20 +472,360 @@ function WizardScreen() {
   );
 }
 
-function AccountScreen() {
+function ProfileScreen() {
   const auth = useAuth();
+  const { token, logout, setEmail: syncEmail } = auth;
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmailField] = useState(auth.email ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [providerPending, setProviderPending] = useState<Record<string, boolean>>({});
+  const [linkIdentifiers, setLinkIdentifiers] = useState<Record<string, string>>({});
+
+  const updateLoginMethod = useCallback((nextStatus: LoginMethodStatus) => {
+    setProfile((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        login_methods: prev.login_methods.map((method) =>
+          method.provider === nextStatus.provider ? nextStatus : method,
+        ),
+      };
+    });
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    if (!token) {
+      setProfile(null);
+      setLoadingProfile(false);
+      return;
+    }
+    setLoadingProfile(true);
+    try {
+      const data = await getProfile(token);
+      setProfile(data);
+      setFullName(data.full_name ?? "");
+      setEmailField(data.email);
+      setLinkIdentifiers((prev) => {
+        const next: Record<string, string> = {};
+        data.login_methods.forEach((method) => {
+          next[method.provider] = prev[method.provider] ?? "";
+        });
+        return next;
+      });
+      setProfileError(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        await logout();
+        return;
+      }
+      const message = err instanceof ApiError ? err.message : "Unable to load profile.";
+      setProfileError(message);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [token, logout]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  const handleSaveProfile = useCallback(async () => {
+    if (!token || !profile) {
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      const payload = {
+        full_name: fullName.trim() === "" ? null : fullName.trim(),
+        email: email.trim(),
+      };
+      const updated = await updateProfileRequest(token, payload);
+      setProfile(updated);
+      setFullName(updated.full_name ?? "");
+      setEmailField(updated.email);
+      await syncEmail(updated.email);
+      if (!updated.is_confirmed) {
+        Alert.alert("Email updated", "Please confirm the new address via the link we sent.");
+      } else {
+        Alert.alert("Profile updated", "Your profile details were saved.");
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        await logout();
+        return;
+      }
+      const message = err instanceof ApiError ? err.message : "Unable to update profile.";
+      Alert.alert("Update failed", message);
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [token, profile, fullName, email, logout, syncEmail]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!token || !profile) {
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Password mismatch", "New password and confirmation must match.");
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const updated = await changePasswordRequest(token, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      setProfile(updated);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      Alert.alert("Password updated", "Your password has been updated.");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        await logout();
+        return;
+      }
+      const message = err instanceof ApiError ? err.message : "Unable to change password.";
+      Alert.alert("Update failed", message);
+    } finally {
+      setPasswordSaving(false);
+    }
+  }, [token, profile, currentPassword, newPassword, confirmPassword, logout]);
+
+  const handleLinkProvider = useCallback(
+    async (provider: string) => {
+      if (!token || !profile) {
+        return;
+      }
+      const rawIdentifier = linkIdentifiers[provider] ?? "";
+      const trimmed = rawIdentifier.trim();
+      if (!trimmed) {
+        Alert.alert("Identifier required", "Enter an identifier before linking this provider.");
+        return;
+      }
+      setProviderPending((prev) => ({ ...prev, [provider]: true }));
+      try {
+        const status = await linkLoginProvider(token, provider, trimmed);
+        updateLoginMethod(status);
+        setLinkIdentifiers((prev) => ({ ...prev, [provider]: "" }));
+        Alert.alert("Linked", `${PROVIDER_LABELS[provider] ?? provider} account linked.`);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          await logout();
+          return;
+        }
+        const message = err instanceof ApiError ? err.message : "Unable to link provider.";
+        Alert.alert("Link failed", message);
+      } finally {
+        setProviderPending((prev) => ({ ...prev, [provider]: false }));
+      }
+    },
+    [token, profile, linkIdentifiers, logout, updateLoginMethod],
+  );
+
+  const handleUnlinkProvider = useCallback(
+    async (provider: string) => {
+      if (!token || !profile) {
+        return;
+      }
+      setProviderPending((prev) => ({ ...prev, [provider]: true }));
+      try {
+        const status = await unlinkLoginProvider(token, provider);
+        updateLoginMethod(status);
+        Alert.alert("Unlinked", `${PROVIDER_LABELS[provider] ?? provider} account unlinked.`);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          await logout();
+          return;
+        }
+        const message = err instanceof ApiError ? err.message : "Unable to unlink provider.";
+        Alert.alert("Unlink failed", message);
+      } finally {
+        setProviderPending((prev) => ({ ...prev, [provider]: false }));
+      }
+    },
+    [token, profile, logout, updateLoginMethod],
+  );
+
+  if (loadingProfile) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Text style={styles.h1}>Profile</Text>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{profileError}</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Retry" onPress={() => void loadProfile()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.centered}>
+          <Text style={styles.muted}>We couldn’t load your profile right now.</Text>
+          <View style={{ height: 12 }} />
+          <Button title="Retry" onPress={() => void loadProfile()} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.h1}>Account</Text>
-      <View style={styles.formGroup}>
-        <Text>Name</Text>
-        <TextInput style={styles.input} defaultValue="Jane Doe" />
-      </View>
-      <View style={styles.formGroup}>
-        <Text>Email</Text>
-        <TextInput style={styles.input} value={auth.email ?? ""} editable={false} />
-      </View>
-      <Button title="Logout" onPress={() => auth.logout().catch(() => {})} />
+      <ScrollView contentContainerStyle={styles.profileScroll}>
+        <Text style={styles.h1}>Profile</Text>
+        <Text style={styles.muted}>Manage your account details and login methods.</Text>
+        <View style={{ height: 16 }} />
+        {!profile.is_confirmed && (
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Email confirmation required</Text>
+            <Text style={styles.alertText}>
+              We sent a confirmation link to {profile.email}. Confirm it before signing in again.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Basic information</Text>
+          <View style={styles.formGroup}>
+            <Text>Full name</Text>
+            <TextInput
+              style={styles.input}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Jane Doe"
+              editable={!profileSaving}
+            />
+          </View>
+          <View style={styles.formGroup}>
+            <Text>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmailField}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!profileSaving}
+            />
+          </View>
+          <Button
+            title={profileSaving ? "Saving..." : "Save changes"}
+            onPress={() => void handleSaveProfile()}
+            disabled={profileSaving}
+          />
+        </View>
+
+        {profile.has_password && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Password</Text>
+            <View style={styles.formGroup}>
+              <Text>Current password</Text>
+              <TextInput
+                style={styles.input}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+                editable={!passwordSaving}
+              />
+            </View>
+            <View style={styles.formGroup}>
+              <Text>New password</Text>
+              <TextInput
+                style={styles.input}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                editable={!passwordSaving}
+              />
+            </View>
+            <View style={styles.formGroup}>
+              <Text>Confirm new password</Text>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                editable={!passwordSaving}
+              />
+            </View>
+            <Button
+              title={passwordSaving ? "Updating..." : "Update password"}
+              onPress={() => void handleChangePassword()}
+              disabled={passwordSaving}
+            />
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Login methods</Text>
+          {profile.login_methods.map((method) => {
+            const label = PROVIDER_LABELS[method.provider] ?? method.provider;
+            const pending = providerPending[method.provider] ?? false;
+            return (
+              <View key={method.provider} style={styles.methodBlock}>
+                <Text style={styles.methodLabel}>{label}</Text>
+                <Text style={styles.smallMuted}>
+                  {method.linked
+                    ? `Linked as ${method.identifier ?? "hidden identifier"}`
+                    : "Not linked"}
+                </Text>
+                <View style={{ height: 8 }} />
+                {method.linked ? (
+                  <Button
+                    title={pending ? "Unlinking..." : "Unlink"}
+                    onPress={() => void handleUnlinkProvider(method.provider)}
+                    disabled={pending}
+                  />
+                ) : (
+                  <>
+                    <TextInput
+                      style={styles.input}
+                      value={linkIdentifiers[method.provider] ?? ""}
+                      onChangeText={(value) =>
+                        setLinkIdentifiers((prev) => ({ ...prev, [method.provider]: value }))
+                      }
+                      placeholder="Identifier"
+                      autoCapitalize="none"
+                      editable={!pending}
+                    />
+                    <View style={{ height: 8 }} />
+                    <Button
+                      title={pending ? "Linking..." : "Link"}
+                      onPress={() => void handleLinkProvider(method.provider)}
+                      disabled={pending || !(linkIdentifiers[method.provider]?.trim())}
+                    />
+                  </>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={{ height: 24 }} />
+        <Button title="Logout" onPress={() => logout().catch(() => {})} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -406,7 +839,7 @@ function TabsNavigator() {
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
       <Tabs.Screen name="Wizard" component={WizardScreen} />
-      <Tabs.Screen name="Account" component={AccountScreen} />
+      <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );
 }
@@ -447,11 +880,13 @@ export default function App() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#fff", padding: 16 },
   centered: { flex: 1, backgroundColor: "#fff", padding: 16, justifyContent: "center" },
+  profileScroll: { padding: 16, paddingBottom: 48 },
   title: { fontSize: 24, fontWeight: "600", marginBottom: 24, textAlign: "center" },
   h1: { fontSize: 22, fontWeight: "600", marginBottom: 12 },
   formGroup: { marginBottom: 12 },
   input: { borderWidth: 1, borderColor: "#ddd", padding: 10, borderRadius: 6 },
   muted: { color: "#666", marginTop: 4 },
+  smallMuted: { color: "#666", fontSize: 13 },
   rowBetween: {
     flexDirection: "row",
     alignItems: "center",
@@ -463,6 +898,25 @@ const styles = StyleSheet.create({
   },
   card: { borderWidth: 1, borderColor: "#eee", borderRadius: 8, padding: 12, marginBottom: 12 },
   cardTitle: { fontWeight: "600", marginBottom: 4 },
+  alertBox: {
+    borderWidth: 1,
+    borderColor: "#fcd34d",
+    backgroundColor: "#fef3c7",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  alertTitle: { fontWeight: "600", marginBottom: 4, color: "#92400e" },
+  alertText: { color: "#92400e", fontSize: 13 },
+  methodBlock: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: "#fff",
+  },
+  methodLabel: { fontWeight: "600" },
   errorText: { color: "red", textAlign: "center" },
   toggleRow: { marginBottom: 16 },
 });

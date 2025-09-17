@@ -40,6 +40,7 @@ class UserRead(BaseModel):
 
     id: uuid.UUID
     email: EmailStr
+    full_name: Optional[str] = None
     is_confirmed: bool
     confirmed_at: Optional[datetime]
     created_at: datetime

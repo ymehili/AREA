@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   };
 
   const NavLink = ({ href, label }: { href: string; label: string }) => {
-    const active = pathname === href;
+    const active = pathname === href || pathname.startsWith(`${href}/`);
     return (
       <Link
         href={href}
@@ -51,7 +51,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <NavLink href="/dashboard" label="Dashboard" />
               <NavLink href="/connections" label="Connections" />
               <NavLink href="/wizard" label="Create AREA" />
-              <NavLink href="/account" label="Account" />
+              <NavLink href="/profile" label="Profile" />
             </nav>
           </div>
           <div className="flex items-center gap-2">
@@ -66,4 +66,3 @@ export default function AppShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
