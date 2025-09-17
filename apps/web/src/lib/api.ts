@@ -212,6 +212,55 @@ export async function linkLoginMethod(
   );
 }
 
+// Areas
+export type AreaCreatePayload = {
+  name: string;
+  trigger_service: string;
+  trigger_action: string;
+  reaction_service: string;
+  reaction_action: string;
+};
+
+export type AreaResponse = {
+  id: string;
+  user_id: string;
+  name: string;
+  trigger_service: string;
+  trigger_action: string;
+  reaction_service: string;
+  reaction_action: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function createArea(
+  token: string,
+  payload: AreaCreatePayload,
+): Promise<AreaResponse> {
+  return requestJson<AreaResponse>(
+    "/areas",
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function deleteArea(
+  token: string,
+  areaId: string,
+): Promise<boolean> {
+  return requestJson<boolean>(
+    `/areas/${areaId}`,
+    {
+      method: 'DELETE',
+    },
+    token,
+  );
+}
+
 export async function unlinkLoginMethod(
   token: string,
   provider: string,
