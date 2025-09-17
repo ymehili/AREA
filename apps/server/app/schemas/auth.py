@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -26,11 +27,21 @@ class UserLogin(BaseModel):
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
 
 
+class ResendConfirmationRequest(BaseModel):
+    """Schema for requesting a resend of the confirmation email."""
+
+    email: EmailStr
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+
 class UserRead(BaseModel):
     """Schema representing the public view of a user."""
 
     id: uuid.UUID
     email: EmailStr
+    is_confirmed: bool
+    confirmed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
@@ -50,5 +61,6 @@ __all__ = [
     "TokenResponse",
     "UserCreate",
     "UserLogin",
+    "ResendConfirmationRequest",
     "UserRead",
 ]
