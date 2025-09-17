@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -33,11 +34,13 @@ export default function AuthPage() {
       if (mode === "login") {
         await auth.login(email, password);
         toast.success("Logged in successfully");
+        router.replace("/dashboard");
       } else {
         await auth.register(email, password);
-        toast.success("Registration complete");
+        toast.success("Registration received. Check your email to confirm your account.");
+        setMode("login");
+        setPassword("");
       }
-      router.replace("/dashboard");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
       toast.error(message);
@@ -53,6 +56,16 @@ export default function AuthPage() {
           <CardTitle>Action-Reaction</CardTitle>
         </CardHeader>
         <CardContent>
+          {auth.pendingConfirmationEmail ? (
+            <Alert className="mb-4">
+              <AlertTitle>Confirm your email</AlertTitle>
+              <AlertDescription>
+                We sent a confirmation link to{" "}
+                <span className="font-medium text-foreground">{auth.pendingConfirmationEmail}</span>. Once
+                confirmed, you can log in with your credentials.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
             <TabsList className="grid grid-cols-2 mb-4">
               <TabsTrigger value="login">Log in</TabsTrigger>

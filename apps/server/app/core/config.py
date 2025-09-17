@@ -1,5 +1,7 @@
 """Application configuration using Pydantic settings."""
 
+from typing import Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,6 +30,47 @@ class Settings(BaseSettings):
     encryption_key: str = Field(
         default="",
         alias="ENCRYPTION_KEY",
+    )
+
+    email_sender: str = Field(
+        default="no-reply@action-reaction.local",
+        alias="EMAIL_SENDER",
+    )
+    smtp_host: str = Field(
+        default="localhost",
+        alias="SMTP_HOST",
+    )
+    smtp_port: int = Field(
+        default=1025,
+        alias="SMTP_PORT",
+    )
+    smtp_username: Optional[str] = Field(
+        default=None,
+        alias="SMTP_USERNAME",
+    )
+    smtp_password: Optional[str] = Field(
+        default=None,
+        alias="SMTP_PASSWORD",
+    )
+    smtp_use_tls: bool = Field(
+        default=False,
+        alias="SMTP_USE_TLS",
+    )
+    email_confirmation_token_expiry_minutes: int = Field(
+        default=60 * 24,
+        alias="EMAIL_CONFIRMATION_TOKEN_EXPIRY_MINUTES",
+    )
+    email_confirmation_base_url: str = Field(
+        default="http://localhost:8080/api/v1/auth/confirm",
+        alias="EMAIL_CONFIRMATION_BASE_URL",
+    )
+    email_confirmation_success_redirect_url: str = Field(
+        default="http://localhost:3000/confirm/success",
+        alias="EMAIL_CONFIRMATION_SUCCESS_REDIRECT_URL",
+    )
+    email_confirmation_failure_redirect_url: str = Field(
+        default="http://localhost:3000/confirm/error",
+        alias="EMAIL_CONFIRMATION_FAILURE_REDIRECT_URL",
     )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
