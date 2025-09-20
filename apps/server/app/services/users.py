@@ -94,6 +94,7 @@ def create_user(
     *,
     background_tasks: BackgroundTasks | None = None,
     email_sender: Callable[[str, str], None] | None = None,
+    send_email: bool = True,
 ) -> User:
     """Create a new user with hashed password handling duplicates gracefully."""
 
@@ -105,14 +106,15 @@ def create_user(
     user = User(
         email=normalized_email,
         hashed_password=get_password_hash(user_in.password),
-        is_confirmed=False,
+        is_confirmed=not send_email,
     )
 
     db.add(user)
     raw_token: str | None = None
     try:
         db.flush()
-        raw_token = issue_confirmation_token(db, user)
+        if send_email:
+            raw_token = issue_confirmation_token(db, user)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -122,7 +124,7 @@ def create_user(
 
     sender = email_sender or send_confirmation_email
 
-    if raw_token and sender is not None:
+    if send_email and raw_token and sender is not None:
         confirmation_link = build_confirmation_link(raw_token)
         if background_tasks is not None:
             background_tasks.add_task(sender, user.email, confirmation_link)

@@ -9,13 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.oauth import router as oauth_router
 from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.core.config import settings
 from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
-from app.integrations.oauth import router as oauth_router
 
 
 app = FastAPI()
