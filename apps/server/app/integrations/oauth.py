@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 from authlib.integrations.starlette_client import OAuth
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
+from starlette.responses import RedirectResponse
 
 from app.core.config import settings
 from app.core.security import create_access_token
@@ -13,46 +14,65 @@ from app.models.user import User
 from app.schemas.auth import TokenResponse, UserCreate
 from app.services.users import get_user_by_email, create_user
 
-# Initialize OAuth client
-oauth = OAuth()
-
-# Register Google OAuth provider
-if settings.google_client_id and settings.google_client_secret:
-    oauth.register(
-        name="google",
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={
-            "scope": "openid email profile"
-        },
-        # Explicitly configure the token endpoint
-        token_endpoint="https://oauth2.googleapis.com/token",
-        # Add timeout to prevent hanging connections
-        kwargs={
-            "timeout": 30
-        }
-    )
-
 
 class OAuthService:
     """Service for handling OAuth authentication flows."""
+    
+    _oauth_client: Optional[OAuth] = None
+    
+    @classmethod
+    def _get_oauth_client(cls) -> OAuth:
+        """Get or create OAuth client instance. Factory method for testability."""
+        if cls._oauth_client is None:
+            cls._oauth_client = cls._create_oauth_client()
+        return cls._oauth_client
+    
+    @classmethod
+    def _create_oauth_client(cls) -> OAuth:
+        """Create and configure OAuth client."""
+        oauth = OAuth()
+        
+        # Register Google OAuth provider only if configured
+        if settings.google_client_id and settings.google_client_secret:
+            oauth.register(
+                name="google",
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+                server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+                client_kwargs={
+                    "scope": "openid email profile"
+                },
+                # Explicitly configure the token endpoint
+                token_endpoint="https://oauth2.googleapis.com/token",
+                # Add timeout to prevent hanging connections
+                kwargs={
+                    "timeout": 30
+                }
+            )
+        
+        return oauth
+    
+    @classmethod
+    def _reset_oauth_client(cls) -> None:
+        """Reset OAuth client. Used for testing."""
+        cls._oauth_client = None
     
     @staticmethod
     def is_oauth_configured() -> bool:
         """Check if OAuth is properly configured."""
         return bool(settings.google_client_id and settings.google_client_secret)
     
-    @staticmethod
-    async def get_google_authorization_url(request: Request) -> any:
+    @classmethod
+    async def get_google_authorization_url(cls, request: Request) -> RedirectResponse:
         """Get Google OAuth authorization URL and redirect response."""
-        if not OAuthService.is_oauth_configured():
+        if not cls.is_oauth_configured():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="OAuth is not properly configured"
             )
         
         try:
+            oauth = cls._get_oauth_client()
             redirect_uri = f"{settings.oauth_redirect_base_url}/google/callback"
             return await oauth.google.authorize_redirect(request, redirect_uri)
         except Exception as e:
@@ -61,16 +81,18 @@ class OAuthService:
                 detail=f"Failed to initiate OAuth: {str(e)}"
             )
     
-    @staticmethod
-    async def handle_google_callback(request: Request, db: Session) -> TokenResponse:
+    @classmethod
+    async def handle_google_callback(cls, request: Request, db: Session) -> TokenResponse:
         """Handle Google OAuth callback and create/access user."""
-        if not OAuthService.is_oauth_configured():
+        if not cls.is_oauth_configured():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="OAuth is not properly configured"
             )
         
         try:
+            oauth = cls._get_oauth_client()
+            
             # Get user info from Google
             token = await oauth.google.authorize_access_token(request)
             user_info = token.get("userinfo")
@@ -91,7 +113,7 @@ class OAuthService:
                 )
             
             # Find or create user
-            user = OAuthService._find_or_create_google_user(db, email, google_sub)
+            user = cls._find_or_create_google_user(db, email, google_sub)
             
             # Create access token
             access_token = create_access_token(subject=str(user.id))
