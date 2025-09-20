@@ -12,3 +12,4 @@ passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 pydantic[email]
 authlib==1.6.4
+itsdangerous==2.1.2
