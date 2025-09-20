@@ -112,6 +112,7 @@ def change_password(
 ) -> UserProfileResponse:
     """Change the authenticated user's password."""
 
+    # WARNING: verify_password() will fail for OAuth users (password = ""). Logic might need adjustment.
     try:
         updated_user = change_user_password(db, current_user, payload)
     except IncorrectPasswordError as exc:
