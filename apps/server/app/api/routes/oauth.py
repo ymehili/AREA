@@ -26,8 +26,8 @@ async def oauth_login(provider: str, request: Request):
 
 @router.get("/{provider}/callback")
 async def oauth_callback(
-    provider: str, 
-    request: Request, 
+    provider: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Handle OAuth callback and redirect to frontend with JWT token."""
@@ -44,7 +44,7 @@ async def oauth_callback(
     # Handle redirect logic (web-layer concern)
     user_agent = request.headers.get("user-agent", "")
     redirect_url = OAuthService.generate_redirect_url(
-        token_response.access_token, 
+        token_response.access_token,
         user_agent
     )
     
