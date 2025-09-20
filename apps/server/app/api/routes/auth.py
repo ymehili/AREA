@@ -61,10 +61,16 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespon
     """Authenticate a user by email/password and return a JWT token."""
 
     user = get_user_by_email(db, payload.email)
-    if user is None or not verify_password(payload.password, user.hashed_password):
+    if user is None or user.google_oauth_sub is not None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
+        )
+
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password.",
         )
 
     if not user.is_confirmed:
