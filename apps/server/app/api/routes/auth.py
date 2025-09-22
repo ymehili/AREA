@@ -70,7 +70,7 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespon
     if not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password.",
+            detail="Invalid email or password.",
         )
 
     if not user.is_confirmed:
