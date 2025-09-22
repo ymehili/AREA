@@ -109,7 +109,7 @@ export default function AuthPage() {
                 <Button 
                   type="button" 
                   className="w-full bg-red-500 hover:bg-red-600 text-white"
-                  onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/oauth/google`}
+                  onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
                 >
                   Sign in with Google
                 </Button>
