@@ -345,8 +345,16 @@ function LoginScreen() {
 
   const handleGoogleSignIn = useCallback(async () => {
     try {
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8080";
-      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL ?? "http://localhost:3000";
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL;
+      
+      if (!apiUrl) {
+        throw new Error('EXPO_PUBLIC_API_URL environment variable is not defined');
+      }
+      
+      if (!frontendUrl) {
+        throw new Error('EXPO_PUBLIC_FRONTEND_URL environment variable is not defined');
+      }
       
       console.log('Starting OAuth flow...');
       console.log('OAuth URL:', `${apiUrl}/api/v1/oauth/google`);
