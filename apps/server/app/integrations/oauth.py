@@ -170,10 +170,14 @@ class OAuthService:
         
         # For mobile apps, use query parameter
         if "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower:
-            return f"{settings.frontend_redirect_url}/oauth/callback?access_token={access_token}"
+            print("Mobile detected")
+            print(f"Redirecting to {settings.frontend_redirect_url_mobile}/oauth/callback?access_token={access_token}")
+            return f"{settings.frontend_redirect_url_mobile}/oauth/callback?access_token={access_token}"
         
         # For web apps, use URL hash
-        return f"{settings.frontend_redirect_url}#access_token={access_token}"
+        print("Not mobile detected")
+        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
+        return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
 
 
 __all__ = ["OAuthService"]
