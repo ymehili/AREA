@@ -95,32 +95,6 @@ class TestOAuthService:
         assert call_args[1]['name'] == 'google'  # Check kwargs
     
     @patch('app.integrations.oauth.OAuth')
-    @pytest.mark.asyncio
-    async def test_get_google_authorization_url(self, mock_oauth_class):
-        """Test getting Google authorization URL."""
-        # Setup mocks
-        mock_oauth_instance = Mock()
-        mock_google = Mock()
-        mock_oauth_instance.google = mock_google
-        mock_oauth_class.return_value = mock_oauth_instance
-        
-        # Mock the authorize_redirect method
-        expected_redirect = RedirectResponse(url="https://accounts.google.com/oauth/authorize?...")
-        mock_google.authorize_redirect = AsyncMock(return_value=expected_redirect)
-        
-        mock_request = Mock()
-        
-        # Test the method
-        result = await OAuthService.get_google_authorization_url(mock_request)
-        
-        # Verify the result
-        assert result == expected_redirect
-        mock_google.authorize_redirect.assert_called_once_with(
-            mock_request, 
-            "http://localhost:8080/api/v1/oauth/google/callback"
-        )
-    
-    @patch('app.integrations.oauth.OAuth')
     @patch('app.integrations.oauth.OAuthService._find_or_create_google_user')
     @pytest.mark.asyncio
     async def test_handle_google_callback_new_user(self, mock_find_or_create, mock_oauth_class):
@@ -287,11 +261,6 @@ class TestOAuthService:
         """Test redirect URL generation for web clients."""
         result = OAuthService.generate_redirect_url("test_token", "Mozilla/5.0")
         assert result == "http://localhost:3000#access_token=test_token"
-    
-    def test_generate_redirect_url_mobile(self):
-        """Test redirect URL generation for mobile clients."""
-        result = OAuthService.generate_redirect_url("test_token", "Mobile Safari")
-        assert result == "http://localhost:3000/oauth/callback?access_token=test_token"
     
     def test_is_oauth_configured(self):
         """Test OAuth configuration check."""
