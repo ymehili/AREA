@@ -38,6 +38,8 @@ services:
     depends_on:
       server:
         condition: service_started
+    env_file:
+      - .env
     environment:
       - PORT=3000
     ports:
