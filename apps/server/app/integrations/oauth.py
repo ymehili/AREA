@@ -192,7 +192,6 @@ class OAuthService:
         
         # For web apps, use URL hash
         print("Not mobile detected")
-        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
         return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
 
 
