@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import * as WebBrowser from 'expo-web-browser';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -216,6 +217,7 @@ type AuthContextValue = {
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setEmail: (email: string | null) => Promise<void>;
+  persistSession: (token: string | null, email: string | null) => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
@@ -347,8 +349,18 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<AuthContextValue>(
-    () => ({ token, email, initializing, loading, login, register, logout, setEmail: setEmailAddress }),
-    [email, initializing, loading, login, logout, register, token, setEmailAddress],
+    () => ({
+      token,
+      email,
+      initializing,
+      loading,
+      login,
+      register,
+      logout,
+      setEmail: setEmailAddress,
+      persistSession,
+    }),
+    [email, initializing, loading, login, logout, register, token, setEmailAddress, persistSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -381,6 +393,73 @@ function LoginScreen() {
       Alert.alert("Authentication failed", message);
     }
   }, [auth, email, mode, password]);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    try {
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL;
+      
+      if (!apiUrl) {
+        throw new Error('EXPO_PUBLIC_API_URL environment variable is not defined');
+      }
+      
+      if (!frontendUrl) {
+        throw new Error('EXPO_PUBLIC_FRONTEND_URL environment variable is not defined');
+      }
+      
+      console.log('Starting OAuth flow...');
+      console.log('OAuth URL:', `${apiUrl}/api/v1/oauth/google`);
+      console.log('Return URL:', `${frontendUrl}/oauth/callback`);
+      
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${apiUrl}/api/v1/oauth/google`,
+        `${frontendUrl}/oauth/callback`
+      );
+
+      console.log('OAuth result:', result);
+
+      if (result.type === 'success' && result.url) {
+        console.log('Success URL received:', result.url);
+        
+        // Extract token from the redirect URL
+        const url = new URL(result.url);
+        console.log('Parsed URL:', {
+          pathname: url.pathname,
+          search: url.search,
+          hash: url.hash
+        });
+        
+        // Check query parameters first (mobile redirect)
+        let accessToken = url.searchParams.get('access_token');
+        console.log('Token from query params:', accessToken);
+        
+        // If not in query, check URL hash (web redirect)
+        if (!accessToken && url.hash) {
+          const hashParams = new URLSearchParams(url.hash.substring(1));
+          accessToken = hashParams.get('access_token');
+          console.log('Token from hash:', accessToken);
+        }
+
+        if (accessToken) {
+          console.log('Found access token, persisting session...');
+          // Store the token using your existing auth system
+          await auth.persistSession(accessToken, null);
+          Alert.alert('Success', 'Signed in with Google successfully!');
+        } else {
+          console.log('No access token found in URL');
+          throw new Error('No access token received from OAuth flow');
+        }
+      } else if (result.type === 'cancel') {
+        console.log('OAuth cancelled by user');
+      } else {
+        console.log('Unexpected OAuth result type:', result.type);
+      }
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      const message = error instanceof Error ? error.message : "Google sign-in failed";
+      Alert.alert('OAuth Error', message);
+    }
+  }, [auth]);
 
   return (
     <SafeAreaView style={styles.centered}>
@@ -415,6 +494,11 @@ function LoginScreen() {
         title={auth.loading ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
         onPress={submit}
         disabled={auth.loading}
+      />
+      <View style={{ height: 16 }} />
+      <Button
+        title="Sign in with Google"
+        onPress={handleGoogleSignIn} // Use the new handler instead of window.open
       />
     </SafeAreaView>
   );

@@ -73,6 +73,28 @@ class Settings(BaseSettings):
         alias="EMAIL_CONFIRMATION_FAILURE_REDIRECT_URL",
     )
 
+    # OAuth settings
+    google_client_id: str = Field(
+        default="",
+        alias="GOOGLE_CLIENT_ID",
+    )
+    google_client_secret: str = Field(
+        default="",
+        alias="GOOGLE_CLIENT_SECRET",
+    )
+    oauth_redirect_base_url: str = Field(
+        default="http://localhost:8080/api/v1/oauth",
+        alias="OAUTH_REDIRECT_BASE_URL",
+    )
+    frontend_redirect_url_web: str = Field(
+        default="http://localhost:3000",
+        alias="FRONTEND_REDIRECT_URL_WEB",
+    )
+    frontend_redirect_url_mobile: str = Field(
+        default="areamobile://oauth/callback",
+        alias="FRONTEND_REDIRECT_URL_MOBILE"
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
