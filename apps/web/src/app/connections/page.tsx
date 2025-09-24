@@ -6,7 +6,7 @@ import AppShell from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { UnauthorizedError, requestJson } from "@/lib/api";
+import { UnauthorizedError, requestJson, API_BASE_URL } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 
 type Service = {
@@ -14,6 +14,7 @@ type Service = {
   name: string;
   description: string;
   connected: boolean;
+  connection_id?: string;
 };
 
 type ServiceFromAPI = {
@@ -26,11 +27,30 @@ type ServiceListResponse = {
   services: ServiceFromAPI[];
 };
 
+type ServiceConnection = {
+  id: string;
+  service_name: string;
+  oauth_metadata?: {
+    provider: string;
+    user_info: {
+      login?: string;
+      name?: string;
+    };
+  };
+};
+
+type ServiceConnectionsResponse = ServiceConnection[];
+
+type OAuthProvidersResponse = {
+  providers: string[];
+};
+
 export default function ConnectionsPage() {
   const auth = useRequireAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [oauthProviders, setOAuthProviders] = useState<string[]>([]);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
@@ -38,17 +58,45 @@ export default function ConnectionsPage() {
     }
     setLoading(true);
     try {
-      const data = await requestJson<ServiceListResponse>(
+      // Load available services from catalog
+      const servicesData = await requestJson<ServiceListResponse>(
         "/services/services",
         { method: "GET" },
         auth.token,
       );
-      const transformed = data.services.map((service) => ({
-        id: service.slug,
-        name: service.name,
-        description: service.description,
-        connected: false,
-      }));
+
+      // Load OAuth providers
+      const providersData = await requestJson<OAuthProvidersResponse>(
+        "/service-connections/providers",
+        { method: "GET" },
+        auth.token,
+      );
+      setOAuthProviders(providersData.providers);
+
+      // Load existing connections
+      const connectionsData = await requestJson<ServiceConnectionsResponse>(
+        "/service-connections/connections",
+        { method: "GET" },
+        auth.token,
+      );
+
+      // Filter services to only show those with OAuth2 implementations
+      // and merge with connection status
+      const transformed = servicesData.services
+        .filter((service) => providersData.providers.includes(service.slug))
+        .map((service) => {
+          const connection = connectionsData.find(
+            (conn) => conn.service_name === service.slug
+          );
+          return {
+            id: service.slug,
+            name: service.name,
+            description: service.description,
+            connected: !!connection,
+            connection_id: connection?.id,
+          };
+        });
+
       setServices(transformed);
       setError(null);
     } catch (err) {
@@ -69,8 +117,105 @@ export default function ConnectionsPage() {
     void loadServices();
   }, [loadServices]);
 
-  const toggle = (id: string, state: boolean) => {
-    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, connected: state } : s)));
+  // Handle OAuth2 callback messages from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    const service = urlParams.get('service');
+
+    if (success === 'connected' && service) {
+      toast.success(`Successfully connected to ${service}!`);
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Reload services to show new connection
+      void loadServices();
+    } else if (error) {
+      let errorMessage = 'Failed to connect to service.';
+      switch (error) {
+        case 'invalid_state':
+          errorMessage = 'Security check failed. Please try again.';
+          break;
+        case 'session_expired':
+          errorMessage = 'Session expired. Please try connecting again.';
+          break;
+        case 'connection_failed':
+          errorMessage = 'Failed to establish connection. Please try again.';
+          break;
+        case 'access_denied':
+          errorMessage = 'Access was denied. Please authorize the application.';
+          break;
+      }
+      toast.error(errorMessage);
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [loadServices]);
+
+  const connectService = (serviceId: string) => {
+    if (!auth.token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    // Redirect with token as query parameter (temporary solution)
+    const connectUrl = `${API_BASE_URL}/service-connections/connect/${serviceId}?token=${encodeURIComponent(auth.token)}`;
+    window.location.href = connectUrl;
+  };
+
+  const disconnectService = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      await requestJson(
+        `/service-connections/connections/${connectionId}`,
+        { method: "DELETE" },
+        auth.token,
+      );
+
+      toast.success(`${serviceId} disconnected successfully.`);
+      // Reload services to update connection status
+      void loadServices();
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Unable to disconnect service.";
+      toast.error(message);
+    }
+  };
+
+  const testConnection = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      const testResult = await requestJson(
+        `/service-connections/test/${serviceId}/${connectionId}`,
+        { method: "GET" },
+        auth.token,
+      );
+
+      if (testResult.success) {
+        toast.success(`${serviceId} connection test successful!`);
+        console.log('API Test Result:', testResult);
+      } else {
+        toast.error(`${serviceId} connection test failed.`);
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Unable to test connection.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -105,11 +250,25 @@ export default function ConnectionsPage() {
               </CardHeader>
               <CardContent className="flex gap-2 justify-end">
                 {s.connected ? (
-                  <Button variant="outline" onClick={() => toggle(s.id, false)}>
-                    Disconnect
-                  </Button>
+                  <>
+                    {s.connection_id && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => testConnection(s.id, s.connection_id!)}
+                      >
+                        Test
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => s.connection_id && disconnectService(s.id, s.connection_id)}
+                    >
+                      Disconnect
+                    </Button>
+                  </>
                 ) : (
-                  <Button onClick={() => toggle(s.id, true)}>Connect</Button>
+                  <Button onClick={() => void connectService(s.id)}>Connect</Button>
                 )}
               </CardContent>
             </Card>
