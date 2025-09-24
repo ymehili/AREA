@@ -17,7 +17,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import * as WebBrowser from 'expo-web-browser';
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -397,23 +398,23 @@ function LoginScreen() {
   const handleGoogleSignIn = useCallback(async () => {
     try {
       const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL;
-      
+      const mobileRedirectEnv = process.env.EXPO_PUBLIC_FRONTEND_URL_MOBILE;
+
       if (!apiUrl) {
-        throw new Error('EXPO_PUBLIC_API_URL environment variable is not defined');
+        throw new Error("EXPO_PUBLIC_API_URL environment variable is not defined");
       }
-      
-      if (!frontendUrl) {
-        throw new Error('EXPO_PUBLIC_FRONTEND_URL environment variable is not defined');
-      }
-      
-      console.log('Starting OAuth flow...');
-      console.log('OAuth URL:', `${apiUrl}/api/v1/oauth/google`);
-      console.log('Return URL:', `${frontendUrl}/oauth/callback`);
-      
+
+      const redirectUrl = mobileRedirectEnv && mobileRedirectEnv.trim() !== ""
+        ? mobileRedirectEnv
+        : Linking.createURL("/oauth/callback");
+
+      console.log("Starting OAuth flow...");
+      console.log("OAuth URL:", `${apiUrl}/api/v1/oauth/google`);
+      console.log("Return URL:", redirectUrl);
+
       const result = await WebBrowser.openAuthSessionAsync(
         `${apiUrl}/api/v1/oauth/google`,
-        `${frontendUrl}/oauth/callback`
+        redirectUrl,
       );
 
       console.log('OAuth result:', result);
