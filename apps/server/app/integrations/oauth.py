@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from authlib.integrations.starlette_client import OAuth
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -156,7 +157,6 @@ class OAuthService:
                 user = create_user(db, user_create, send_email=False)
                 user.google_oauth_sub = google_sub
                 user.is_confirmed = True  # OAuth users are automatically confirmed
-                user.hashed_password = ""  # Clear password for OAuth users
                 db.add(user)
                 db.commit()
                 db.refresh(user)
@@ -170,9 +170,25 @@ class OAuthService:
         
         # For mobile apps, use query parameter
         if "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower:
+            parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
+            mobile_path = parsed_mobile_url.path
+
+            if not mobile_path or mobile_path == "/":
+                mobile_path = "/oauth/callback"
+
+            query_params = dict(parse_qsl(parsed_mobile_url.query, keep_blank_values=True))
+            query_params["access_token"] = access_token
+
+            mobile_redirect_url = urlunparse(
+                parsed_mobile_url._replace(
+                    path=mobile_path,
+                    query=urlencode(query_params)
+                )
+            )
+
             print("Mobile detected")
-            print(f"Redirecting to {settings.frontend_redirect_url_mobile}/oauth/callback?access_token={access_token}")
-            return f"{settings.frontend_redirect_url_mobile}/oauth/callback?access_token={access_token}"
+            print(f"Redirecting to {mobile_redirect_url}")
+            return mobile_redirect_url
         
         # For web apps, use URL hash
         print("Not mobile detected")
