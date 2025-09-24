@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,10 +39,20 @@ class ServiceConnectionRead(ServiceConnectionBase):
     encrypted_access_token: str
     encrypted_refresh_token: Optional[str] = None
     expires_at: Optional[datetime] = None
+    oauth_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OAuthMetadata(BaseModel):
+    """Schema for OAuth metadata."""
+
+    provider: str
+    user_info: Dict[str, Any]
+    scopes: list[str]
+    token_type: str = "Bearer"
 
 
 __all__ = [
@@ -50,4 +60,5 @@ __all__ = [
     "ServiceConnectionCreate",
     "ServiceConnectionRead",
     "ServiceConnectionUpdate",
+    "OAuthMetadata",
 ]
