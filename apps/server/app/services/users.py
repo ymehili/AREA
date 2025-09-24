@@ -94,6 +94,7 @@ def create_user(
     *,
     background_tasks: BackgroundTasks | None = None,
     email_sender: Callable[[str, str], None] | None = None,
+    send_email: bool = True,
 ) -> User:
     """Create a new user with hashed password handling duplicates gracefully."""
 
@@ -105,14 +106,15 @@ def create_user(
     user = User(
         email=normalized_email,
         hashed_password=get_password_hash(user_in.password),
-        is_confirmed=False,
+        is_confirmed=not send_email,
     )
 
     db.add(user)
     raw_token: str | None = None
     try:
         db.flush()
-        raw_token = issue_confirmation_token(db, user)
+        if send_email:
+            raw_token = issue_confirmation_token(db, user)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -122,7 +124,7 @@ def create_user(
 
     sender = email_sender or send_confirmation_email
 
-    if raw_token and sender is not None:
+    if send_email and raw_token and sender is not None:
         confirmation_link = build_confirmation_link(raw_token)
         if background_tasks is not None:
             background_tasks.add_task(sender, user.email, confirmation_link)
@@ -241,6 +243,55 @@ def unlink_login_provider(
     return user
 
 
+def get_or_create_user_from_oauth(
+    db: Session,
+    email: str,
+    provider: str,
+    provider_id: str,
+) -> User:
+    """Get existing user or create new one from OAuth data.
+    
+    Args:
+        db: Database session
+        email: User's email address
+        provider: OAuth provider name (google, github, etc.)
+        provider_id: Unique identifier from the OAuth provider
+        
+    Returns:
+        User object
+    """
+    # Check if user exists with this provider ID
+    column = _resolve_provider_column(provider)
+    user = db.query(User).filter(getattr(User, column) == provider_id).first()
+    
+    # If not found by provider ID, check by email
+    if not user:
+        user = get_user_by_email(db, email)
+        if user and getattr(user, column) is None:
+            # Link existing account with OAuth provider
+            setattr(user, column, provider_id)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        elif not user:
+            # Create new user
+            from app.schemas.auth import UserCreate
+            user_create = UserCreate(
+                email=email,
+                password="oauth_user_no_password"  # Placeholder password
+            )
+            user = create_user(db, user_create)
+            user.is_confirmed = True  # OAuth users are automatically confirmed
+            setattr(user, column, provider_id)
+            # Clear password for OAuth users
+            user.hashed_password = ""
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+    
+    return user
+
+
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -250,6 +301,7 @@ __all__ = [
     "create_user",
     "change_user_password",
     "get_user_by_email",
+    "get_or_create_user_from_oauth",
     "link_login_provider",
     "unlink_login_provider",
     "update_user_profile",
