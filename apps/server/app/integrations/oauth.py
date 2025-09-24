@@ -145,6 +145,7 @@ class OAuthService:
             if user and user.google_oauth_sub is None:
                 # Link existing account with Google
                 user.google_oauth_sub = google_sub
+                user.is_confirmed = True
                 db.add(user)
                 db.commit()
                 db.refresh(user)
