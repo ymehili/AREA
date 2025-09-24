@@ -57,3 +57,5 @@ PRPs
 
 # Package manager lock file
 pnpm-lock.yaml
+
+CLAUDE.md
