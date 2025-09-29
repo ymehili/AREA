@@ -246,7 +246,7 @@ export default function ProfilePage() {
     if (loadError) {
       return (
         <div className="flex flex-col items-center gap-4 py-12">
-          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <p className="text-sm text-destructive">{loadError}</p>
           <Button onClick={() => void loadProfile()} variant="outline">
             Retry
           </Button>
@@ -404,6 +404,7 @@ export default function ProfilePage() {
                         variant="secondary"
                         onClick={() => void handleLink(method.provider)}
                         disabled={pending}
+                        className="text-white"
                       >
                         {pending ? "Linking…" : "Link"}
                       </Button>

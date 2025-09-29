@@ -4,9 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMemo, useState } from "react";
-import { createArea } from "@/lib/api";
+import { createArea, ApiError } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, headingClasses } from "@/lib/utils";
+import { toast } from "sonner";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from "@/components/ui/dialog";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -32,6 +41,12 @@ export default function WizardPage() {
   const [actionService, setActionService] = useState<string>("");
   const [action, setAction] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [showDuplicateNameDialog, setShowDuplicateNameDialog] = useState(false);
+  const [duplicateAreaData, setDuplicateAreaData] = useState<{
+    name: string;
+    uniqueName: string;
+    payload: any;
+  } | null>(null);
 
   const next = () => setStep((s) => Math.min(s + 1, 5) as Step);
   const back = () => setStep((s) => Math.max(s - 1, 1) as Step);
@@ -188,6 +203,28 @@ export default function WizardPage() {
                       reaction_action: action,
                     });
                     window.location.href = "/dashboard";
+                  } catch (error) {
+                    if (error instanceof ApiError && error.status === 409) {
+                      // Handle duplicate area name error by showing a dialog
+                      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const uniqueName = `${triggerService} → ${actionService} (${timestamp})`;
+                      
+                      setDuplicateAreaData({
+                        name: `${triggerService} → ${actionService}`,
+                        uniqueName,
+                        payload: {
+                          name: uniqueName,
+                          trigger_service: triggerService,
+                          trigger_action: trigger,
+                          reaction_service: actionService,
+                          reaction_action: action,
+                        }
+                      });
+                      setShowDuplicateNameDialog(true);
+                    } else {
+                      // For other errors, display a toast notification
+                      toast.error(error instanceof Error ? error.message : "An error occurred while creating the area");
+                    }
                   } finally {
                     setSubmitting(false);
                   }
@@ -199,6 +236,47 @@ export default function WizardPage() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Dialog for duplicate area name */}
+      <Dialog open={showDuplicateNameDialog} onOpenChange={setShowDuplicateNameDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicate Area Name</DialogTitle>
+            <DialogDescription>
+              An area with the name "{duplicateAreaData?.name}" already exists.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground">
+              Would you like to create it with a unique name: <strong>"{duplicateAreaData?.uniqueName}"</strong>?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDuplicateNameDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!auth.token || !duplicateAreaData) return;
+                
+                try {
+                  await createArea(auth.token, duplicateAreaData.payload);
+                  window.location.href = "/dashboard";
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "An error occurred while creating the area");
+                } finally {
+                  setShowDuplicateNameDialog(false);
+                }
+              }}
+            >
+              Create with New Name
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

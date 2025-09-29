@@ -100,10 +100,10 @@ export default function AutomationHistoryPage() {
 
   const getStatusColor = (status: AutomationEvent["status"]) => {
     switch (status) {
-      case "success": return "bg-success";
-      case "failed": return "bg-destructive";
-      case "skipped": return "bg-warning";
-      default: return "bg-muted";
+      case "success": return "!bg-success !border-success !text-white";
+      case "failed": return "!bg-destructive !border-destructive !text-white";
+      case "skipped": return "!bg-warning !border-warning !text-white";
+      default: return "!bg-muted !border-muted !text-white";
     }
   };
 
@@ -162,7 +162,7 @@ export default function AutomationHistoryPage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end space-y-2">
-                      <Badge variant="secondary" className={`${getStatusColor(event.status)}`}>
+                      <Badge className={`${getStatusColor(event.status)}`}>
                         {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
                       </Badge>
                       <p className="text-xs text-muted-foreground">
