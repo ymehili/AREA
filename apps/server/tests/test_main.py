@@ -8,7 +8,7 @@ def test_startup_event_sets_database_url(verify_connection_tracker):
     main.app.state.database_url = None
     asyncio.run(main.startup_event())
     assert verify_connection_tracker["calls"] == 1
-    assert verify_connection_tracker["migrations"] == 1
+    # Migrations now run before app creation, not in startup event
     assert main.app.state.database_url == main.settings.database_url
 
 
