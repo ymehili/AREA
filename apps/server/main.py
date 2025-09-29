@@ -24,9 +24,15 @@ from app.integrations.simple_plugins.scheduler import start_scheduler, stop_sche
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Run migrations before creating the app (only in the main process, not in reloader)
+# Run migrations before creating the app (only in production or main dev process)
 import sys
-if "--reload" not in sys.argv and "watchfiles" not in sys.modules:
+import os
+# Only run migrations if we're not in test mode and not in a reloader subprocess
+if (
+    "pytest" not in sys.modules
+    and "PYTEST_CURRENT_TEST" not in os.environ
+    and ("watchfiles" not in sys.modules or os.environ.get("RUN_MAIN") == "true")
+):
     logger.info("Running migrations before app creation")
     try:
         run_migrations()
