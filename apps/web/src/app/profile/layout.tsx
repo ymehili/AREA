@@ -41,12 +41,12 @@ export default function ProfileLayout({ children }: { children: ReactNode }) {
                         <Link
                           href={tab.href}
                           className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                            pathname === tab.href || pathname.startsWith(`${tab.href}/`)
+                            pathname === tab.href
                               ? "bg-foreground text-background"
                               : "hover:bg-muted"
                           }`}
                           aria-current={
-                            pathname === tab.href || pathname.startsWith(`${tab.href}/`)
+                            pathname === tab.href
                               ? "page"
                               : undefined
                           }

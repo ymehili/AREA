@@ -94,10 +94,14 @@ export default function ActivityLogPage() {
 
   const getStatusColor = (status: Activity["status"]) => {
     switch (status) {
-      case "success": return "bg-success";
-      case "failed": return "bg-destructive";
-      case "processing": return "bg-warning";
-      default: return "bg-muted";
+      case "success": 
+        return "!bg-success !border-success !text-white";
+      case "failed": 
+        return "!bg-destructive !border-destructive !text-white";
+      case "processing": 
+        return "!bg-warning !border-warning !text-white";
+      default: 
+        return "!bg-muted !border-muted !text-white";
     }
   };
 
@@ -150,7 +154,7 @@ export default function ActivityLogPage() {
                       <p className="text-xs text-muted-foreground mt-1">{activity.details}</p>
                     </div>
                     <div className="flex flex-col items-end space-y-2">
-                      <Badge variant="secondary" className={`${getStatusColor(activity.status)}`}>
+                      <Badge className={`${getStatusColor(activity.status)}`}>
                         {activity.status.charAt(0).toUpperCase() + activity.status.slice(1)}
                       </Badge>
                       <p className="text-xs text-muted-foreground">

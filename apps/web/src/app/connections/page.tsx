@@ -101,7 +101,7 @@ export default function ConnectionsPage() {
               <CardHeader className="p-0 mb-4">
                 <div className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-lg text-foreground">{s.name}</CardTitle>
-                  <Badge variant={s.connected ? "default" : "secondary"}>
+                  <Badge variant={s.connected ? "default" : "secondary"} className={s.connected ? "" : "text-white"}>
                     {s.connected ? "Connected" : "Not connected"}
                   </Badge>
                 </div>
