@@ -10,7 +10,7 @@ import httpx
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import create_engine
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -43,6 +43,13 @@ from app.services import get_user_by_email
 @compiles(UUID, "sqlite")
 def compile_uuid_sqlite(_element, _compiler, **_kw) -> str:
     """Render UUID columns as TEXT for the SQLite test database."""
+
+    return "TEXT"
+
+
+@compiles(JSONB, "sqlite")
+def compile_jsonb_sqlite(_element, _compiler, **_kw) -> str:
+    """Render JSONB columns as TEXT for the SQLite test database."""
 
     return "TEXT"
 
@@ -80,6 +87,15 @@ class SyncASGITestClient:
 
     def post(self, url: str, **kwargs) -> httpx.Response:
         return self.request("POST", url, **kwargs)
+
+    def delete(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("DELETE", url, **kwargs)
+
+    def put(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("PUT", url, **kwargs)
+
+    def patch(self, url: str, **kwargs) -> httpx.Response:
+        return self.request("PATCH", url, **kwargs)
 
     def __enter__(self) -> "SyncASGITestClient":
         return self

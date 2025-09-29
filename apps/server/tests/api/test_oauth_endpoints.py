@@ -77,7 +77,7 @@ class TestOAuthService:
         """Reset OAuth client before each test."""
         OAuthService._reset_oauth_client()
     
-    @patch('app.integrations.oauth.OAuth')
+    @patch('app.integrations.user_oauth.OAuth')
     def test_oauth_client_creation(self, mock_oauth_class):
         """Test that OAuth client is created correctly."""
         mock_oauth_instance = Mock()
@@ -94,8 +94,8 @@ class TestOAuthService:
         call_args = mock_oauth_instance.register.call_args
         assert call_args[1]['name'] == 'google'  # Check kwargs
     
-    @patch('app.integrations.oauth.OAuth')
-    @patch('app.integrations.oauth.OAuthService._find_or_create_google_user')
+    @patch('app.integrations.user_oauth.OAuth')
+    @patch('app.integrations.user_oauth.OAuthService._find_or_create_google_user')
     @pytest.mark.asyncio
     async def test_handle_google_callback_new_user(self, mock_find_or_create, mock_oauth_class):
         """Test handling Google callback for new user."""
@@ -132,8 +132,8 @@ class TestOAuthService:
         # Verify the user finding/creation method was called
         mock_find_or_create.assert_called_once_with(mock_db, 'newuser@example.com', 'google123456')
     
-    @patch('app.integrations.oauth.OAuth')
-    @patch('app.integrations.oauth.OAuthService._find_or_create_google_user')
+    @patch('app.integrations.user_oauth.OAuth')
+    @patch('app.integrations.user_oauth.OAuthService._find_or_create_google_user')
     @pytest.mark.asyncio
     async def test_handle_google_callback_existing_user(self, mock_find_or_create, mock_oauth_class):
         """Test handling Google callback for existing user."""
@@ -171,7 +171,7 @@ class TestOAuthService:
         # Verify the user finding method was called
         mock_find_or_create.assert_called_once_with(mock_db, 'existing@example.com', 'google123456')
     
-    @patch('app.integrations.oauth.OAuth')
+    @patch('app.integrations.user_oauth.OAuth')
     @pytest.mark.asyncio
     async def test_handle_google_callback_missing_userinfo(self, mock_oauth_class):
         """Test that missing user info raises appropriate exception."""
@@ -197,8 +197,8 @@ class TestOAuthService:
         assert exc_info.value.status_code == 400
         assert "user information" in exc_info.value.detail
 
-    @patch('app.integrations.oauth.get_user_by_email')
-    @patch('app.integrations.oauth.create_user')
+    @patch('app.integrations.user_oauth.get_user_by_email')
+    @patch('app.integrations.user_oauth.create_user')
     def test_find_or_create_google_user_new_user(self, mock_create_user, mock_get_user_by_email):
         """Test creating a new Google user."""
         # Setup mocks
@@ -228,7 +228,7 @@ class TestOAuthService:
         mock_create_user.assert_called_once()
         assert result == mock_user
     
-    @patch('app.integrations.oauth.get_user_by_email')
+    @patch('app.integrations.user_oauth.get_user_by_email')
     def test_find_or_create_google_user_existing_user_by_google_sub(self, mock_get_user_by_email):
         """Test finding existing user by Google sub."""
         # Setup mocks
