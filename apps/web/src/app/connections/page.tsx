@@ -79,7 +79,7 @@ export default function ConnectionsPage() {
 
       // Load existing connections
       const connectionsData = await requestJson<ServiceConnectionsResponse>(
-        "/service-connections/connections",
+        "/users/me/connections",
         { method: "GET" },
         auth.token,
       );
@@ -282,6 +282,7 @@ export default function ConnectionsPage() {
                   <>
                     {s.connection_id && (
                       <Button
+                        className="cursor-pointer"
                         variant="secondary"
                         size="sm"
                         onClick={() => testConnection(s.id, s.connection_id!)}
@@ -290,6 +291,7 @@ export default function ConnectionsPage() {
                       </Button>
                     )}
                     <Button
+                      className="cursor-pointer"
                       variant="outline"
                       onClick={() => s.connection_id && disconnectService(s.id, s.connection_id)}
                     >
