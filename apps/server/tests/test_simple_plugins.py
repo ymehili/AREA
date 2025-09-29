@@ -60,7 +60,7 @@ class TestPluginsRegistry:
 
         # Verify log was created
         area_logs = [r for r in caplog.records if r.name == "area"]
-        assert len(area_logs) > 0
+        assert len(area_logs) > 0, f"Expected logs from 'area' logger, got {len(caplog.records)} total records: {[r.name for r in caplog.records]}"
         assert "area_run" in area_logs[0].message
         assert "Test message at 2025-09-29T12:00:00Z" in area_logs[0].message
 
