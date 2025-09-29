@@ -15,6 +15,7 @@ type Service = {
   name: string;
   description: string;
   connected: boolean;
+  connection_id?: string;
 };
 
 type ServiceFromAPI = {
@@ -25,6 +26,29 @@ type ServiceFromAPI = {
 
 type ServiceListResponse = {
   services: ServiceFromAPI[];
+};
+
+type ServiceConnection = {
+  id: string;
+  service_name: string;
+  oauth_metadata?: {
+    provider: string;
+    user_info: {
+      login?: string;
+      name?: string;
+    };
+  };
+};
+
+type ServiceConnectionsResponse = ServiceConnection[];
+
+type OAuthProvidersResponse = {
+  providers: string[];
+};
+
+type ServiceConnectionTestResponse = {
+  success: boolean;
+  [key: string]: unknown;
 };
 
 export default function ConnectionsPage() {
@@ -39,17 +63,44 @@ export default function ConnectionsPage() {
     }
     setLoading(true);
     try {
-      const data = await requestJson<ServiceListResponse>(
+      // Load available services from catalog
+      const servicesData = await requestJson<ServiceListResponse>(
         "/services/services",
         { method: "GET" },
         auth.token,
       );
-      const transformed = data.services.map((service) => ({
-        id: service.slug,
-        name: service.name,
-        description: service.description,
-        connected: false,
-      }));
+
+      // Load OAuth providers
+      const providersData = await requestJson<OAuthProvidersResponse>(
+        "/service-connections/providers",
+        { method: "GET" },
+        auth.token,
+      );
+
+      // Load existing connections
+      const connectionsData = await requestJson<ServiceConnectionsResponse>(
+        "/users/me/connections",
+        { method: "GET" },
+        auth.token,
+      );
+
+      // Filter services to only show those with OAuth2 implementations
+      // and merge with connection status
+      const transformed = servicesData.services
+        .filter((service) => providersData.providers.includes(service.slug))
+        .map((service) => {
+          const connection = connectionsData.find(
+            (conn) => conn.service_name === service.slug
+          );
+          return {
+            id: service.slug,
+            name: service.name,
+            description: service.description,
+            connected: !!connection,
+            connection_id: connection?.id,
+          };
+        });
+
       setServices(transformed);
       setError(null);
     } catch (err) {
@@ -70,8 +121,128 @@ export default function ConnectionsPage() {
     void loadServices();
   }, [loadServices]);
 
-  const toggle = (id: string, state: boolean) => {
-    setServices((prev) => prev.map((s) => (s.id === id ? { ...s, connected: state } : s)));
+  // Handle OAuth2 callback messages from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    const service = urlParams.get('service');
+
+    if (success === 'connected' && service) {
+      toast.success(`Successfully connected to ${service}!`);
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Reload services to show new connection
+      void loadServices();
+    } else if (error) {
+      let errorMessage = 'Failed to connect to service.';
+      switch (error) {
+        case 'invalid_state':
+          errorMessage = 'Security check failed. Please try again.';
+          break;
+        case 'session_expired':
+          errorMessage = 'Session expired. Please try connecting again.';
+          break;
+        case 'connection_failed':
+          errorMessage = 'Failed to establish connection. Please try again.';
+          break;
+        case 'access_denied':
+          errorMessage = 'Access was denied. Please authorize the application.';
+          break;
+        case 'already_connected':
+          errorMessage = `You are already connected to ${service || 'this service'}.`;
+          break;
+      }
+      toast.error(errorMessage);
+      // Clean up URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [loadServices]);
+
+  const connectService = async (serviceId: string) => {
+    if (!auth.token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    try {
+      const data = await requestJson<{ authorization_url: string }>(
+        `/service-connections/connect/${serviceId}`,
+        { method: "POST", credentials: "include" },
+        auth.token,
+      );
+
+      if (!data.authorization_url) {
+        toast.error("Unable to start OAuth flow. Please try again.");
+        return;
+      }
+
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+
+      const message =
+        err instanceof Error ? err.message : "Unable to initiate service connection.";
+      toast.error(message);
+    }
+  };
+
+  const disconnectService = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      await requestJson(
+        `/service-connections/connections/${connectionId}`,
+        { method: "DELETE" },
+        auth.token,
+      );
+
+      toast.success(`${serviceId} disconnected successfully.`);
+      // Reload services to update connection status
+      void loadServices();
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Unable to disconnect service.";
+      toast.error(message);
+    }
+  };
+
+  const testConnection = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      const testResult = await requestJson<ServiceConnectionTestResponse>(
+        `/service-connections/test/${serviceId}/${connectionId}`,
+        { method: "GET" },
+        auth.token,
+      );
+
+      if (testResult.success) {
+        toast.success(`${serviceId} connection test successful!`);
+      } else {
+        toast.error(`${serviceId} connection test failed.`);
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+      const message = err instanceof Error ? err.message : "Unable to test connection.";
+      toast.error(message);
+    }
   };
 
   return (
@@ -106,17 +277,30 @@ export default function ConnectionsPage() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <p className="text-sm text-muted-foreground mb-4">{s.description}</p>
-                <div className="flex justify-end">
-                  {s.connected ? (
-                    <Button variant="outline" onClick={() => toggle(s.id, false)}>
+              <CardContent className="flex gap-2 justify-end">
+                {s.connected ? (
+                  <>
+                    {s.connection_id && (
+                      <Button
+                        className="cursor-pointer"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => testConnection(s.id, s.connection_id!)}
+                      >
+                        Test
+                      </Button>
+                    )}
+                    <Button
+                      className="cursor-pointer"
+                      variant="outline"
+                      onClick={() => s.connection_id && disconnectService(s.id, s.connection_id)}
+                    >
                       Disconnect
                     </Button>
-                  ) : (
-                    <Button onClick={() => toggle(s.id, true)}>Connect</Button>
-                  )}
-                </div>
+                  </>
+                ) : (
+                  <Button onClick={() => void connectService(s.id)}>Connect</Button>
+                )}
               </CardContent>
             </Card>
           ))}

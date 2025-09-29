@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_db
 from app.api.dependencies.auth import require_active_user
 from app.models.user import User
+from app.models.service_connection import ServiceConnection
 from app.schemas.profile import (
     LoginMethodLinkRequest,
     LoginMethodStatus,
@@ -15,6 +16,7 @@ from app.schemas.profile import (
     UserProfileResponse,
     UserProfileUpdate,
 )
+from app.schemas.service_connection import ServiceConnectionRead
 from app.services import (
     IncorrectPasswordError,
     LastLoginMethodRemovalError,
@@ -183,6 +185,22 @@ def unlink_login_method(
 
     db.refresh(current_user)
     return _get_login_method_status(provider, current_user)
+
+
+@router.get("/me/connections", response_model=list[ServiceConnectionRead])
+def list_user_service_connections(
+    current_user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> list[ServiceConnectionRead]:
+    """List all service connections for the current user."""
+
+    connections = (
+        db.query(ServiceConnection)
+        .filter(ServiceConnection.user_id == current_user.id)
+        .all()
+    )
+
+    return [ServiceConnectionRead.model_validate(conn) for conn in connections]
 
 
 __all__ = ["router"]
