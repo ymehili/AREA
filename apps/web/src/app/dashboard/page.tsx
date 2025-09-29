@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { cn, headingClasses } from "@/lib/utils";
 import { UnauthorizedError, requestJson, deleteArea as apiDeleteArea } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 
@@ -114,12 +115,12 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
           <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
         </div>
       </AppShell>
     );
@@ -128,12 +129,12 @@ export default function DashboardPage() {
   if (error) {
     return (
       <AppShell>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
           <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
         </div>
         <div className="flex justify-center items-center h-64">
-          <div className="text-red-500 text-center">
+          <div className="text-destructive text-center">
             <p className="font-semibold">Error loading areas</p>
             <p>{error}</p>
             <Button onClick={() => void loadAreas()} className="mt-4">
@@ -147,36 +148,38 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
         <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
       </div>
       {areas.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Get started</CardTitle>
+        <Card className="p-6">
+          <CardHeader className="p-0 mb-4">
+            <CardTitle className={cn(headingClasses(3), "text-foreground")}>Get started</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <p className="text-sm text-muted-foreground mb-4">You have no AREAs yet.</p>
             <Button onClick={() => (window.location.href = "/wizard")}>Create your first AREA</Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {areas.map((area) => (
-            <Card key={area.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base font-medium">{area.name}</CardTitle>
-                <Badge variant={area.enabled ? "default" : "secondary"}>
-                  {area.enabled ? "Enabled" : "Disabled"}
-                </Badge>
+            <Card key={area.id} className="p-4">
+              <CardHeader className="p-0 mb-4">
+                <div className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-lg font-medium text-foreground">{area.name}</CardTitle>
+                  <Badge variant={area.enabled ? "default" : "secondary"}>
+                    {area.enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="flex items-center justify-between gap-2">
-                <div className="text-sm text-muted-foreground">
+              <CardContent className="p-0">
+                <div className="text-sm text-muted-foreground mb-4">
                   <div>When: {area.trigger}</div>
                   <div>Then: {area.action}</div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <Switch
                     checked={area.enabled}
                     onCheckedChange={(v) => void toggleArea(area.id, v)}
