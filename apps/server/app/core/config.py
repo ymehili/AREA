@@ -95,6 +95,16 @@ class Settings(BaseSettings):
         alias="FRONTEND_REDIRECT_URL_MOBILE"
     )
 
+    # GitHub OAuth Configuration
+    github_client_id: str = Field(
+        default="",
+        alias="GITHUB_CLIENT_ID",
+    )
+    github_client_secret: str = Field(
+        default="",
+        alias="GITHUB_CLIENT_SECRET",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
