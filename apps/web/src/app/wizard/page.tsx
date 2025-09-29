@@ -42,10 +42,18 @@ export default function WizardPage() {
   const [action, setAction] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [showDuplicateNameDialog, setShowDuplicateNameDialog] = useState(false);
+  type AreaPayload = {
+    name: string;
+    trigger_service: string;
+    trigger_action: string;
+    reaction_service: string;
+    reaction_action: string;
+  };
+
   const [duplicateAreaData, setDuplicateAreaData] = useState<{
     name: string;
     uniqueName: string;
-    payload: any;
+    payload: AreaPayload;
   } | null>(null);
 
   const next = () => setStep((s) => Math.min(s + 1, 5) as Step);
@@ -243,12 +251,12 @@ export default function WizardPage() {
           <DialogHeader>
             <DialogTitle>Duplicate Area Name</DialogTitle>
             <DialogDescription>
-              An area with the name "{duplicateAreaData?.name}" already exists.
+              An area with the name &quot;{duplicateAreaData?.name}&quot; already exists.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <p className="text-sm text-muted-foreground">
-              Would you like to create it with a unique name: <strong>"{duplicateAreaData?.uniqueName}"</strong>?
+              Would you like to create it with a unique name: <strong>&quot;{duplicateAreaData?.uniqueName}&quot;</strong>?
             </p>
           </div>
           <DialogFooter>
