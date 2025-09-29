@@ -40,29 +40,28 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-10 w-full border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-14 flex items-center gap-2 justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard" className="font-semibold">
+      <header className="sticky top-0 z-10 w-full border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center gap-4 justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="font-heading font-normal text-xl tracking-[1px] uppercase text-foreground">
               Action-Reaction
             </Link>
-            <Separator orientation="vertical" className="h-6" />
-            <nav className="hidden md:flex items-center gap-1">
+            <Separator orientation="vertical" className="h-6 bg-border" />
+            <nav className="hidden md:flex items-center gap-2">
               <NavLink href="/dashboard" label="Dashboard" />
               <NavLink href="/connections" label="Connections" />
-              <NavLink href="/wizard" label="Create AREA" />
-              <NavLink href="/profile" label="Profile" />
+              <NavLink href="/profile" label="Account" />
             </nav>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => router.push("/wizard")}>Create AREA</Button>
-            <Button size="sm" variant="ghost" onClick={handleLogout} disabled={auth.loading}>
+            <Button size="sm" variant="default" onClick={() => router.push("/wizard")}>Create AREA</Button>
+            <Button size="sm" variant="ghost" onClick={handleLogout} disabled={auth.loading} className="text-foreground border-border hover:bg-accent">
               Logout
             </Button>
           </div>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-6 flex-1">{children}</main>
+      <main className="container mx-auto px-4 py-8 flex-1">{children}</main>
     </div>
   );
 }

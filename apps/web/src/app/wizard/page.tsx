@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMemo, useState } from "react";
 import { createArea } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
+import { cn, headingClasses } from "@/lib/utils";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -45,16 +46,41 @@ export default function WizardPage() {
 
   return (
     <AppShell>
-      <Card>
-        <CardHeader>
-          <CardTitle>AREA Creation Wizard</CardTitle>
+      <Card className="p-6">
+        <CardHeader className="p-0 mb-4">
+          <CardTitle className={cn(headingClasses(1), "text-foreground")}>AREA Creation Wizard</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="text-sm text-muted-foreground">Step {step} of 5</div>
+        <CardContent className="p-0 space-y-6">
+          <div className="text-sm text-muted-foreground mb-4">Step {step} of 5</div>
+
+          {/* Step progress indicator */}
+          <div className="flex items-center justify-between mb-6">
+            {([1, 2, 3, 4, 5] as Step[]).map((s) => (
+              <div key={s} className="flex flex-col items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  s === step 
+                    ? 'bg-primary text-primary-foreground' 
+                    : s < step 
+                      ? 'bg-success text-success-foreground' 
+                      : 'bg-muted text-muted-foreground'
+                }`}>
+                  {s}
+                </div>
+                <div className="text-xs mt-2 text-center">
+                  {s === 1 && 'Trigger Service'}
+                  {s === 2 && 'Trigger'}
+                  {s === 3 && 'Action Service'}
+                  {s === 4 && 'Action'}
+                  {s === 5 && 'Review'}
+                </div>
+              </div>
+            ))}
+          </div>
 
           {step === 1 && (
-            <div className="space-y-2">
-              <div className="font-medium">Step 1: Choose Trigger Service</div>
+            <div className="space-y-4">
+              <div className="text-xl font-medium text-foreground">Step 1: Choose Trigger Service</div>
+              <div className="text-sm text-muted-foreground mb-4">Select the service that will trigger the action</div>
               <Select onValueChange={setTriggerService} value={triggerService}>
                 <SelectTrigger className="w-full md:w-80">
                   <SelectValue placeholder="Select a service" />
@@ -71,8 +97,9 @@ export default function WizardPage() {
           )}
 
           {step === 2 && (
-            <div className="space-y-2">
-              <div className="font-medium">Step 2: Choose Trigger</div>
+            <div className="space-y-4">
+              <div className="text-xl font-medium text-foreground">Step 2: Choose Trigger</div>
+              <div className="text-sm text-muted-foreground mb-4">Select the specific trigger event</div>
               <Select onValueChange={setTrigger} value={trigger}>
                 <SelectTrigger className="w-full md:w-80">
                   <SelectValue placeholder="Select a trigger" />
@@ -89,8 +116,9 @@ export default function WizardPage() {
           )}
 
           {step === 3 && (
-            <div className="space-y-2">
-              <div className="font-medium">Step 3: Choose REAction Service</div>
+            <div className="space-y-4">
+              <div className="text-xl font-medium text-foreground">Step 3: Choose REAction Service</div>
+              <div className="text-sm text-muted-foreground mb-4">Select the service that will react to the trigger</div>
               <Select onValueChange={setActionService} value={actionService}>
                 <SelectTrigger className="w-full md:w-80">
                   <SelectValue placeholder="Select a service" />
@@ -107,8 +135,9 @@ export default function WizardPage() {
           )}
 
           {step === 4 && (
-            <div className="space-y-2">
-              <div className="font-medium">Step 4: Choose REAction</div>
+            <div className="space-y-4">
+              <div className="text-xl font-medium text-foreground">Step 4: Choose REAction</div>
+              <div className="text-sm text-muted-foreground mb-4">Select the specific reaction action</div>
               <Select onValueChange={setAction} value={action}>
                 <SelectTrigger className="w-full md:w-80">
                   <SelectValue placeholder="Select an action" />
@@ -125,15 +154,18 @@ export default function WizardPage() {
           )}
 
           {step === 5 && (
-            <div className="space-y-2">
-              <div className="font-medium">Step 5: Review & Confirm</div>
-              <div className="text-sm text-muted-foreground">
-                If new &quot;{trigger}&quot; in {triggerService}, then &quot;{action}&quot; in {actionService}.
+            <div className="space-y-4">
+              <div className="text-xl font-medium text-foreground">Step 5: Review & Confirm</div>
+              <div className="text-sm text-muted-foreground mb-4">Confirm your AREA configuration</div>
+              <div className="bg-muted p-4 rounded-md">
+                <div className="text-sm text-muted-foreground">
+                  If new &quot;{trigger}&quot; in {triggerService}, then &quot;{action}&quot; in {actionService}.
+                </div>
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-6 border-t">
             <Button variant="outline" onClick={back} disabled={step === 1}>
               Back
             </Button>
