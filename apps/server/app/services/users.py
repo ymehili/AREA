@@ -242,56 +242,6 @@ def unlink_login_provider(
     db.refresh(user)
     return user
 
-
-def get_or_create_user_from_oauth(
-    db: Session,
-    email: str,
-    provider: str,
-    provider_id: str,
-) -> User:
-    """Get existing user or create new one from OAuth data.
-    
-    Args:
-        db: Database session
-        email: User's email address
-        provider: OAuth provider name (google, github, etc.)
-        provider_id: Unique identifier from the OAuth provider
-        
-    Returns:
-        User object
-    """
-    # Check if user exists with this provider ID
-    column = _resolve_provider_column(provider)
-    user = db.query(User).filter(getattr(User, column) == provider_id).first()
-    
-    # If not found by provider ID, check by email
-    if not user:
-        user = get_user_by_email(db, email)
-        if user and getattr(user, column) is None:
-            # Link existing account with OAuth provider
-            setattr(user, column, provider_id)
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        elif not user:
-            # Create new user
-            from app.schemas.auth import UserCreate
-            user_create = UserCreate(
-                email=email,
-                password="oauth_user_no_password"  # Placeholder password
-            )
-            user = create_user(db, user_create)
-            user.is_confirmed = True  # OAuth users are automatically confirmed
-            setattr(user, column, provider_id)
-            # Clear password for OAuth users
-            user.hashed_password = ""
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-    
-    return user
-
-
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -301,7 +251,6 @@ __all__ = [
     "create_user",
     "change_user_password",
     "get_user_by_email",
-    "get_or_create_user_from_oauth",
     "link_login_provider",
     "unlink_login_provider",
     "update_user_profile",

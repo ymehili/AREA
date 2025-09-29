@@ -149,14 +149,13 @@ class OAuthService:
                 db.commit()
                 db.refresh(user)
             elif not user:
-                # Create new user
-                user_create = UserCreate(
-                    email=email,
-                    password="oauth_user_no_password"  # Placeholder password
+                # Create new user directly without using UserCreate schema
+                user = User(
+                    email=email.strip().lower(),
+                    hashed_password="",  # No password for OAuth users
+                    google_oauth_sub=google_sub,
+                    is_confirmed=True,  # OAuth users are automatically confirmed
                 )
-                user = create_user(db, user_create, send_email=False)
-                user.google_oauth_sub = google_sub
-                user.is_confirmed = True  # OAuth users are automatically confirmed
                 db.add(user)
                 db.commit()
                 db.refresh(user)
