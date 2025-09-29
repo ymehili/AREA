@@ -49,8 +49,10 @@ def create_area(db: Session, area_in: AreaCreate, user_id: str) -> Area:
         name=area_in.name,
         trigger_service=area_in.trigger_service,
         trigger_action=area_in.trigger_action,
+        trigger_params=area_in.trigger_params,
         reaction_service=area_in.reaction_service,
         reaction_action=area_in.reaction_action,
+        reaction_params=area_in.reaction_params,
     )
 
     db.add(area)
@@ -88,11 +90,17 @@ def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Opti
     if area_in.trigger_action is not None:
         area.trigger_action = area_in.trigger_action
 
+    if area_in.trigger_params is not None:
+        area.trigger_params = area_in.trigger_params
+
     if area_in.reaction_service is not None:
         area.reaction_service = area_in.reaction_service
 
     if area_in.reaction_action is not None:
         area.reaction_action = area_in.reaction_action
+
+    if area_in.reaction_params is not None:
+        area.reaction_params = area_in.reaction_params
 
     if area_in.enabled is not None:
         area.enabled = area_in.enabled
