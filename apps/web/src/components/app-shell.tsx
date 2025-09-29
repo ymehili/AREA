@@ -6,7 +6,7 @@ import { ReactNode } from "react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { cn, headingClasses } from "@/lib/utils";
+
 
 // Define navigation routes
 const NAV_ROUTES = [

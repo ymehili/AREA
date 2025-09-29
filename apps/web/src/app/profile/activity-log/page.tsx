@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { useRequireAuth } from "@/hooks/use-auth";
-import { UnauthorizedError, requestJson } from "@/lib/api";
+import { UnauthorizedError } from "@/lib/api";
 import { toast } from "sonner";
 
 type Activity = {
