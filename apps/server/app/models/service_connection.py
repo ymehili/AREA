@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -57,6 +57,9 @@ class ServiceConnection(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+    oauth_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSONB, nullable=True, comment="Provider-specific OAuth metadata"
     )
 
     # Relationship to User
