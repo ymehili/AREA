@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db, require_active_user
@@ -20,64 +18,15 @@ from app.services.oauth_connections import OAuthConnectionService
 router = APIRouter(tags=["service-connections"])
 
 
-def _get_user_from_token(token: str, db: Session) -> User:
-    """Validate JWT token and return associated user."""
-    try:
-        payload = jwt.decode(
-            token,
-            settings.secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        )
-
-    subject = payload.get("sub")
-    if subject is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        )
-
-    try:
-        user_id = uuid.UUID(str(subject))
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-        )
-
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    if not user.is_confirmed:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email address must be confirmed before accessing this resource.",
-        )
-
-    return user
-
-
-@router.get("/connect/{provider}")
+@router.post("/connect/{provider}")
 async def initiate_service_connection(
     provider: str,
     request: Request,
-    token: str = Query(...),
-    db: Session = Depends(get_db),
-) -> RedirectResponse:
+    current_user: User = Depends(require_active_user),
+) -> dict[str, str]:
     """Initiate OAuth connection flow for a service provider."""
 
     try:
-        # Validate user token
-        current_user = _get_user_from_token(token, db)
-
         # Validate provider
         if provider not in OAuth2ProviderFactory.get_supported_providers():
             raise HTTPException(
@@ -93,7 +42,7 @@ async def initiate_service_connection(
         # Get authorization URL
         auth_url = OAuthConnectionService.get_authorization_url(provider, state)
 
-        return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+        return {"authorization_url": auth_url}
 
     except UnsupportedProviderError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
