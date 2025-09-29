@@ -24,6 +24,12 @@ class OAuth2ProviderFactory:
         if provider_name not in cls._providers:
             raise UnsupportedProviderError(f"Provider '{provider_name}' is not supported")
 
+        if not cls._is_provider_configured(provider_name):
+            raise UnsupportedProviderError(
+                f"Provider '{provider_name}' is not configured. "
+                f"Please set the required environment variables."
+            )
+
         config = cls._get_provider_config(provider_name)
         provider_class = cls._providers[provider_name]
         return provider_class(config)
@@ -49,9 +55,21 @@ class OAuth2ProviderFactory:
         cls._providers[provider_name] = provider_class
 
     @classmethod
+    def _is_provider_configured(cls, provider_name: str) -> bool:
+        """Check if provider has required credentials configured."""
+        if provider_name == "github":
+            return bool(settings.github_client_id and settings.github_client_secret)
+
+        return False
+
+    @classmethod
     def get_supported_providers(cls) -> list[str]:
-        """Get list of supported provider names."""
-        return list(cls._providers.keys())
+        """Get list of supported provider names that are properly configured."""
+        return [
+            provider_name
+            for provider_name in cls._providers.keys()
+            if cls._is_provider_configured(provider_name)
+        ]
 
 
 __all__ = ["OAuth2ProviderFactory"]
