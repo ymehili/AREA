@@ -28,6 +28,32 @@ class ServiceIntegration:
 
 SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
     ServiceIntegration(
+        slug="time",
+        name="Time",
+        description="Time-based triggers for scheduled automation workflows.",
+        actions=(
+            AutomationOption(
+                key="every_interval",
+                name="Every Interval",
+                description="Triggers at regular intervals (configurable in seconds).",
+            ),
+        ),
+        reactions=(),
+    ),
+    ServiceIntegration(
+        slug="debug",
+        name="Debug",
+        description="Debugging and logging utilities for development and testing.",
+        actions=(),
+        reactions=(
+            AutomationOption(
+                key="log",
+                name="Log Message",
+                description="Logs a message to the application logs.",
+            ),
+        ),
+    ),
+    ServiceIntegration(
         slug="gmail",
         name="Gmail",
         description="Automate workflows around incoming and outgoing email events.",
