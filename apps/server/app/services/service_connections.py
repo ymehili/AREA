@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -46,8 +46,13 @@ def get_service_connection_by_user_and_service(db: Session, user_id: str, servic
     return result.scalar_one_or_none()
 
 
-def create_service_connection(db: Session, service_connection_in: ServiceConnectionCreate, user_id: str) -> ServiceConnection:
-    """Create a new service connection with encrypted tokens."""
+def create_service_connection(
+    db: Session,
+    service_connection_in: ServiceConnectionCreate,
+    user_id: str,
+    oauth_metadata: Optional[Dict[str, Any]] = None
+) -> ServiceConnection:
+    """Create a new service connection with encrypted tokens and optional metadata."""
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, user_id, service_connection_in.service_name)
     if existing_connection is not None:
@@ -63,6 +68,7 @@ def create_service_connection(db: Session, service_connection_in: ServiceConnect
         encrypted_access_token=encrypted_access_token,
         encrypted_refresh_token=encrypted_refresh_token,
         expires_at=service_connection_in.expires_at,
+        oauth_metadata=oauth_metadata,
     )
 
     db.add(service_connection)

@@ -143,6 +143,55 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="github",
+        name="GitHub",
+        description="Automate workflows around repository events and issue management.",
+        actions=(
+            AutomationOption(
+                key="push_to_repository",
+                name="Push to Repository",
+                description="Triggers when code is pushed to a repository.",
+            ),
+            AutomationOption(
+                key="new_issue",
+                name="New Issue Created",
+                description="Triggers when a new issue is created in a repository.",
+            ),
+            AutomationOption(
+                key="pull_request_opened",
+                name="Pull Request Opened",
+                description="Triggers when a new pull request is opened.",
+            ),
+            AutomationOption(
+                key="release_published",
+                name="Release Published",
+                description="Triggers when a new release is published.",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="create_issue",
+                name="Create Issue",
+                description="Create a new issue in a repository.",
+            ),
+            AutomationOption(
+                key="add_comment",
+                name="Add Comment",
+                description="Add a comment to an issue or pull request.",
+            ),
+            AutomationOption(
+                key="create_branch",
+                name="Create Branch",
+                description="Create a new branch in a repository.",
+            ),
+            AutomationOption(
+                key="update_file",
+                name="Update File",
+                description="Update or create a file in a repository.",
+            ),
+        ),
+    ),
 )
 
 
