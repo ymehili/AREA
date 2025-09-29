@@ -149,6 +149,9 @@ export default function ConnectionsPage() {
         case 'access_denied':
           errorMessage = 'Access was denied. Please authorize the application.';
           break;
+        case 'already_connected':
+          errorMessage = `You are already connected to ${service || 'this service'}.`;
+          break;
       }
       toast.error(errorMessage);
       // Clean up URL parameters
@@ -228,7 +231,6 @@ export default function ConnectionsPage() {
 
       if (testResult.success) {
         toast.success(`${serviceId} connection test successful!`);
-        console.log('API Test Result:', testResult);
       } else {
         toast.error(`${serviceId} connection test failed.`);
       }

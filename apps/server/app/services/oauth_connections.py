@@ -55,7 +55,7 @@ class OAuthConnectionService:
             # Get user info for verification
             user_info = await provider.get_user_info(token_set.access_token)
 
-            # Create service connection
+            # Create service connection with metadata in single transaction
             connection_data = ServiceConnectionCreate(
                 service_name=provider_name,
                 access_token=token_set.access_token,
@@ -63,10 +63,7 @@ class OAuthConnectionService:
                 expires_at=None,  # GitHub tokens don't expire
             )
 
-            connection = create_service_connection(db, connection_data, user_id)
-
-            # Store OAuth metadata
-            connection.oauth_metadata = {
+            oauth_metadata = {
                 "provider": provider_name,
                 "user_info": {
                     "id": user_info.get("id"),
@@ -78,10 +75,7 @@ class OAuthConnectionService:
                 "token_type": token_set.token_type,
             }
 
-            db.add(connection)
-            db.commit()
-            db.refresh(connection)
-
+            connection = create_service_connection(db, connection_data, user_id, oauth_metadata)
             return connection
 
         except Exception as e:
