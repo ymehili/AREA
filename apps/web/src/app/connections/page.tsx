@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UnauthorizedError, requestJson } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { cn, headingClasses } from "@/lib/utils";
 
 type Service = {
   id: string;
@@ -75,17 +76,17 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Service Connection Hub</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className={cn(headingClasses(1), "text-foreground")}>Service Connection Hub</h1>
       </div>
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
         </div>
       ) : error ? (
         <div className="flex justify-center items-center h-64">
-          <div className="text-red-500 text-center">
+          <div className="text-destructive text-center">
             <p className="font-semibold">Error loading services</p>
             <p>{error}</p>
             <Button onClick={() => void loadServices()} className="mt-4">
@@ -94,23 +95,28 @@ export default function ConnectionsPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <Card key={s.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-base">{s.name}</CardTitle>
-                <Badge variant={s.connected ? "default" : "secondary"}>
-                  {s.connected ? "Connected" : "Not connected"}
-                </Badge>
+            <Card key={s.id} className="p-4">
+              <CardHeader className="p-0 mb-4">
+                <div className="flex flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-lg text-foreground">{s.name}</CardTitle>
+                  <Badge variant={s.connected ? "default" : "secondary"}>
+                    {s.connected ? "Connected" : "Not connected"}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="flex gap-2 justify-end">
-                {s.connected ? (
-                  <Button variant="outline" onClick={() => toggle(s.id, false)}>
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button onClick={() => toggle(s.id, true)}>Connect</Button>
-                )}
+              <CardContent className="p-0">
+                <p className="text-sm text-muted-foreground mb-4">{s.description}</p>
+                <div className="flex justify-end">
+                  {s.connected ? (
+                    <Button variant="outline" onClick={() => toggle(s.id, false)}>
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button onClick={() => toggle(s.id, true)}>Connect</Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
