@@ -230,3 +230,60 @@ def test_unsupported_login_provider_returns_404(
         headers=_auth_headers(auth_token),
     )
     assert response.status_code == 404
+
+
+def test_list_user_service_connections(
+    client: SyncASGITestClient,
+    auth_token: str,
+    db_session: Session,
+) -> None:
+    """Test the /me/connections endpoint for listing user service connections."""
+    import uuid
+    from jose import jwt
+    from app.models.service_connection import ServiceConnection
+    from app.core.config import settings
+
+    # Get user ID from token
+    payload = jwt.decode(auth_token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    user_id = uuid.UUID(payload["sub"])
+
+    # Create a test service connection
+    connection = ServiceConnection(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        service_name="github",
+        encrypted_access_token="encrypted_token",
+        oauth_metadata={
+            "provider": "github",
+            "user_info": {"login": "testuser", "id": 123},
+            "scopes": ["repo", "user:email"],
+            "token_type": "Bearer"
+        }
+    )
+    db_session.add(connection)
+    db_session.commit()
+
+    response = client.get(
+        "/api/v1/users/me/connections",
+        headers=_auth_headers(auth_token),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+
+    # Verify the connection data doesn't include sensitive tokens
+    connection_data = data[0]
+    assert "encrypted_access_token" not in connection_data
+    assert "encrypted_refresh_token" not in connection_data
+    assert connection_data["service_name"] == "github"
+    assert connection_data["oauth_metadata"]["provider"] == "github"
+
+
+def test_list_user_service_connections_unauthenticated(
+    client: SyncASGITestClient,
+) -> None:
+    """Test the /me/connections endpoint without authentication."""
+    response = client.get("/api/v1/users/me/connections")
+    assert response.status_code == 401
