@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/use-auth";
+import { cn, headingClasses } from "@/lib/utils";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -50,12 +51,14 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Action-Reaction</CardTitle>
+    <div className="min-h-screen grid place-items-center p-4 bg-background">
+      <Card className="w-full max-w-md p-6">
+        <CardHeader className="p-0 mb-6">
+          <CardTitle className={cn(headingClasses(1), "text-foreground text-center")}>
+            Action-Reaction
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {auth.pendingConfirmationEmail ? (
             <Alert className="mb-4">
               <AlertTitle>Confirm your email</AlertTitle>
@@ -67,48 +70,52 @@ export default function AuthPage() {
             </Alert>
           ) : null}
           <Tabs value={mode} onValueChange={(value) => setMode(value as typeof mode)}>
-            <TabsList className="grid grid-cols-2 mb-4">
+            <TabsList className="grid grid-cols-2 mb-6">
               <TabsTrigger value="login">Log in</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email" className="text-foreground">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="bg-background border-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password" className="text-foreground">Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="bg-background border-input"
+                    />
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isBusy}>
                   {isBusy ? "Signing in…" : "Continue"}
                 </Button>
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300" />
+                    <div className="w-full border-t border-input" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                    <span className="px-2 bg-background text-foreground">Or continue with</span>
                   </div>
                 </div>
                 <Button 
                   type="button" 
-                  className="w-full bg-red-500 hover:bg-red-600 text-white"
+                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
                   onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
                 >
                   Sign in with Google
@@ -116,29 +123,33 @@ export default function AuthPage() {
               </form>
             </TabsContent>
             <TabsContent value="register">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email" className="text-foreground">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="bg-background border-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password" className="text-foreground">Password</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="bg-background border-input"
+                    />
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isBusy}>
                   {isBusy ? "Creating account…" : "Create account"}
