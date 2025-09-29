@@ -59,3 +59,7 @@ PRPs
 pnpm-lock.yaml
 
 CLAUDE.md
+
+# IDE and Android Studio
+.idea
+android-studio
