@@ -6,7 +6,7 @@ import AppShell from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { UnauthorizedError, requestJson, API_BASE_URL } from "@/lib/api";
+import { UnauthorizedError, requestJson } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 
 type Service = {
@@ -45,12 +45,16 @@ type OAuthProvidersResponse = {
   providers: string[];
 };
 
+type ServiceConnectionTestResponse = {
+  success: boolean;
+  [key: string]: unknown;
+};
+
 export default function ConnectionsPage() {
   const auth = useRequireAuth();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [oauthProviders, setOAuthProviders] = useState<string[]>([]);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
@@ -71,7 +75,6 @@ export default function ConnectionsPage() {
         { method: "GET" },
         auth.token,
       );
-      setOAuthProviders(providersData.providers);
 
       // Load existing connections
       const connectionsData = await requestJson<ServiceConnectionsResponse>(
@@ -152,15 +155,36 @@ export default function ConnectionsPage() {
     }
   }, [loadServices]);
 
-  const connectService = (serviceId: string) => {
+  const connectService = async (serviceId: string) => {
     if (!auth.token) {
       toast.error("Authentication required. Please log in again.");
       return;
     }
 
-    // Redirect with token as query parameter (temporary solution)
-    const connectUrl = `${API_BASE_URL}/service-connections/connect/${serviceId}?token=${encodeURIComponent(auth.token)}`;
-    window.location.href = connectUrl;
+    try {
+      const data = await requestJson<{ authorization_url: string }>(
+        `/service-connections/connect/${serviceId}`,
+        { method: "POST", credentials: "include" },
+        auth.token,
+      );
+
+      if (!data.authorization_url) {
+        toast.error("Unable to start OAuth flow. Please try again.");
+        return;
+      }
+
+      window.location.href = data.authorization_url;
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        auth.logout();
+        toast.error("Session expired. Please sign in again.");
+        return;
+      }
+
+      const message =
+        err instanceof Error ? err.message : "Unable to initiate service connection.";
+      toast.error(message);
+    }
   };
 
   const disconnectService = async (serviceId: string, connectionId: string) => {
@@ -195,7 +219,7 @@ export default function ConnectionsPage() {
     }
 
     try {
-      const testResult = await requestJson(
+      const testResult = await requestJson<ServiceConnectionTestResponse>(
         `/service-connections/test/${serviceId}/${connectionId}`,
         { method: "GET" },
         auth.token,
