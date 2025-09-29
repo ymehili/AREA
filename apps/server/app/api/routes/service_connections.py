@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -14,8 +15,10 @@ from app.models.service_connection import ServiceConnection
 from app.models.user import User
 from app.schemas.service_connection import ServiceConnectionRead
 from app.services.oauth_connections import OAuthConnectionService
+from app.services.service_connections import DuplicateServiceConnectionError
 
 router = APIRouter(tags=["service-connections"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/connect/{provider}")
@@ -47,9 +50,10 @@ async def initiate_service_connection(
     except UnsupportedProviderError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
+        logger.exception("Failed to initiate OAuth connection for provider %s", provider)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initiate connection: {str(e)}",
+            detail="Failed to initiate connection",
         )
 
 
@@ -103,12 +107,20 @@ async def handle_service_connection_callback(
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
+    except DuplicateServiceConnectionError as e:
+        logger.info("User %s already has connection for provider %s", user_id, provider)
+        return RedirectResponse(
+            url=f"{settings.frontend_redirect_url_web}/connections?error=already_connected&service={provider}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
     except OAuth2Error as e:
+        logger.exception("OAuth error during callback for provider %s", provider)
         return RedirectResponse(
             url=f"{settings.frontend_redirect_url_web}/connections?error=connection_failed",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except Exception as e:
+        logger.exception("Unexpected error during OAuth callback for provider %s", provider)
         return RedirectResponse(
             url=f"{settings.frontend_redirect_url_web}/connections?error=unknown",
             status_code=status.HTTP_303_SEE_OTHER,

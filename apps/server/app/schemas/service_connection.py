@@ -32,7 +32,20 @@ class ServiceConnectionUpdate(ServiceConnectionBase):
 
 
 class ServiceConnectionRead(ServiceConnectionBase):
-    """Schema for reading a ServiceConnection with all fields."""
+    """Schema for reading a ServiceConnection without sensitive token data."""
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    expires_at: Optional[datetime] = None
+    oauth_metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ServiceConnectionInternal(ServiceConnectionBase):
+    """Internal schema for ServiceConnection with all fields including tokens."""
 
     id: uuid.UUID
     user_id: uuid.UUID
@@ -59,6 +72,7 @@ __all__ = [
     "ServiceConnectionBase",
     "ServiceConnectionCreate",
     "ServiceConnectionRead",
+    "ServiceConnectionInternal",
     "ServiceConnectionUpdate",
     "OAuthMetadata",
 ]
