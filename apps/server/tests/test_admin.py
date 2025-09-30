@@ -24,7 +24,7 @@ def test_admin_user_creation(client: TestClient, db_session: Session):
 
 def test_admin_route_requires_authentication(client: TestClient):
     """Test that admin routes require authentication."""
-    response = client.get("/admin/dashboard")
+    response = client.get("/api/v1/admin/dashboard")
     # Should return 401 or 403 if not authenticated
     assert response.status_code in [401, 403]
 
@@ -41,7 +41,7 @@ def test_admin_route_accessible_to_admins(client: TestClient, admin_user: User):
     
     # Access admin route with token
     response = client.get(
-        "/admin/dashboard",
+        "/api/v1/admin/dashboard",
         headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 200
@@ -66,7 +66,7 @@ def test_non_admin_user_cannot_access_admin_routes(
     
     # Try to access admin route with regular user token
     response = client.get(
-        "/admin/dashboard",
+        "/api/v1/admin/dashboard",
         headers={"Authorization": f"Bearer {token}"}
     )
     # Should return 403 Forbidden

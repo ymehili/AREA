@@ -71,6 +71,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     auth.logout();
   };
 
+  const handleAdminClick = () => {
+    router.push("/admin");
+  };
+
   const NavLink = ({ href, label }: { href: string; label: string }) => {
     const active = pathname === href || pathname.startsWith(`${href}/`);
     return (
@@ -105,9 +109,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
               {NAV_ROUTES.filter(route => route.showInNav).map(route => (
                 <NavLink key={route.href} href={route.href} label={route.label} />
               ))}
+              {auth.profile?.is_admin && (
+                <NavLink href="/admin" label="Users" />
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            {auth.profile?.is_admin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAdminClick}
+                aria-label="Admin dashboard"
+              >
+                Admin
+              </Button>
+            )}
             <Button 
               size="sm" 
               variant="default" 

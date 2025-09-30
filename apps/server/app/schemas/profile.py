@@ -23,6 +23,7 @@ class UserProfileResponse(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     is_confirmed: bool
+    is_admin: bool
     has_password: bool
     login_methods: list[LoginMethodStatus]
 

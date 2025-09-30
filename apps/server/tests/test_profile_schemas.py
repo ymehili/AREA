@@ -20,6 +20,7 @@ def test_user_profile_response_contains_login_methods() -> None:
         email="user@example.com",
         full_name="Example User",
         is_confirmed=True,
+        is_admin=False,
         has_password=True,
         login_methods=[
             LoginMethodStatus(provider="google", linked=True, identifier="google-123"),

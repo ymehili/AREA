@@ -3,11 +3,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
-import { ApiError, LoginResponse, UserResponse, loadStoredSession, requestJson, saveStoredSession } from "@/lib/api";
+import { ApiError, LoginResponse, UserProfile, loadStoredSession, requestJson, saveStoredSession, fetchProfile } from "@/lib/api";
 
 export type AuthContextValue = {
   token: string | null;
   email: string | null;
+  profile: UserProfile | null;
   initializing: boolean;
   loading: boolean;
   pendingConfirmationEmail: string | null;
@@ -16,6 +17,7 @@ export type AuthContextValue = {
   logout: () => void;
   clearPendingConfirmation: () => void;
   setEmail: (email: string | null) => void;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,13 +27,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [token, setToken] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
 
-  const persistSession = useCallback((nextToken: string | null, nextEmail: string | null) => {
+  const persistSession = useCallback((nextToken: string | null, nextEmail: string | null, userProfile: UserProfile | null = null) => {
     setToken(nextToken);
     setEmail(nextEmail);
+    setProfile(userProfile);
     if (nextToken) {
       saveStoredSession({ token: nextToken, email: nextEmail ?? undefined });
     } else {
@@ -47,8 +51,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (session) {
       setToken(session.token);
       setEmail(session.email ?? null);
+      // Fetch user profile if we have a token
+      const fetchUserProfile = async () => {
+        try {
+          const userProfile = await fetchProfile(session.token);
+          setProfile(userProfile);
+        } catch (error) {
+          console.error("Failed to fetch user profile:", error);
+          // Continue without profile data if fetch fails
+        }
+        setInitializing(false);
+      };
+      
+      fetchUserProfile();
+    } else {
+      setInitializing(false);
     }
-    setInitializing(false);
   }, []);
 
   // Check for OAuth token in URL hash
@@ -77,7 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             body: JSON.stringify({ email: loginEmail, password }),
           },
         );
-        persistSession(data.access_token, loginEmail);
+        
+        // Fetch user profile after login
+        const userProfile = await fetchProfile(data.access_token);
+        persistSession(data.access_token, loginEmail, userProfile);
         setPendingConfirmationEmail(null);
       } catch (error) {
         if (error instanceof ApiError) {
@@ -101,7 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (registerEmail: string, password: string) => {
       setLoading(true);
       try {
-        await requestJson<UserResponse>(
+        // We don't need a specific response type here as we only need to know if registration was successful
+        await requestJson(
           "/auth/register",
           {
             method: "POST",
@@ -122,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    persistSession(null, null);
+    persistSession(null, null, null);
     router.push("/");
   }, [persistSession, router]);
 
@@ -136,15 +158,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setEmail(nextEmail);
         return;
       }
-      persistSession(token, nextEmail);
+      persistSession(token, nextEmail, profile);
     },
-    [persistSession, token],
+    [persistSession, token, profile],
   );
+
+  const refreshProfile = useCallback(async () => {
+    if (token) {
+      try {
+        const userProfile = await fetchProfile(token);
+        setProfile(userProfile);
+      } catch (error) {
+        console.error("Failed to refresh user profile:", error);
+      }
+    }
+  }, [token]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       token,
       email,
+      profile,
       initializing,
       loading,
       pendingConfirmationEmail,
@@ -153,9 +187,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       clearPendingConfirmation,
       setEmail: setEmailAddress,
+      refreshProfile,
     }),
     [
       email,
+      profile,
       initializing,
       loading,
       login,
@@ -165,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       clearPendingConfirmation,
       setEmailAddress,
+      refreshProfile,
     ],
   );
 

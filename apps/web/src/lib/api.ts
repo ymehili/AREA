@@ -141,6 +141,17 @@ export type UserResponse = {
   updated_at: string;
 };
 
+export type UserRead = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_confirmed: boolean;
+  is_admin: boolean;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type LoginMethodStatus = {
   provider: string;
   linked: boolean;
@@ -151,6 +162,7 @@ export type UserProfile = {
   email: string;
   full_name?: string | null;
   is_confirmed: boolean;
+  is_admin: boolean;
   has_password: boolean;
   login_methods: LoginMethodStatus[];
 };
@@ -271,5 +283,88 @@ export async function unlinkLoginMethod(
       method: 'DELETE',
     },
     token,
+  );
+}
+
+// Admin User Management
+export type AdminUser = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_confirmed: boolean;
+  is_admin: boolean;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PaginatedUsers = {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+export async function fetchAdminUsers(
+  token: string,
+  skip: number = 0,
+  limit: number = 10,
+  search?: string,
+  sort?: string,
+  order?: string
+): Promise<PaginatedUsers> {
+  // Build query parameters
+  const params = new URLSearchParams({
+    skip: skip.toString(),
+    limit: limit.toString(),
+  });
+  
+  if (search) params.append('search', search);
+  if (sort) params.append('sort', sort);
+  if (order) params.append('order', order);
+  
+  const queryString = params.toString();
+  const endpoint = `/admin/users${queryString ? '?' + queryString : ''}`;
+  
+  return requestJson<PaginatedUsers>(endpoint, {}, token);
+}
+
+// Admin User Management - Delete user
+export async function deleteAdminUser(
+  token: string,
+  userId: string
+): Promise<{ message: string }> {
+  return requestJson<{ message: string }>(
+    `/admin/users/${userId}`,
+    {
+      method: 'DELETE',
+    },
+    token
+  );
+}
+
+// Admin User Management - Create user
+export type CreateUserPayload = {
+  email: string;
+  password: string;
+};
+
+export async function createAdminUser(
+  token: string,
+  payload: CreateUserPayload,
+  isAdmin: boolean = false
+): Promise<UserRead> {
+  const params = new URLSearchParams({
+    is_admin: isAdmin.toString()
+  });
+  
+  return requestJson<UserRead>(
+    `/admin/users?${params.toString()}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token
   );
 }
