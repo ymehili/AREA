@@ -22,8 +22,8 @@ def test_service_catalog_payload_shape_matches_dataclasses():
         reactions = service_payload["reactions"]
         assert isinstance(actions, list)
         assert isinstance(reactions, list)
-        assert actions, "actions should not be empty"
-        assert reactions, "reactions should not be empty"
+        # Note: actions or reactions can be empty for some services (e.g., time, debug)
+        assert actions or reactions, "service should have at least actions or reactions"
 
         for option_index, option in enumerate(service_dataclass.actions):
             option_payload = actions[option_index]
@@ -42,6 +42,8 @@ def test_service_catalog_payload_shape_matches_dataclasses():
             }
 
         # Ensure the original dataclasses remain tuples of dataclass instances
-        assert service_dataclass.actions and isinstance(service_dataclass.actions[0].key, str)
-        assert service_dataclass.reactions and isinstance(service_dataclass.reactions[0].key, str)
+        if service_dataclass.actions:
+            assert isinstance(service_dataclass.actions[0].key, str)
+        if service_dataclass.reactions:
+            assert isinstance(service_dataclass.reactions[0].key, str)
 

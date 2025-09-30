@@ -17,6 +17,8 @@ class AreaBase(BaseModel):
     trigger_action: str = Field(..., min_length=1, max_length=255)
     reaction_service: str = Field(..., min_length=1, max_length=255)
     reaction_action: str = Field(..., min_length=1, max_length=255)
+    trigger_params: Optional[dict] = None
+    reaction_params: Optional[dict] = None
 
 
 class AreaCreate(AreaBase):
@@ -31,6 +33,8 @@ class AreaUpdate(BaseModel):
     trigger_action: Optional[str] = Field(None, min_length=1, max_length=255)
     reaction_service: Optional[str] = Field(None, min_length=1, max_length=255)
     reaction_action: Optional[str] = Field(None, min_length=1, max_length=255)
+    trigger_params: Optional[dict] = None
+    reaction_params: Optional[dict] = None
     enabled: Optional[bool] = None
 
 
