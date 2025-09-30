@@ -31,7 +31,6 @@ import os
 if (
     "pytest" not in sys.modules
     and "PYTEST_CURRENT_TEST" not in os.environ
-    and ("watchfiles" not in sys.modules or os.environ.get("RUN_MAIN") == "true")
 ):
     logger.info("Running migrations before app creation")
     try:
