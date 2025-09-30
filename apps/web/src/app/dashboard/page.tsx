@@ -169,7 +169,7 @@ export default function DashboardPage() {
               <CardHeader className="p-0 mb-4">
                 <div className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-lg font-medium text-foreground">{area.name}</CardTitle>
-                  <Badge variant={area.enabled ? "default" : "secondary"}>
+                  <Badge variant={area.enabled ? "default" : "secondary"} className={area.enabled ? "" : "text-white"}>
                     {area.enabled ? "Enabled" : "Disabled"}
                   </Badge>
                 </div>
