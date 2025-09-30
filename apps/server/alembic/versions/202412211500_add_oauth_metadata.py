@@ -8,7 +8,10 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "202412211500"
-down_revision = "202509171932"
+# This migration only depends on the service_connections table existing,
+# which was created in revision 202402051200. Point to that to avoid
+# creating an unnecessary branch head.
+down_revision = "202402051200"
 branch_labels = None
 depends_on = None
 
