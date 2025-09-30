@@ -183,30 +183,43 @@ def reorder_area_steps(db: Session, area_id: Union[str, uuid_module.UUID], step_
     area_id = _ensure_uuid(area_id)
     step_ids = [_ensure_uuid(sid) for sid in step_order]
 
-    # Fetch all steps in a single query
-    statement = select(AreaStep).where(AreaStep.id.in_(step_ids))
-    steps_dict = {s.id: s for s in db.execute(statement).scalars()}
+    # Fetch all steps for the area
+    all_area_steps = get_steps_by_area(db, area_id)
+    
+    # Map step IDs to steps for the ones being reordered
+    steps_dict = {s.id: s for s in all_area_steps if s.id in step_ids}
 
     # Validate all steps exist and belong to the specified area
-    steps = []
+    reordered_steps = []
     for step_id in step_ids:
         step = steps_dict.get(step_id)
         if step is None:
             raise AreaStepNotFoundError(str(step_id))
-        # Validate that step belongs to the specified area
-        if step.area_id != area_id:
-            raise AreaStepNotFoundError(str(step_id))
-        steps.append(step)
+        reordered_steps.append(step)
 
-    # Update order for each step using two-phase approach to avoid unique constraint violations
-    # Phase 1: Set all steps to temporary negative order values
-    for i, step in enumerate(steps):
+    # Find steps that are not being reordered
+    reordered_step_ids = set(s.id for s in reordered_steps)
+    remaining_steps = [s for s in all_area_steps if s.id not in reordered_step_ids]
+
+    # Update order for reordered steps using two-phase approach to avoid unique constraint violations
+    # Phase 1: Set all reordered steps to temporary negative order values
+    for i, step in enumerate(reordered_steps):
         step.order = -(i + 1)
+
+    # Phase 1 (continued): Set remaining steps to temporary negative values too, after the reordered ones
+    current_neg_idx = len(reordered_steps)
+    for step in remaining_steps:
+        step.order = -(current_neg_idx + 1)
+        current_neg_idx += 1
 
     db.flush()  # Flush phase 1 changes
 
-    # Phase 2: Set final order values
-    for new_order, step in enumerate(steps):
+    # Phase 2: Set final order values for reordered steps
+    for new_order, step in enumerate(reordered_steps):
+        step.order = new_order
+
+    # Phase 2 (continued): Set final order values for remaining steps
+    for new_order, step in enumerate(remaining_steps, start=len(reordered_steps)):
         step.order = new_order
 
     try:
@@ -215,11 +228,11 @@ def reorder_area_steps(db: Session, area_id: Union[str, uuid_module.UUID], step_
         db.rollback()
         raise exc
 
-    # Refresh all steps and return
-    for step in steps:
+    # Refresh all area steps and return the reordered ones
+    for step in all_area_steps:
         db.refresh(step)
 
-    return steps
+    return reordered_steps
 
 
 __all__ = [
