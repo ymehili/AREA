@@ -14,6 +14,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Create the table
     op.create_table(
         "area_steps",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -46,9 +47,33 @@ def upgrade() -> None:
     )
     op.create_index("ix_area_steps_area_id", "area_steps", ["area_id"])
     op.create_index("ix_area_steps_area_id_order", "area_steps", ["area_id", "order"])
+    
+    # Create trigger function for updated_at
+    op.execute("""
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $
+        BEGIN
+            NEW.updated_at = CURRENT_TIMESTAMP;
+            RETURN NEW;
+        END;
+        $ language 'plpgsql';
+    """)
+    
+    # Create the trigger on the area_steps table
+    op.execute("""
+        CREATE TRIGGER update_area_steps_updated_at 
+        BEFORE UPDATE ON area_steps 
+        FOR EACH ROW 
+        EXECUTE FUNCTION update_updated_at_column();
+    """)
 
 
 def downgrade() -> None:
+    # Drop the trigger first
+    op.execute("DROP TRIGGER IF EXISTS update_area_steps_updated_at ON area_steps;")
+    op.execute("DROP FUNCTION IF EXISTS update_updated_at_column();")
+    
+    # Then drop the indexes and table
     op.drop_index("ix_area_steps_area_id_order", table_name="area_steps")
     op.drop_index("ix_area_steps_area_id", table_name="area_steps")
     op.drop_table("area_steps")
