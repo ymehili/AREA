@@ -6,14 +6,15 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import DateTime, String, ForeignKey, Index, UniqueConstraint, func, Boolean
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking
-    from app.models.user import User
     from app.models.area_step import AreaStep
+    from app.models.execution_log import ExecutionLog
+    from app.models.user import User
 
 
 class Area(Base):
@@ -63,12 +64,18 @@ class Area(Base):
     # Relationship to User
     user: Mapped["User"] = relationship("User", back_populates="areas")
 
+    # Relationship to ExecutionLog
+    execution_logs: Mapped[list["ExecutionLog"]] = relationship(
+        "ExecutionLog",
+        back_populates="area",
+    )
+
     # Relationship to AreaStep
     steps: Mapped[List["AreaStep"]] = relationship(
         "AreaStep",
         back_populates="area",
         order_by="AreaStep.order",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
 

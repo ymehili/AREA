@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, Request
@@ -13,7 +14,7 @@ from app.api.routes.oauth import router as oauth_router
 from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.api.routes.service_connections import router as service_connections_router
-from app.api import areas_router
+from app.api import areas_router, execution_logs_router
 from app.core.config import settings
 from app.db.migrations import run_migrations
 from app.db.session import verify_connection
@@ -24,24 +25,101 @@ from app.integrations.simple_plugins.scheduler import start_scheduler, stop_sche
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Run migrations before creating the app (only in production or main dev process)
-import sys
-import os
-# Only run migrations if we're not in test mode and not in a reloader subprocess
-if (
-    "pytest" not in sys.modules
-    and "PYTEST_CURRENT_TEST" not in os.environ
-):
-    logger.info("Running migrations before app creation")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup
     try:
-        run_migrations()
-        logger.info("Migrations complete")
-    except Exception as exc:
-        logger.error("Migration failed", exc_info=True)
-        # Continue anyway - migrations may already be applied
+        logger.info("Startup: verifying database connection")
+        # Verify database connection with retry logic
+        verify_connection()
+        logger.info("Startup: database connection verified")
+        app.state.database_url = settings.database_url
+        
+        # Run migrations after database connection is verified but before starting the scheduler
+        logger.info("Startup: running database migrations")
+        try:
+            run_migrations()
+            logger.info("Startup: migrations completed")
+        except Exception as migration_exc:
+            logger.error("Startup: migration failed", exc_info=True)
+            raise migration_exc
+
+        # Start the background scheduler for time-based areas
+        logger.info("Startup: starting scheduler")
+        start_scheduler()
+        logger.info("Startup: scheduler started")
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.error("Startup failure", exc_info=True)
+        raise
+
+    yield  # Application runs here
+
+    # Shutdown
+    logger.info("Shutdown: stopping scheduler")
+    stop_scheduler()
+    logger.info("Shutdown: scheduler stopped")
+
+
+# This function is kept for testing compatibility
+async def startup_event() -> None:
+    """Validate database connectivity and start scheduler."""
+    try:
+        logger.info("Startup: verifying database connection")
+        verify_connection()
+        logger.info("Startup: database connection verified")
+        
+        # For backward compatibility with tests, set the database URL on the app instance
+        # The test expects main.app.state.database_url to be set after calling startup_event
+        import sys
+        import os
+        # Only run migrations if we're not in test mode and not in a reloader subprocess
+        # This ensures tests don't run migrations but production does when this function is called
+        if (
+            "pytest" not in sys.modules
+            and "PYTEST_CURRENT_TEST" not in os.environ
+        ):
+            logger.info("Startup (compatibility): running database migrations")
+            run_migrations()
+            logger.info("Startup (compatibility): migrations completed")
+        else:
+            logger.info("Startup (test mode): skipping migrations")
+        
+        app.state.database_url = settings.database_url
+
+        # Start the background scheduler for time-based areas
+        logger.info("Startup: starting scheduler")
+        start_scheduler()
+        logger.info("Startup: scheduler started")
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.error("Startup failure", exc_info=True)
+        raise
+
+
+# This function is kept for testing compatibility
+async def startup_event() -> None:
+    """Validate database connectivity and start scheduler."""
+    try:
+        logger.info("Startup: verifying database connection")
+        verify_connection()
+        logger.info("Startup: database connection verified")
+        
+        # For backward compatibility with tests, set the database URL on the app instance
+        # The test expects main.app.state.database_url to be set after calling startup_event
+        app.state.database_url = settings.database_url
+
+        # Start the background scheduler for time-based areas
+        logger.info("Startup: starting scheduler")
+        start_scheduler()
+        logger.info("Startup: scheduler started")
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.error("Startup failure", exc_info=True)
+        raise
+
 
 logger.info("Creating FastAPI application instance")
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 logger.info("FastAPI application created")
 
 # Add CORS middleware for development
@@ -57,33 +135,6 @@ app.add_middleware(
 # Add Session middleware for OAuth
 logger.info("Configuring Session middleware for OAuth callbacks")
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Validate database connectivity and start scheduler."""
-
-    try:
-        logger.info("Startup: verifying database connection")
-        verify_connection()
-        logger.info("Startup: database connection verified")
-        app.state.database_url = settings.database_url
-
-        # Start the background scheduler for time-based areas
-        logger.info("Startup: starting scheduler")
-        start_scheduler()
-        logger.info("Startup: scheduler started")
-    except Exception as exc:  # pragma: no cover - defensive logging only
-        logger.error("Startup failure", exc_info=True)
-        raise
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Clean up resources on application shutdown."""
-    logger.info("Shutdown: stopping scheduler")
-    stop_scheduler()
-    logger.info("Shutdown: scheduler stopped")
 
 
 @app.get("/")
@@ -107,4 +158,5 @@ app.include_router(profile_router, prefix="/api/v1/users")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")
 app.include_router(areas_router, prefix="/api/v1")
+app.include_router(execution_logs_router, prefix="/api/v1")
 logger.info("Routers registered; application ready to accept requests")

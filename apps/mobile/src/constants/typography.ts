@@ -31,45 +31,45 @@ export const TextStyles: Record<string, TextStyle> = {
   h1: {
     fontFamily: FontFamilies.heading,
     fontSize: FontSizes.h1,
-    fontWeight: FontWeights.regular,
+    fontWeight: '400' as const,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
   h2: {
     fontFamily: FontFamilies.heading,
     fontSize: FontSizes.h2,
-    fontWeight: FontWeights.regular,
+    fontWeight: '400' as const,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   h3: {
     fontFamily: FontFamilies.body,
     fontSize: FontSizes.h3,
-    fontWeight: FontWeights.bold,
+    fontWeight: '700' as const,
   },
   body: {
     fontFamily: FontFamilies.body,
     fontSize: FontSizes.body,
-    fontWeight: FontWeights.regular,
+    fontWeight: '400' as const,
   },
   small: {
     fontFamily: FontFamilies.body,
     fontSize: FontSizes.small,
-    fontWeight: FontWeights.regular,
+    fontWeight: '400' as const,
   },
   'body-bold': {
     fontFamily: FontFamilies.body,
     fontSize: FontSizes.body,
-    fontWeight: FontWeights.bold,
+    fontWeight: '700' as const,
   },
   'small-bold': {
     fontFamily: FontFamilies.body,
     fontSize: FontSizes.small,
-    fontWeight: FontWeights.bold,
+    fontWeight: '700' as const,
   },
   mono: {
     fontFamily: FontFamilies.mono,
     fontSize: FontSizes.body,
-    fontWeight: FontWeights.regular,
+    fontWeight: '400' as const,
   },
 };

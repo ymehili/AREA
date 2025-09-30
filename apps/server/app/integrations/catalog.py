@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Final, Sequence
+from typing import Final
 
 
 @dataclass(frozen=True)
