@@ -1,9 +1,9 @@
 import { StatusBar } from "expo-status-bar";
+import { useAppFonts } from './src/components/FontLoader';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Button,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -18,6 +18,16 @@ import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navig
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as WebBrowser from 'expo-web-browser';
+
+// Import custom UI components
+import CustomButton from './src/components/ui/Button';
+import Input from './src/components/ui/Input';
+import Card from './src/components/ui/Card';
+import Switch from './src/components/ui/Switch';
+
+// Import design system
+import { Colors } from './src/constants/colors';
+import { TextStyles, FontFamilies } from './src/constants/typography';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -462,44 +472,55 @@ function LoginScreen() {
   }, [auth]);
 
   return (
-    <SafeAreaView style={styles.centered}>
-      <Text style={styles.title}>Action-Reaction</Text>
-      <View style={styles.toggleRow}>
-        <Button
-          title={mode === "login" ? "Need an account?" : "Have an account?"}
-          onPress={() => setMode((prev) => (prev === "login" ? "register" : "login"))}
-        />
-      </View>
-      <View style={styles.formGroup}>
-        <Text>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-      </View>
-      <View style={styles.formGroup}>
-        <Text>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-      </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      <Button
-        title={auth.loading ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
-        onPress={submit}
-        disabled={auth.loading}
-      />
-      <View style={{ height: 16 }} />
-      <Button
-        title="Sign in with Google"
-        onPress={handleGoogleSignIn} // Use the new handler instead of window.open
-      />
+    <SafeAreaView style={styles.screen}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+        <Card style={{ margin: 16, backgroundColor: Colors.backgroundLight }}>
+          <Text style={[styles.title, { fontFamily: FontFamilies.heading }]}>Action-Reaction</Text>
+          <View style={styles.toggleRow}>
+            <CustomButton
+              title={mode === "login" ? "Need an account?" : "Have an account?"}
+              onPress={() => setMode((prev) => (prev === "login" ? "register" : "login"))}
+              variant="link"
+            />
+          </View>
+          <View style={styles.formGroup}>
+            <Text style={{ ...TextStyles.small, color: Colors.textDark, marginBottom: 4 }}>Email</Text>
+            <Input
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="Enter your email"
+            />
+          </View>
+          <View style={styles.formGroup}>
+            <Text style={{ ...TextStyles.small, color: Colors.textDark, marginBottom: 4 }}>Password</Text>
+            <Input
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              placeholder="Enter your password"
+            />
+          </View>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.buttonContainer}>
+            <CustomButton
+              title={auth.loading ? "Please wait..." : mode === "login" ? "Log in" : "Create account"}
+              onPress={submit}
+              disabled={auth.loading}
+              variant="default"
+            />
+          </View>
+          <View style={{ height: 16 }} />
+          <View style={styles.buttonContainer}>
+            <CustomButton
+              title="Sign in with Google"
+              onPress={handleGoogleSignIn}
+              variant="outline"
+            />
+          </View>
+        </Card>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -590,7 +611,7 @@ function DashboardScreen() {
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Dashboard</Text>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -600,11 +621,11 @@ function DashboardScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Dashboard</Text>
-        <View style={styles.centered}>
+        <Card style={{ margin: 16 }}>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: 12 }} />
-          <Button title="Retry" onPress={() => void loadAreas()} />
-        </View>
+          <CustomButton title="Retry" onPress={() => void loadAreas()} variant="outline" />
+        </Card>
       </SafeAreaView>
     );
   }
@@ -613,11 +634,15 @@ function DashboardScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Dashboard</Text>
-        <View style={styles.centered}>
+        <Card style={{ margin: 16 }}>
           <Text style={styles.muted}>You have no AREAs yet.</Text>
           <View style={{ height: 12 }} />
-          <Button title="Create your first AREA" onPress={() => navigation.navigate("Wizard") } />
-        </View>
+          <CustomButton 
+            title="Create your first AREA" 
+            onPress={() => navigation.navigate("Wizard") } 
+            variant="default"
+          />
+        </Card>
       </SafeAreaView>
     );
   }
@@ -625,22 +650,23 @@ function DashboardScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Dashboard</Text>
-      <ScrollView>
+      <ScrollView style={{ flex: 1, padding: 16 }}>
         {areas.map((area) => (
-          <View key={area.id} style={styles.card}>
+          <Card key={area.id} style={{ marginBottom: 16 }}>
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>{area.name}</Text>
               <Text style={styles.smallMuted}>{area.enabled ? "Enabled" : "Disabled"}</Text>
             </View>
             <Text style={styles.muted}>When: {area.trigger}</Text>
             <Text style={styles.muted}>Then: {area.action}</Text>
-            <View style={{ height: 8 }} />
+            <View style={{ height: 12 }} />
             <View style={styles.rowBetween}>
-              <Button 
+              <CustomButton 
                 title={area.enabled ? "Disable" : "Enable"} 
                 onPress={() => void toggleArea(area.id, !area.enabled)} 
+                variant={area.enabled ? "outline" : "default"}
               />
-              <Button 
+              <CustomButton 
                 title="Delete" 
                 onPress={() => {
                   Alert.alert("Delete AREA", "Are you sure?", [
@@ -658,9 +684,15 @@ function DashboardScreen() {
                     } },
                   ]);
                 }} 
+                variant="destructive"
               />
             </View>
-          </View>
+            <View style={{ height: 8 }} />
+            <Switch 
+              value={area.enabled} 
+              onValueChange={(value) => void toggleArea(area.id, value)} 
+            />
+          </Card>
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -802,76 +834,137 @@ function WizardScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.h1}>AREA Creation Wizard</Text>
-      <Text style={styles.muted}>Step {step} of 5</Text>
-      <View style={{ height: 16 }} />
+      <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
+        <Card>
+          <Text style={styles.h1}>AREA Creation Wizard</Text>
+          <Text style={styles.muted}>Step {step} of 5</Text>
+          
+          {/* Step progress indicator */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginVertical: 16 }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <View key={s} style={{ alignItems: "center", flex: 1 }}>
+                <View style={[
+                  {
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: s === step ? Colors.primary : s < step ? Colors.success : Colors.muted,
+                  }
+                ]}>
+                  <Text style={{ color: Colors.backgroundLight, fontWeight: "bold" }}>
+                    {s}
+                  </Text>
+                </View>
+                <Text style={[styles.smallMuted, { marginTop: 4, fontSize: 10, textAlign: "center" }]}>
+                  {s === 1 && 'Trigger'}
+                  {s === 2 && 'Action'}
+                  {s === 3 && 'Reaction'}
+                  {s === 4 && 'Confirm'}
+                  {s === 5 && 'Review'}
+                </Text>
+              </View>
+            ))}
+          </View>
 
-      {step === 1 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Step 1: Choose Trigger Service</Text>
-          {SERVICES.map((s) => (
-            <View key={s} style={{ marginBottom: 8 }}>
-              <Button title={s} onPress={() => setTriggerService(s)} />
+          {step === 1 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.cardTitle}>Step 1: Choose Trigger Service</Text>
+              {SERVICES.map((s) => (
+                <View key={s} style={{ marginBottom: 8 }}>
+                  <CustomButton 
+                    title={s} 
+                    onPress={() => setTriggerService(s)} 
+                    variant={triggerService === s ? "default" : "outline"}
+                  />
+                </View>
+              ))}
+              {triggerService ? <Text style={styles.muted}>Selected: {triggerService}</Text> : null}
             </View>
-          ))}
-          {triggerService ? <Text style={styles.muted}>Selected: {triggerService}</Text> : null}
-        </View>
-      )}
+          )}
 
-      {step === 2 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Step 2: Choose Trigger</Text>
-          {(TRIGGERS_BY_SERVICE[triggerService] ?? []).map((t) => (
-            <View key={t} style={{ marginBottom: 8 }}>
-              <Button title={t} onPress={() => setTrigger(t)} />
+          {step === 2 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.cardTitle}>Step 2: Choose Trigger</Text>
+              {(TRIGGERS_BY_SERVICE[triggerService] ?? []).map((t) => (
+                <View key={t} style={{ marginBottom: 8 }}>
+                  <CustomButton 
+                    title={t} 
+                    onPress={() => setTrigger(t)} 
+                    variant={trigger === t ? "default" : "outline"}
+                  />
+                </View>
+              ))}
+              {trigger ? <Text style={styles.muted}>Selected: {trigger}</Text> : null}
             </View>
-          ))}
-          {trigger ? <Text style={styles.muted}>Selected: {trigger}</Text> : null}
-        </View>
-      )}
+          )}
 
-      {step === 3 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Step 3: Choose REAction Service</Text>
-          {SERVICES.map((s) => (
-            <View key={s} style={{ marginBottom: 8 }}>
-              <Button title={s} onPress={() => setActionService(s)} />
+          {step === 3 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.cardTitle}>Step 3: Choose REAction Service</Text>
+              {SERVICES.map((s) => (
+                <View key={s} style={{ marginBottom: 8 }}>
+                  <CustomButton 
+                    title={s} 
+                    onPress={() => setActionService(s)} 
+                    variant={actionService === s ? "default" : "outline"}
+                  />
+                </View>
+              ))}
+              {actionService ? <Text style={styles.muted}>Selected: {actionService}</Text> : null}
             </View>
-          ))}
-          {actionService ? <Text style={styles.muted}>Selected: {actionService}</Text> : null}
-        </View>
-      )}
+          )}
 
-      {step === 4 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Step 4: Choose REAction</Text>
-          {(ACTIONS_BY_SERVICE[actionService] ?? []).map((a) => (
-            <View key={a} style={{ marginBottom: 8 }}>
-              <Button title={a} onPress={() => setAction(a)} />
+          {step === 4 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.cardTitle}>Step 4: Choose REAction</Text>
+              {(ACTIONS_BY_SERVICE[actionService] ?? []).map((a) => (
+                <View key={a} style={{ marginBottom: 8 }}>
+                  <CustomButton 
+                    title={a} 
+                    onPress={() => setAction(a)} 
+                    variant={action === a ? "default" : "outline"}
+                  />
+                </View>
+              ))}
+              {action ? <Text style={styles.muted}>Selected: {action}</Text> : null}
             </View>
-          ))}
-          {action ? <Text style={styles.muted}>Selected: {action}</Text> : null}
-        </View>
-      )}
+          )}
 
-      {step === 5 && (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Step 5: Review & Confirm</Text>
-          <Text style={styles.muted}>
-            If new "{trigger}" in {triggerService}, then "{action}" in {actionService}.
-          </Text>
-        </View>
-      )}
+          {step === 5 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.cardTitle}>Step 5: Review & Confirm</Text>
+              <Text style={styles.muted}>
+                If new "{trigger}" in {triggerService}, then "{action}" in {actionService}.
+              </Text>
+            </View>
+          )}
 
-      <View style={{ height: 16 }} />
-      <View style={styles.rowBetween}>
-        <Button title="Back" onPress={() => setStep(Math.max(1, step - 1))} />
-        {step < 5 ? (
-          <Button title="Next" onPress={() => setStep(Math.min(step + 1, 5))} disabled={!canNext} />
-        ) : (
-          <Button title={submitting ? "Creating..." : "Create AREA"} onPress={() => void submit()} disabled={submitting} />
-        )}
-      </View>
+          <View style={{ height: 16 }} />
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <CustomButton 
+              title="Back" 
+              onPress={() => setStep(Math.max(1, step - 1))} 
+              variant="outline"
+              disabled={step <= 1}
+            />
+            {step < 5 ? (
+              <CustomButton 
+                title="Next" 
+                onPress={() => setStep(Math.min(step + 1, 5))} 
+                disabled={!canNext || submitting}
+              />
+            ) : (
+              <CustomButton 
+                title={submitting ? "Creating..." : "Create AREA"} 
+                onPress={() => void submit()} 
+                disabled={submitting}
+              />
+            )}
+          </View>
+        </Card>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -1271,6 +1364,16 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const fontsLoaded = useAppFonts();
+
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <AuthProvider>
       <NavigationContainer>
@@ -1282,15 +1385,69 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  centered: { flex: 1, backgroundColor: "#fff", padding: 16, justifyContent: "center" },
-  profileScroll: { padding: 16, paddingBottom: 48 },
-  title: { fontSize: 24, fontWeight: "600", marginBottom: 24, textAlign: "center" },
-  h1: { fontSize: 22, fontWeight: "600", marginBottom: 12 },
-  formGroup: { marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: "#ddd", padding: 10, borderRadius: 6 },
-  muted: { color: "#666", marginTop: 4 },
-  smallMuted: { color: "#666", fontSize: 13 },
+  screen: { 
+    flex: 1, 
+    backgroundColor: Colors.backgroundLight, 
+    padding: 16,
+    fontFamily: FontFamilies.body
+  },
+  centered: { 
+    flex: 1, 
+    backgroundColor: Colors.backgroundLight, 
+    padding: 16, 
+    justifyContent: "center",
+    fontFamily: FontFamilies.body
+  },
+  profileScroll: { 
+    padding: 16, 
+    paddingBottom: 48,
+    backgroundColor: Colors.backgroundLight,
+    fontFamily: FontFamilies.body
+  },
+  title: { 
+    ...TextStyles.h1,
+    color: Colors.textDark,
+    marginBottom: 24, 
+    textAlign: "center",
+    fontFamily: FontFamilies.heading
+  },
+  h1: { 
+    ...TextStyles.h2,
+    color: Colors.textDark,
+    marginBottom: 12,
+    fontFamily: FontFamilies.heading
+  },
+  h2: { 
+    ...TextStyles.h3,
+    color: Colors.textDark,
+    marginBottom: 12,
+    fontFamily: FontFamilies.body
+  },
+  formGroup: { 
+    marginBottom: 16,
+    fontFamily: FontFamilies.body
+  },
+  input: { 
+    borderWidth: 1, 
+    borderColor: Colors.input, 
+    padding: 12, 
+    borderRadius: 6,
+    backgroundColor: Colors.backgroundLight,
+    color: Colors.textDark,
+    ...TextStyles.body,
+    fontFamily: FontFamilies.body
+  },
+  muted: { 
+    color: Colors.mutedForeground, 
+    marginTop: 4,
+    ...TextStyles.small,
+    fontFamily: FontFamilies.body
+  },
+  smallMuted: { 
+    color: Colors.mutedForeground, 
+    ...TextStyles.small,
+    fontFamily: FontFamilies.body
+  },
   rowBetween: {
     flexDirection: "row",
     alignItems: "center",
@@ -1298,29 +1455,69 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: Colors.border,
+    fontFamily: FontFamilies.body
   },
-  card: { borderWidth: 1, borderColor: "#eee", borderRadius: 8, padding: 12, marginBottom: 12 },
-  cardTitle: { fontWeight: "600", marginBottom: 4 },
+  card: { 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    borderRadius: 8, 
+    padding: 16, 
+    marginBottom: 16,
+    backgroundColor: Colors.cardLight,
+    fontFamily: FontFamilies.body
+  },
+  cardTitle: { 
+    ...TextStyles.h3,
+    color: Colors.textDark,
+    marginBottom: 8,
+    fontFamily: FontFamilies.body
+  },
   alertBox: {
     borderWidth: 1,
-    borderColor: "#fcd34d",
-    backgroundColor: "#fef3c7",
+    borderColor: Colors.warning,
+    backgroundColor: Colors.backgroundLight,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
+    fontFamily: FontFamilies.body
   },
-  alertTitle: { fontWeight: "600", marginBottom: 4, color: "#92400e" },
-  alertText: { color: "#92400e", fontSize: 13 },
+  alertTitle: { 
+    ...TextStyles['body-bold'], 
+    marginBottom: 4, 
+    color: Colors.warning,
+    fontFamily: FontFamilies.body
+  },
+  alertText: { 
+    color: Colors.warning, 
+    ...TextStyles.small,
+    fontFamily: FontFamilies.body
+  },
   methodBlock: {
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: Colors.border,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: Colors.cardLight,
+    fontFamily: FontFamilies.body
   },
-  methodLabel: { fontWeight: "600" },
-  errorText: { color: "red", textAlign: "center" },
-  toggleRow: { marginBottom: 16 },
+  methodLabel: { 
+    ...TextStyles['body-bold'],
+    color: Colors.textDark,
+    fontFamily: FontFamilies.body
+  },
+  errorText: { 
+    color: Colors.error, 
+    textAlign: "center",
+    ...TextStyles.small,
+    fontFamily: FontFamilies.body
+  },
+  toggleRow: { 
+    marginBottom: 16,
+    fontFamily: FontFamilies.body
+  },
+  buttonContainer: {
+    marginVertical: 8,
+  }
 });
