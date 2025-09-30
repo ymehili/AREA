@@ -15,7 +15,6 @@ import {
   RefreshControl,
 } from "react-native";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -35,6 +34,10 @@ import ConfirmScreen from './src/components/ConfirmScreen';
 // Import design system
 import { Colors } from './src/constants/colors';
 import { TextStyles, FontFamilies } from './src/constants/typography';
+
+// Import auth context and API utilities
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { ExecutionLog } from './src/utils/api';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -144,28 +147,7 @@ type UserProfile = {
   login_methods: LoginMethodStatus[];
 };
 
-// Execution Logs
-export type ExecutionLog = {
-  id: string;
-  area_id: string;
-  status: string;
-  output: string | null;
-  error_message: string | null;
-  step_details: Record<string, unknown> | null;
-  timestamp: string;
-  created_at: string;
-};
-
-async function getExecutionLogsForUser(token: string): Promise<ExecutionLog[]> {
-  return requestJson<ExecutionLog[]>(
-    "/execution-logs",
-    {
-      method: "GET",
-    },
-    token,
-  );
-}
-
+// Execution Logs (these will use the imported functions)
 async function getExecutionLogsByArea(token: string, areaId: string): Promise<ExecutionLog[]> {
   return requestJson<ExecutionLog[]>(
     `/execution-logs/area/${areaId}`,
@@ -189,6 +171,27 @@ async function getExecutionLogById(token: string, logId: string): Promise<Execut
 async function getProfile(token: string): Promise<UserProfile> {
   return requestJson<UserProfile>("/users/me", {}, token);
 }
+
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  microsoft: "Microsoft",
+};
+
+// Mirrored options from web wizard for a simple, consistent UX
+const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
+const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["New Email", "New Email w/ Attachment"],
+  "Google Drive": ["New File in Folder"],
+  Slack: ["New Message in Channel"],
+  GitHub: ["New Pull Request"],
+};
+const ACTIONS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["Send Email"],
+  "Google Drive": ["Upload File", "Create Folder"],
+  Slack: ["Send Message"],
+  GitHub: ["Create Issue"],
+};
 
 async function updateProfileRequest(
   token: string,
@@ -244,185 +247,6 @@ async function unlinkLoginProvider(
     },
     token,
   );
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  google: "Google",
-  github: "GitHub",
-  microsoft: "Microsoft",
-};
-
-// Mirrored options from web wizard for a simple, consistent UX
-const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
-const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["New Email", "New Email w/ Attachment"],
-  "Google Drive": ["New File in Folder"],
-  Slack: ["New Message in Channel"],
-  GitHub: ["New Pull Request"],
-};
-const ACTIONS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["Send Email"],
-  "Google Drive": ["Upload File", "Create Folder"],
-  Slack: ["Send Message"],
-  GitHub: ["Create Issue"],
-};
-
-type AuthContextValue = {
-  token: string | null;
-  email: string | null;
-  initializing: boolean;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  setEmail: (email: string | null) => Promise<void>;
-  persistSession: (token: string | null, email: string | null) => Promise<void>;
-};
-
-const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
-
-function useAuth(): AuthContextValue {
-  const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
-
-type StoredSession = {
-  token: string;
-  email?: string;
-};
-
-async function loadSession(): Promise<StoredSession | null> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as StoredSession;
-  } catch {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
-}
-
-function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [initializing, setInitializing] = useState(true);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadSession()
-      .then((session) => {
-        if (session) {
-          setToken(session.token);
-          setEmail(session.email ?? null);
-        }
-      })
-      .finally(() => setInitializing(false));
-  }, []);
-
-  const persistSession = useCallback(async (nextToken: string | null, nextEmail: string | null) => {
-    setToken(nextToken);
-    setEmail(nextEmail);
-    if (nextToken) {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ token: nextToken, email: nextEmail ?? undefined }),
-      );
-    } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  const login = useCallback(
-    async (loginEmail: string, password: string) => {
-      setLoading(true);
-      try {
-        const data = await requestJson<{ access_token: string }>(
-          "/auth/login",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: loginEmail, password }),
-          },
-        );
-        await persistSession(data.access_token, loginEmail);
-      } catch (error) {
-        if (error instanceof ApiError) {
-          if (error.status === 403) {
-            throw new Error(
-              "Please confirm your email address before logging in. Check your inbox for the confirmation link.",
-            );
-          }
-          if (error.status === 401) {
-            throw new Error("Unable to log in. Please check your credentials.");
-          }
-          throw new Error(error.message);
-        }
-        throw new Error("Unable to log in. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [persistSession],
-  );
-
-  const register = useCallback(
-    async (registerEmail: string, password: string) => {
-      setLoading(true);
-      try {
-        await requestJson<StoredSession>(
-          "/auth/register",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: registerEmail, password }),
-          },
-        );
-      } catch (error) {
-        if (error instanceof ApiError) {
-          throw new Error(error.message);
-        }
-        throw new Error("Unable to create account. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [persistSession],
-  );
-
-  const logout = useCallback(async () => {
-    await persistSession(null, null);
-  }, [persistSession]);
-
-  const setEmailAddress = useCallback(
-    async (nextEmail: string | null) => {
-      if (!token) {
-        setEmail(nextEmail);
-        return;
-      }
-      await persistSession(token, nextEmail);
-    },
-    [persistSession, token],
-  );
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      token,
-      email,
-      initializing,
-      loading,
-      login,
-      register,
-      logout,
-      setEmail: setEmailAddress,
-      persistSession,
-    }),
-    [email, initializing, loading, login, logout, register, token, setEmailAddress, persistSession],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 function LoginScreen() {
@@ -576,8 +400,8 @@ function LoginScreen() {
 
 function DashboardScreen() {
   const auth = useAuth();
-  const navigation = useNavigation();
   const navigation = useNavigation<any>();
+  const typedNavigation = useNavigation<any>();
   const [areas, setAreas] = useState<{ id: string; name: string; trigger: string; action: string; enabled: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAuth, requestJson } from "../..//App";
+import { useAuth } from "./../contexts/AuthContext";
+import { ExecutionLog, getExecutionLogsForUser as apiGetExecutionLogsForUser } from "../utils/api";
 import { Colors } from "../constants/colors";
 import { TextStyles } from "../constants/typography";
 import CustomButton from "./ui/Button";
@@ -45,10 +46,10 @@ export default function ActivityLogScreen() {
       // In a real implementation, this would call an actual activity logs endpoint
       // For now, since the API might not have a specific activity logs endpoint,
       // we'll fetch execution logs which represent user activities
-      const executionLogs = await requestJson<any[]>(`/execution-logs`, { method: "GET" }, auth.token);
+      const executionLogs = await apiGetExecutionLogsForUser(auth.token);
       
       // Transform execution logs to activity format
-      const transformedActivities: Activity[] = executionLogs.map(log => ({
+      const transformedActivities: Activity[] = executionLogs.map((log: any) => ({
         id: log.id,
         timestamp: log.timestamp,
         action: log.status === "success" ? "AREA executed" : "AREA execution failed",
@@ -128,7 +129,7 @@ export default function ActivityLogScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Activity Log</Text>
-      <Text style={styles.smallMuted} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+      <Text style={[styles.smallMuted, { marginHorizontal: 16, marginBottom: 8 }]}>
         Your account activity history
       </Text>
       <ScrollView 
@@ -180,11 +181,7 @@ export default function ActivityLogScreen() {
   );
 }
 
-// Define loadActivities function for the retry button
-async function loadActivities() {
-  // This is just a placeholder implementation to satisfy the retry button
-  // The actual implementation is in the useEffect hook
-}
+
 
 const styles = {
   screen: { 
@@ -196,7 +193,7 @@ const styles = {
     flex: 1, 
     backgroundColor: Colors.backgroundLight, 
     padding: 16, 
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   h1: { 
     ...TextStyles.h2,
@@ -217,13 +214,13 @@ const styles = {
     ...TextStyles.small,
   },
   rowBetween: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    flexDirection: "row" as "row",
+    alignItems: "flex-start" as "flex-start",
+    justifyContent: "space-between" as const,
   },
   errorText: { 
     color: Colors.error, 
-    textAlign: "center",
+    textAlign: "center" as const,
     ...TextStyles.small,
   },
 };
