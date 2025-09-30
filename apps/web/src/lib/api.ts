@@ -321,7 +321,7 @@ export async function getExecutionLogsForUser(token: string): Promise<ExecutionL
 
 export async function getExecutionLogsByArea(token: string, areaId: string): Promise<ExecutionLog[]> {
   return requestJson<ExecutionLog[]>(
-    `/execution-logs/area/${areaId}`,
+    `/areas/${areaId}/execution-logs`,
     {
       method: "GET",
     },
