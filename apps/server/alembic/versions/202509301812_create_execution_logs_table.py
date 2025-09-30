@@ -28,6 +28,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["area_id"],
             ["areas.id"],
+            ondelete="CASCADE",
         ),
     )
     op.create_index(
