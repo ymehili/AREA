@@ -13,6 +13,13 @@ from app.schemas.area import AreaCreate, AreaUpdate
 from app.schemas.area_step import AreaStepCreate
 
 
+def _is_duplicate_area_constraint_violation(exc: IntegrityError) -> bool:
+    """Check if the IntegrityError is due to duplicate area constraint violation."""
+    error_str = str(exc.orig) if exc.orig else str(exc)
+    # Check for the unique constraint on user_id and name
+    return "uq_areas_user_id_name" in error_str
+
+
 class AreaNotFoundError(Exception):
     """Raised when attempting to access an area that doesn't exist."""
 
@@ -95,7 +102,11 @@ def create_area(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise DuplicateAreaError(user_id, area_in.name) from exc
+        # Check for unique constraint vs other integrity violations
+        if _is_duplicate_area_constraint_violation(exc):
+            raise DuplicateAreaError(user_id, area_in.name) from exc
+        # Re-raise other integrity errors (like foreign key violations from steps)
+        raise
 
     db.refresh(area)
     return area
