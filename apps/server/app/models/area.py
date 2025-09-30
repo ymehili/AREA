@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, UniqueConstraint, func, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -39,6 +39,8 @@ class Area(Base):
     trigger_action: Mapped[str] = mapped_column(String(255), nullable=False)
     reaction_service: Mapped[str] = mapped_column(String(255), nullable=False)
     reaction_action: Mapped[str] = mapped_column(String(255), nullable=False)
+    trigger_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    reaction_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     enabled: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
