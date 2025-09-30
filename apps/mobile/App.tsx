@@ -30,7 +30,6 @@ import Switch from './src/components/ui/Switch';
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
 import ActivityLogScreen from './src/components/ActivityLogScreen';
-import EditAreaScreen from './src/components/EditAreaScreen';
 import ConfirmScreen from './src/components/ConfirmScreen';
 
 // Import design system
@@ -727,12 +726,6 @@ function DashboardScreen() {
             <Text style={styles.muted}>Then: {area.action}</Text>
             <View style={{ height: 12 }} />
             <View style={styles.rowBetween}>
-              <CustomButton 
-                title="Edit" 
-                onPress={() => navigation.navigate("EditArea", { areaId: area.id })} 
-                variant="default"
-                style={{ marginRight: 8 }}
-              />
               <CustomButton 
                 title={area.enabled ? "Disable" : "Enable"} 
                 onPress={() => void toggleArea(area.id, !area.enabled)} 
@@ -1612,7 +1605,6 @@ function AuthenticatedNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={TabsNavigator} />
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
-      <Stack.Screen name="EditArea" component={EditAreaScreen} />
       <Stack.Screen name="Confirm" component={ConfirmScreen} />
     </Stack.Navigator>
   );
