@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,6 +46,7 @@ class AreaResponse(AreaBase):
     enabled: bool
     created_at: datetime
     updated_at: datetime
+    steps: Optional[List["AreaStepResponse"]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,3 +57,9 @@ __all__ = [
     "AreaUpdate",
     "AreaResponse",
 ]
+
+# Import AreaStepResponse to resolve forward reference
+from app.schemas.area_step import AreaStepResponse  # noqa: E402, F401
+
+# Rebuild AreaResponse model to resolve forward references
+AreaResponse.model_rebuild()

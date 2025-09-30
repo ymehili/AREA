@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.models.area import Area
+from app.models.area_step import AreaStep
 from app.schemas.area import AreaCreate, AreaUpdate
+from app.schemas.area_step import AreaStepCreate
 
 
 class AreaNotFoundError(Exception):
@@ -42,8 +44,26 @@ def get_areas_by_user(db: Session, user_id: str) -> List[Area]:
     return list(result.scalars().all())
 
 
-def create_area(db: Session, area_in: AreaCreate, user_id: str) -> Area:
-    """Create a new area."""
+def create_area(
+    db: Session,
+    area_in: AreaCreate,
+    user_id: str,
+    steps: Optional[List[AreaStepCreate]] = None,
+) -> Area:
+    """Create a new area with optional steps.
+
+    Args:
+        db: Database session
+        area_in: Area creation schema
+        user_id: ID of the user creating the area
+        steps: Optional list of steps to create with the area
+
+    Returns:
+        The created Area object with steps if provided
+
+    Raises:
+        DuplicateAreaError: If an area with the same name already exists for the user
+    """
     area = Area(
         user_id=user_id,
         name=area_in.name,
@@ -57,6 +77,21 @@ def create_area(db: Session, area_in: AreaCreate, user_id: str) -> Area:
 
     db.add(area)
     try:
+        db.flush()  # Flush to get area.id without committing yet
+
+        # Create steps if provided (in same transaction)
+        if steps:
+            for step_in in steps:
+                step = AreaStep(
+                    area_id=area.id,
+                    step_type=step_in.step_type,
+                    order=step_in.order,
+                    service=step_in.service,
+                    action=step_in.action,
+                    config=step_in.config,
+                )
+                db.add(step)
+
         db.commit()
     except IntegrityError as exc:
         db.rollback()
