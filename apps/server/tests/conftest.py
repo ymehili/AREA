@@ -34,6 +34,8 @@ _ensure_test_encryption_key()
 import main
 from app.db.base import Base
 from app.db.session import get_db
+from app.models import area as area_model  # noqa: F401 - ensure model registration
+from app.models import area_step as area_step_model  # noqa: F401 - ensure model registration
 from app.models import email_verification_token as email_token_model  # noqa: F401 - ensure model registration
 from app.models import service_connection as service_connection_model  # noqa: F401 - ensure model registration
 from app.models import user as user_model  # noqa: F401 - ensure model registration
