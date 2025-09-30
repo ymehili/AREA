@@ -20,6 +20,26 @@ _last_run_by_area_id: Dict[str, datetime] = {}
 _scheduler_task: asyncio.Task | None = None
 
 
+def _fetch_due_areas(db: Session) -> list[Area]:
+    """Fetch all enabled areas with time-based triggers (sync function for thread pool).
+
+    Args:
+        db: Database session
+
+    Returns:
+        List of Area objects
+    """
+    return (
+        db.query(Area)
+        .filter(
+            Area.enabled == True,  # noqa: E712
+            Area.trigger_service == "time",
+            Area.trigger_action == "every_interval",
+        )
+        .all()
+    )
+
+
 def is_area_due(
     area: Area, now: datetime, last_run: datetime | None, default_interval: int = 60
 ) -> bool:
@@ -63,16 +83,9 @@ async def scheduler_task() -> None:
             db = SessionLocal()
 
             try:
-                # Load all enabled areas with time/every_interval trigger
-                areas = (
-                    db.query(Area)
-                    .filter(
-                        Area.enabled == True,  # noqa: E712
-                        Area.trigger_service == "time",
-                        Area.trigger_action == "every_interval",
-                    )
-                    .all()
-                )
+                # Load all enabled areas with time/every_interval trigger (non-blocking)
+                areas = await asyncio.to_thread(_fetch_due_areas, db)
+
                 logger.info(
                     "Scheduler tick",
                     extra={
@@ -88,6 +101,11 @@ async def scheduler_task() -> None:
                     # Check if area is due to run
                     if is_area_due(area, now, last_run):
                         try:
+                            # Get configured interval for logging
+                            interval_seconds = 60
+                            if area.trigger_params:
+                                interval_seconds = area.trigger_params.get("interval_seconds", 60)
+
                             # Assemble event data
                             event = {
                                 "now": now.isoformat(),
@@ -108,6 +126,17 @@ async def scheduler_task() -> None:
 
                                 # Update last run time
                                 _last_run_by_area_id[area_id_str] = now
+
+                                # Log execution with interval for troubleshooting
+                                logger.info(
+                                    "Area executed",
+                                    extra={
+                                        "area_id": area_id_str,
+                                        "area_name": area.name,
+                                        "interval_seconds": interval_seconds,
+                                        "reaction": f"{area.reaction_service}.{area.reaction_action}",
+                                    },
+                                )
                             else:
                                 logger.warning(
                                     "No handler found for reaction",
@@ -130,9 +159,16 @@ async def scheduler_task() -> None:
             finally:
                 db.close()
 
+        except asyncio.CancelledError:
+            # Handle cancellation explicitly - let it propagate
+            logger.info("Scheduler task cancelled, shutting down gracefully")
+            break  # Exit the while loop
+
         except Exception as e:  # pragma: no cover
             logger.error("Scheduler task error", extra={"error": str(e)}, exc_info=True)
             await asyncio.sleep(5)  # Back off on error
+
+    logger.info("Scheduler task stopped")
 
 
 def start_scheduler() -> None:
