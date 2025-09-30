@@ -181,11 +181,16 @@ def reorder_area_steps(db: Session, area_id: Union[str, uuid_module.UUID], step_
         AreaStepNotFoundError: If any step_id doesn't exist or doesn't belong to the area
     """
     area_id = _ensure_uuid(area_id)
+    step_ids = [_ensure_uuid(sid) for sid in step_order]
 
-    # Fetch all steps by the provided IDs
+    # Fetch all steps in a single query
+    statement = select(AreaStep).where(AreaStep.id.in_(step_ids))
+    steps_dict = {s.id: s for s in db.execute(statement).scalars()}
+
+    # Validate all steps exist and belong to the specified area
     steps = []
-    for step_id in step_order:
-        step = get_area_step_by_id(db, step_id)
+    for step_id in step_ids:
+        step = steps_dict.get(step_id)
         if step is None:
             raise AreaStepNotFoundError(str(step_id))
         # Validate that step belongs to the specified area
