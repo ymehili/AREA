@@ -149,13 +149,23 @@ class OAuthService:
                 db.commit()
                 db.refresh(user)
             elif not user:
-                # Create new user directly without using UserCreate schema
-                user = User(
-                    email=email.strip().lower(),
-                    hashed_password="",  # No password for OAuth users
-                    google_oauth_sub=google_sub,
-                    is_confirmed=True,  # OAuth users are automatically confirmed
+                # Create new user by calling the create_user function but using a workaround
+                # Since OAuth users don't have passwords, we'll handle this differently
+                from app.schemas.auth import UserCreate
+                # Temporarily use a mock password - we'll overwrite it after creation
+                user_in = UserCreate(
+                    email=email,
+                    password="oauth_temp_password",  # This will be overwritten with empty string
+                    full_name=None
                 )
+                
+                # Create the user using the service function
+                user = create_user(db, user_in, send_email=False)  # Don't send confirmation email for OAuth users
+                
+                # Update the user to set OAuth-specific fields
+                user.hashed_password = ""  # Remove password for OAuth users
+                user.google_oauth_sub = google_sub
+                user.is_confirmed = True  # OAuth users are automatically confirmed
                 db.add(user)
                 db.commit()
                 db.refresh(user)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AppShell from "@/components/app-shell";
+import { cn, headingClasses } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -246,7 +246,7 @@ export default function ProfilePage() {
     if (loadError) {
       return (
         <div className="flex flex-col items-center gap-4 py-12">
-          <p className="text-sm text-muted-foreground">{loadError}</p>
+          <p className="text-sm text-destructive">{loadError}</p>
           <Button onClick={() => void loadProfile()} variant="outline">
             Retry
           </Button>
@@ -404,6 +404,7 @@ export default function ProfilePage() {
                         variant="secondary"
                         onClick={() => void handleLink(method.provider)}
                         disabled={pending}
+                        className="text-white"
                       >
                         {pending ? "Linking…" : "Link"}
                       </Button>
@@ -419,17 +420,10 @@ export default function ProfilePage() {
   })();
 
   return (
-    <AppShell>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage how you sign in and update the details associated with your account.
-          </p>
-        </div>
-        <Separator />
-        {content}
-      </div>
-    </AppShell>
+    <div className="space-y-4">
+      <h1 className={cn(headingClasses(2), "text-foreground")}>User Profile</h1>
+      <Separator />
+      {content}
+    </div>
   );
 }
