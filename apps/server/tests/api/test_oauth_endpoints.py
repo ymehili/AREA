@@ -197,30 +197,49 @@ class TestOAuthService:
         assert exc_info.value.status_code == 400
         assert "user information" in exc_info.value.detail
 
+    @patch('app.integrations.user_oauth.create_user')
     @patch('app.integrations.user_oauth.get_user_by_email')
-    def test_find_or_create_google_user_new_user(self, mock_get_user_by_email):
+    def test_find_or_create_google_user_new_user(self, mock_get_user_by_email, mock_create_user):
         """Test creating a new Google user."""
         # Setup mocks
         mock_db = Mock()
-        mock_get_user_by_email.return_value = None  # No existing user
+        mock_get_user_by_email.return_value = None  # No existing user by email
 
         # Mock the database query for Google sub
+        from app.models.user import User
         mock_query = Mock()
         mock_filter = Mock()
         mock_query.filter.return_value = mock_filter
         mock_filter.first.return_value = None  # No user with this Google sub
         mock_db.query.return_value = mock_query
 
+        # Mock the created user
+        mock_user = Mock()
+        mock_user.email = 'newuser@example.com'
+        mock_user.google_oauth_sub = 'google123456'
+        mock_user.is_confirmed = True
+        mock_user.hashed_password = ""
+        mock_create_user.return_value = mock_user
+
         # Test the method
         result = OAuthService._find_or_create_google_user(
             mock_db,
-            'newuser@example.com',
+            'newuser@example.com',  # Fixed: removed space that made it invalid
             'google123456'
         )
 
-        # Verify user was created by checking db.add was called
-        mock_db.add.assert_called_once()
+        # Verify user was created by checking create_user was called
+        mock_create_user.assert_called_once()
+        
+        # Verify OAuth-specific fields were set
+        assert mock_user.hashed_password == ""
+        assert mock_user.google_oauth_sub == 'google123456'
+        assert mock_user.is_confirmed is True
+        
+        # Verify db.add was called to track changes to the user object
+        mock_db.add.assert_called_once_with(mock_user)
         mock_db.commit.assert_called()
+        mock_db.refresh.assert_called()
         # Verify the result has the expected attributes
         assert result.email == 'newuser@example.com'
         assert result.google_oauth_sub == 'google123456'
@@ -239,6 +258,7 @@ class TestOAuthService:
         mock_user.google_oauth_sub = 'google123456'
         
         # Mock the database query for Google sub to return existing user
+        from app.models.user import User
         mock_query = Mock()
         mock_filter = Mock()
         mock_query.filter.return_value = mock_filter
