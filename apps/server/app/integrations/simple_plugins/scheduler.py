@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Dict
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+from sqlalchemy.orm import selectinload
+
 from app.integrations.simple_plugins.registry import get_plugins_registry
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
@@ -29,17 +31,30 @@ def _fetch_due_areas(db: Session) -> list[Area]:
         db: Database session
 
     Returns:
-        List of Area objects
+        List of Area objects with steps eagerly loaded
     """
-    return (
+    from app.models.area_step import AreaStep, AreaStepType
+
+    # Eagerly load steps to avoid N+1 queries
+    areas = (
         db.query(Area)
-        .filter(
-            Area.enabled == True,  # noqa: E712
-            Area.trigger_service == "time",
-            Area.trigger_action == "every_interval",
-        )
+        .filter(Area.enabled == True)  # noqa: E712
+        .options(selectinload(Area.steps))
         .all()
     )
+
+    # Filter areas that have a time/every_interval ACTION step as the primary action
+    time_based_areas = []
+    for area in areas:
+        primary_action = area.primary_action
+        if (
+            primary_action
+            and primary_action.service_slug == "time"
+            and primary_action.action_key == "every_interval"
+        ):
+            time_based_areas.append(area)
+
+    return time_based_areas
 
 
 def is_area_due(
@@ -59,10 +74,11 @@ def is_area_due(
     if last_run is None:
         return True
 
-    # Get interval from trigger_params or use default
+    # Get interval from primary action's config or use default
     interval_seconds = default_interval
-    if area.trigger_params:
-        interval_seconds = area.trigger_params.get("interval_seconds", default_interval)
+    primary_action = area.primary_action
+    if primary_action and primary_action.config:
+        interval_seconds = primary_action.config.get("interval_seconds", default_interval)
 
     # Check if enough time has passed
     elapsed = (now - last_run).total_seconds()
@@ -122,8 +138,9 @@ async def scheduler_task() -> None:
 
                             # Get configured interval for logging
                             interval_seconds = 60
-                            if area.trigger_params:
-                                interval_seconds = area.trigger_params.get("interval_seconds", 60)
+                            primary_action = area.primary_action
+                            if primary_action and primary_action.config:
+                                interval_seconds = primary_action.config.get("interval_seconds", 60)
 
                             # Assemble event data
                             event = {
@@ -133,14 +150,29 @@ async def scheduler_task() -> None:
                                 "tick": True,
                             }
 
+                            # Get first REACTION step
+                            reaction_steps = area.reaction_steps
+                            if not reaction_steps:
+                                # Update execution log with failure status
+                                execution_log.status = "Failed"
+                                execution_log.error_message = "No REACTION step found in area"
+                                db.commit()
+                                logger.warning(
+                                    "No REACTION step found",
+                                    extra={"area_id": area_id_str, "area_name": area.name}
+                                )
+                                continue
+
+                            reaction_step = reaction_steps[0]
+
                             # Get reaction handler
                             handler = registry.get_reaction_handler(
-                                area.reaction_service, area.reaction_action
+                                reaction_step.service_slug or "", reaction_step.action_key or ""
                             )
 
                             if handler:
                                 # Execute reaction with params
-                                reaction_params = area.reaction_params or {}
+                                reaction_params = reaction_step.config or {}
                                 try:
                                     handler(area, reaction_params, event)
 
@@ -158,7 +190,7 @@ async def scheduler_task() -> None:
                                             "area_id": area_id_str,
                                             "area_name": area.name,
                                             "interval_seconds": interval_seconds,
-                                            "reaction": f"{area.reaction_service}.{area.reaction_action}",
+                                            "reaction": f"{reaction_step.service_slug}.{reaction_step.action_key}",
                                         },
                                     )
                                 except Exception as handler_error:
@@ -178,14 +210,14 @@ async def scheduler_task() -> None:
                             else:
                                 # Update execution log with failure status
                                 execution_log.status = "Failed"
-                                execution_log.error_message = f"No handler found for reaction {area.reaction_service}.{area.reaction_action}"
+                                execution_log.error_message = f"No handler found for reaction {reaction_step.service_slug}.{reaction_step.action_key}"
                                 db.commit()
 
                                 logger.warning(
                                     "No handler found for reaction",
                                     extra={
                                         "area_id": area_id_str,
-                                        "reaction": f"{area.reaction_service}.{area.reaction_action}",
+                                        "reaction": f"{reaction_step.service_slug}.{reaction_step.action_key}",
                                     }
                                 )
 

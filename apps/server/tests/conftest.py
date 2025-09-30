@@ -37,6 +37,8 @@ from app.db.session import get_db
 from app.models import email_verification_token as email_token_model  # noqa: F401 - ensure model registration
 from app.models import service_connection as service_connection_model  # noqa: F401 - ensure model registration
 from app.models import user as user_model  # noqa: F401 - ensure model registration
+from app.models import area as area_model  # noqa: F401 - ensure model registration
+from app.models import area_step as area_step_model  # noqa: F401 - ensure model registration
 from app.services import get_user_by_email
 
 
@@ -201,3 +203,10 @@ def auth_token(
     assert login_response.status_code == 200
     token_data = login_response.json()
     return token_data["access_token"]
+
+
+@pytest.fixture()
+def auth_headers(auth_token: str) -> dict[str, str]:
+    """Return HTTP headers with authentication token."""
+
+    return {"Authorization": f"Bearer {auth_token}"}

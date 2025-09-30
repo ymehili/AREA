@@ -126,9 +126,24 @@ This table represents the definitive technology selection for the entire project
 **Relationships:** A `ServiceConnection` belongs to one `User`.
 
 #### AREA Model
-**Purpose:** Represents a user-defined automation workflow. For the MVP, this will be a direct link between one trigger `Action` and one resulting `REAction`.
-**Key Attributes:** `id`, `user_id`, `name`, `is_enabled`, `trigger_service`, `trigger_action`, `trigger_config`, `reaction_service`, `reaction_action`, `reaction_config`, `created_at`, `updated_at`.
-**Relationships:** An `AREA` belongs to one `User`.
+**Purpose:** Represents a user-defined automation workflow supporting multi-step sequences.
+**Key Attributes:** `id`, `user_id`, `name`, `enabled`, `created_at`, `updated_at`.
+**Relationships:** An `AREA` belongs to one `User` and has many `AreaSteps` (ordered by position).
+
+#### AreaStep Model
+**Purpose:** Represents a single step in a multi-step automation workflow.
+**Key Attributes:** `id`, `area_id`, `position`, `step_type` (ACTION/REACTION/CONDITION/DELAY), `service_slug`, `action_key`, `config` (JSONB), `created_at`, `updated_at`.
+**Step Types:**
+- `ACTION`: Trigger step that initiates the workflow (e.g., time-based trigger)
+- `REACTION`: Action step that executes in response (e.g., send notification)
+- `CONDITION`: Conditional logic gate (future enhancement)
+- `DELAY`: Wait period between steps (future enhancement)
+**Constraints:**
+- Unique constraint on `(area_id, position)` ensures sequential ordering
+- First step must be of type ACTION
+- ACTION/REACTION steps require `service_slug` and `action_key`
+- CONDITION/DELAY steps do not require service information
+**Relationships:** An `AreaStep` belongs to one `AREA`.
 
 ### Section 5: API Specification
 

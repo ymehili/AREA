@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, UniqueConstraint, func, Boolean
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from app.models.user import User
     from app.models.execution_log import ExecutionLog
+    from app.models.area_step import AreaStep, AreaStepType
 
 
 class Area(Base):
@@ -36,12 +37,6 @@ class Area(Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    trigger_service: Mapped[str] = mapped_column(String(255), nullable=False)
-    trigger_action: Mapped[str] = mapped_column(String(255), nullable=False)
-    reaction_service: Mapped[str] = mapped_column(String(255), nullable=False)
-    reaction_action: Mapped[str] = mapped_column(String(255), nullable=False)
-    trigger_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    reaction_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     enabled: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -62,9 +57,38 @@ class Area(Base):
 
     # Relationship to User
     user: Mapped["User"] = relationship("User", back_populates="areas")
-    
+
+    # Relationship to AreaStep (ordered by position, cascade delete)
+    steps: Mapped[list["AreaStep"]] = relationship(
+        "AreaStep",
+        back_populates="area",
+        order_by="AreaStep.position",
+        cascade="all, delete-orphan",
+        lazy="joined",
+    )
+
     # Relationship to ExecutionLog
     execution_logs: Mapped[list["ExecutionLog"]] = relationship("ExecutionLog", back_populates="area")
+
+    @property
+    def primary_action(self) -> Optional["AreaStep"]:
+        """Return the first ACTION step."""
+        for step in self.steps:
+            if step.step_type.value == "action":
+                return step
+        return None
+
+    @property
+    def reaction_steps(self) -> list["AreaStep"]:
+        """Return all REACTION steps."""
+        return [step for step in self.steps if step.step_type.value == "reaction"]
+
+    def config_for(self, step_type: "AreaStepType") -> dict | None:
+        """Return config for the first step of the given type."""
+        for step in self.steps:
+            if step.step_type == step_type:
+                return step.config
+        return None
 
 
 __all__ = ["Area"]

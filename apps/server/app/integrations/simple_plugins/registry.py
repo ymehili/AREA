@@ -44,11 +44,23 @@ class PluginsRegistry:
         message = message_template.replace("{{ now }}", event.get("now", ""))
         message = message.replace("{{ area.name }}", area.name)
 
+        # Get step info for logging
+        primary_action = area.primary_action
+        reaction_steps = area.reaction_steps
+        trigger_info = "unknown"
+        reaction_info = "unknown"
+
+        if primary_action:
+            trigger_info = f"{primary_action.service_slug}.{primary_action.action_key}"
+        if reaction_steps:
+            reaction_step = reaction_steps[0]
+            reaction_info = f"{reaction_step.service_slug}.{reaction_step.action_key}"
+
         # Log with structured context
         logger.info(
             f"area_run area_id={str(area.id)} user_id={str(area.user_id)} "
-            f"trigger={area.trigger_service}.{area.trigger_action} "
-            f"reaction={area.reaction_service}.{area.reaction_action} "
+            f"trigger={trigger_info} "
+            f"reaction={reaction_info} "
             f"now={event.get('now')} message=\"{message}\""
         )
 

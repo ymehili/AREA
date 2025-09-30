@@ -14,6 +14,8 @@ from app.models import (  # noqa: E402,F401
     email_verification_token,
     service_connection,
     user,
+    area,
+    area_step,
 )
 
 

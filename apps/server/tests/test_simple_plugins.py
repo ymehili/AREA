@@ -35,15 +35,22 @@ class TestPluginsRegistry:
         registry = PluginsRegistry()
         handler = registry.get_reaction_handler("debug", "log")
 
-        # Create mock area
+        # Create mock area with step helpers
         area = Mock(spec=Area)
         area.id = "test-area-id"
         area.user_id = "test-user-id"
         area.name = "Test Area"
-        area.trigger_service = "time"
-        area.trigger_action = "every_interval"
-        area.reaction_service = "debug"
-        area.reaction_action = "log"
+
+        # Mock primary_action and reaction_steps
+        primary_action = Mock()
+        primary_action.service_slug = "time"
+        primary_action.action_key = "every_interval"
+        area.primary_action = primary_action
+
+        reaction_step = Mock()
+        reaction_step.service_slug = "debug"
+        reaction_step.action_key = "log"
+        area.reaction_steps = [reaction_step]
 
         # Create event
         now_str = "2025-09-29T12:00:00Z"
@@ -76,10 +83,17 @@ class TestPluginsRegistry:
         area.id = "test-area-id"
         area.user_id = "test-user-id"
         area.name = "My Test Area"
-        area.trigger_service = "time"
-        area.trigger_action = "every_interval"
-        area.reaction_service = "debug"
-        area.reaction_action = "log"
+
+        # Mock step helpers
+        primary_action = Mock()
+        primary_action.service_slug = "time"
+        primary_action.action_key = "every_interval"
+        area.primary_action = primary_action
+
+        reaction_step = Mock()
+        reaction_step.service_slug = "debug"
+        reaction_step.action_key = "log"
+        area.reaction_steps = [reaction_step]
 
         event = {
             "now": "2025-09-29T12:00:00Z",
@@ -107,10 +121,17 @@ class TestPluginsRegistry:
         area.id = "test-area-id"
         area.user_id = "test-user-id"
         area.name = "Test Area"
-        area.trigger_service = "time"
-        area.trigger_action = "every_interval"
-        area.reaction_service = "debug"
-        area.reaction_action = "log"
+
+        # Mock step helpers
+        primary_action = Mock()
+        primary_action.service_slug = "time"
+        primary_action.action_key = "every_interval"
+        area.primary_action = primary_action
+
+        reaction_step = Mock()
+        reaction_step.service_slug = "debug"
+        reaction_step.action_key = "log"
+        area.reaction_steps = [reaction_step]
 
         event = {
             "now": "2025-09-29T12:00:00Z",
@@ -134,7 +155,9 @@ class TestSchedulerLogic:
     def test_area_due_first_run(self):
         """Test that area is due on first run (no last_run)."""
         area = Mock(spec=Area)
-        area.trigger_params = {"interval_seconds": 60}
+        primary_action = Mock()
+        primary_action.config = {"interval_seconds": 60}
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         assert is_area_due(area, now, None) is True
@@ -142,7 +165,9 @@ class TestSchedulerLogic:
     def test_area_due_after_interval(self):
         """Test that area is due after interval has passed."""
         area = Mock(spec=Area)
-        area.trigger_params = {"interval_seconds": 60}
+        primary_action = Mock()
+        primary_action.config = {"interval_seconds": 60}
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         last_run = now - timedelta(seconds=61)
@@ -152,7 +177,9 @@ class TestSchedulerLogic:
     def test_area_not_due_before_interval(self):
         """Test that area is not due before interval has passed."""
         area = Mock(spec=Area)
-        area.trigger_params = {"interval_seconds": 60}
+        primary_action = Mock()
+        primary_action.config = {"interval_seconds": 60}
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         last_run = now - timedelta(seconds=30)
@@ -162,7 +189,9 @@ class TestSchedulerLogic:
     def test_area_due_exactly_at_interval(self):
         """Test that area is due exactly at interval boundary."""
         area = Mock(spec=Area)
-        area.trigger_params = {"interval_seconds": 60}
+        primary_action = Mock()
+        primary_action.config = {"interval_seconds": 60}
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         last_run = now - timedelta(seconds=60)
@@ -172,7 +201,9 @@ class TestSchedulerLogic:
     def test_area_due_uses_default_interval(self):
         """Test that default interval is used when not specified."""
         area = Mock(spec=Area)
-        area.trigger_params = None  # No params
+        primary_action = Mock()
+        primary_action.config = None  # No config
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         last_run = now - timedelta(seconds=61)
@@ -183,7 +214,9 @@ class TestSchedulerLogic:
     def test_area_due_with_custom_interval(self):
         """Test with a custom interval."""
         area = Mock(spec=Area)
-        area.trigger_params = {"interval_seconds": 300}  # 5 minutes
+        primary_action = Mock()
+        primary_action.config = {"interval_seconds": 300}  # 5 minutes
+        area.primary_action = primary_action
 
         now = datetime.now(timezone.utc)
         last_run = now - timedelta(seconds=301)
