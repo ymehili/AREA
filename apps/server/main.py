@@ -25,22 +25,6 @@ from app.integrations.simple_plugins.scheduler import start_scheduler, stop_sche
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# Run migrations before creating the app (only in production or main dev process)
-import sys
-import os
-# Only run migrations if we're not in test mode and not in a reloader subprocess
-if (
-    "pytest" not in sys.modules
-    and "PYTEST_CURRENT_TEST" not in os.environ
-):
-    logger.info("Running migrations before app creation")
-    try:
-        run_migrations()
-        logger.info("Migrations complete")
-    except Exception as exc:
-        logger.error("Migration failed", exc_info=True)
-        # Continue anyway - migrations may already be applied
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,9 +32,19 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         logger.info("Startup: verifying database connection")
+        # Verify database connection with retry logic
         verify_connection()
         logger.info("Startup: database connection verified")
         app.state.database_url = settings.database_url
+        
+        # Run migrations after database connection is verified but before starting the scheduler
+        logger.info("Startup: running database migrations")
+        try:
+            run_migrations()
+            logger.info("Startup: migrations completed")
+        except Exception as migration_exc:
+            logger.error("Startup: migration failed", exc_info=True)
+            raise migration_exc
 
         # Start the background scheduler for time-based areas
         logger.info("Startup: starting scheduler")
@@ -66,6 +60,41 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping scheduler")
     stop_scheduler()
     logger.info("Shutdown: scheduler stopped")
+
+
+# This function is kept for testing compatibility
+async def startup_event() -> None:
+    """Validate database connectivity and start scheduler."""
+    try:
+        logger.info("Startup: verifying database connection")
+        verify_connection()
+        logger.info("Startup: database connection verified")
+        
+        # For backward compatibility with tests, set the database URL on the app instance
+        # The test expects main.app.state.database_url to be set after calling startup_event
+        import sys
+        import os
+        # Only run migrations if we're not in test mode and not in a reloader subprocess
+        # This ensures tests don't run migrations but production does when this function is called
+        if (
+            "pytest" not in sys.modules
+            and "PYTEST_CURRENT_TEST" not in os.environ
+        ):
+            logger.info("Startup (compatibility): running database migrations")
+            run_migrations()
+            logger.info("Startup (compatibility): migrations completed")
+        else:
+            logger.info("Startup (test mode): skipping migrations")
+        
+        app.state.database_url = settings.database_url
+
+        # Start the background scheduler for time-based areas
+        logger.info("Startup: starting scheduler")
+        start_scheduler()
+        logger.info("Startup: scheduler started")
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        logger.error("Startup failure", exc_info=True)
+        raise
 
 
 # This function is kept for testing compatibility
