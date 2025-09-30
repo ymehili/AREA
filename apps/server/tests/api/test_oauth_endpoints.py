@@ -197,12 +197,19 @@ class TestOAuthService:
         assert exc_info.value.status_code == 400
         assert "user information" in exc_info.value.detail
 
+    @patch('app.integrations.user_oauth.create_user')
     @patch('app.integrations.user_oauth.get_user_by_email')
-    def test_find_or_create_google_user_new_user(self, mock_get_user_by_email):
+    def test_find_or_create_google_user_new_user(self, mock_get_user_by_email, mock_create_user):
         """Test creating a new Google user."""
         # Setup mocks
         mock_db = Mock()
         mock_get_user_by_email.return_value = None  # No existing user
+        mock_user = Mock()
+        mock_user.email = 'newuser@example.com'
+        mock_user.google_oauth_sub = 'google123456'
+        mock_user.is_confirmed = True
+        mock_user.hashed_password = ""
+        mock_create_user.return_value = mock_user
 
         # Mock the database query for Google sub
         mock_query = Mock()
@@ -218,9 +225,8 @@ class TestOAuthService:
             'google123456'
         )
 
-        # Verify user was created by checking db.add was called
-        mock_db.add.assert_called_once()
-        mock_db.commit.assert_called()
+        # Verify create_user was called
+        mock_create_user.assert_called_once()
         # Verify the result has the expected attributes
         assert result.email == 'newuser@example.com'
         assert result.google_oauth_sub == 'google123456'

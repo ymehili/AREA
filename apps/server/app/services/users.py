@@ -242,6 +242,15 @@ def unlink_login_provider(
     db.refresh(user)
     return user
 
+def grant_admin_privileges(db: Session, user: User) -> User:
+    """Grant admin privileges to a user."""
+    user.is_admin = True
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -251,6 +260,7 @@ __all__ = [
     "create_user",
     "change_user_password",
     "get_user_by_email",
+    "grant_admin_privileges",
     "link_login_provider",
     "unlink_login_provider",
     "update_user_profile",

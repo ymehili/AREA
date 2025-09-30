@@ -16,6 +16,7 @@ def test_user_read_includes_confirmation_fields() -> None:
         full_name="Schema Example",
         hashed_password="hashed",
         is_confirmed=True,
+        is_admin=False,  # explicitly set is_admin field
         confirmed_at=now,
     )
     user.id = uuid.uuid4()
@@ -24,6 +25,7 @@ def test_user_read_includes_confirmation_fields() -> None:
 
     serialized = UserRead.model_validate(user)
     assert serialized.is_confirmed is True
+    assert serialized.is_admin is False
     assert serialized.confirmed_at == now
     assert serialized.email == "schema@example.com"
     assert serialized.full_name == "Schema Example"

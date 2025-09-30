@@ -42,6 +42,7 @@ class UserRead(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     is_confirmed: bool
+    is_admin: bool
     confirmed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime

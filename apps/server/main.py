@@ -14,6 +14,7 @@ from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.api.routes.service_connections import router as service_connections_router
 from app.api import areas_router
+from app.api.routes.admin import router as admin_router
 from app.core.config import settings
 from app.db.migrations import run_migrations
 from app.db.session import verify_connection
@@ -107,4 +108,5 @@ app.include_router(profile_router, prefix="/api/v1/users")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")
 app.include_router(areas_router, prefix="/api/v1")
+app.include_router(admin_router)
 logger.info("Routers registered; application ready to accept requests")
