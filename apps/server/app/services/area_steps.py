@@ -112,7 +112,7 @@ def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in
     """Update an existing area step."""
     step = get_area_step_by_id(db, step_id)
     if step is None:
-        raise AreaStepNotFoundError(step_id)
+        raise AreaStepNotFoundError(str(step_id))
 
     # Update fields if provided
     if step_in.step_type is not None:
