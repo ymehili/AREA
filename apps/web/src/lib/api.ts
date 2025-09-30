@@ -24,6 +24,13 @@ export class UnauthorizedError extends ApiError {
   }
 }
 
+export class ExecutionLogError extends ApiError {
+  constructor(status: number, message: string) {
+    super(status, message);
+    this.name = "ExecutionLogError";
+  }
+}
+
 export function loadStoredSession(): StoredSession | null {
   if (typeof window === "undefined") {
     return null;
@@ -165,6 +172,33 @@ export type PasswordChangePayload = {
   new_password: string;
 };
 
+// Execution Logs
+export type ExecutionLog = {
+  id: string;
+  area_id: string;
+  status: string;
+  output: string | null;
+  error_message: string | null;
+  step_details: Record<string, unknown> | null;
+  timestamp: string;
+  created_at: string;
+};
+
+export type ExecutionLogCreatePayload = {
+  area_id: string;
+  status: string;
+  output?: string | null;
+  error_message?: string | null;
+  step_details?: Record<string, unknown> | null;
+};
+
+export type ExecutionLogUpdatePayload = {
+  status?: string;
+  output?: string | null;
+  error_message?: string | null;
+  step_details?: Record<string, unknown> | null;
+};
+
 export async function fetchProfile(token: string): Promise<UserProfile> {
   return requestJson<UserProfile>("/users/me", {}, token);
 }
@@ -269,6 +303,37 @@ export async function unlinkLoginMethod(
     `/users/me/login-methods/${provider}`,
     {
       method: 'DELETE',
+    },
+    token,
+  );
+}
+
+// Execution Logs API Functions
+export async function getExecutionLogsForUser(token: string): Promise<ExecutionLog[]> {
+  return requestJson<ExecutionLog[]>(
+    "/execution-logs",
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+export async function getExecutionLogsByArea(token: string, areaId: string): Promise<ExecutionLog[]> {
+  return requestJson<ExecutionLog[]>(
+    `/areas/${areaId}/execution-logs`,
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+export async function getExecutionLogById(token: string, logId: string): Promise<ExecutionLog> {
+  return requestJson<ExecutionLog>(
+    `/execution-logs/${logId}`,
+    {
+      method: "GET",
     },
     token,
   );

@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 const TABS = [
   { href: "/profile", label: "Profile" },
   { href: "/profile/activity-log", label: "Activity Log" },
-  { href: "/profile/automation-history", label: "Automation History" },
 ];
 
 export default function ProfileLayout({ children }: { children: ReactNode }) {
