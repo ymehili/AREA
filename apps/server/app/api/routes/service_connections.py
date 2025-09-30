@@ -50,7 +50,7 @@ async def initiate_service_connection(
 
     except UnsupportedProviderError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to initiate OAuth connection for provider %s", provider)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -108,19 +108,19 @@ async def handle_service_connection_callback(
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
-    except DuplicateServiceConnectionError as e:
+    except DuplicateServiceConnectionError:
         logger.info("User %s already has connection for provider %s", user_id, provider)
         return RedirectResponse(
             url=f"{settings.frontend_redirect_url_web}/connections?error=already_connected&service={provider}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except OAuth2Error as e:
+    except OAuth2Error:
         logger.exception("OAuth error during callback for provider %s", provider)
         return RedirectResponse(
             url=f"{settings.frontend_redirect_url_web}/connections?error=connection_failed",
             status_code=status.HTTP_303_SEE_OTHER,
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during OAuth callback for provider %s", provider)
         return RedirectResponse(
             url=f"{settings.frontend_redirect_url_web}/connections?error=unknown",
