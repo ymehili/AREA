@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Optional, List
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -39,14 +40,16 @@ class DuplicateAreaError(Exception):
 
 def get_area_by_id(db: Session, area_id: str) -> Optional[Area]:
     """Fetch an area by its ID."""
-    statement = select(Area).where(Area.id == area_id)
+    uuid_area_id = uuid.UUID(area_id)
+    statement = select(Area).where(Area.id == uuid_area_id)
     result = db.execute(statement)
     return result.scalar_one_or_none()
 
 
 def get_areas_by_user(db: Session, user_id: str) -> List[Area]:
     """Fetch all areas for a specific user."""
-    statement = select(Area).where(Area.user_id == user_id)
+    uuid_user_id = uuid.UUID(user_id)
+    statement = select(Area).where(Area.user_id == uuid_user_id)
     result = db.execute(statement)
     return list(result.scalars().all())
 
@@ -57,22 +60,10 @@ def create_area(
     user_id: str,
     steps: Optional[List[AreaStepCreate]] = None,
 ) -> Area:
-    """Create a new area with optional steps.
-
-    Args:
-        db: Database session
-        area_in: Area creation schema
-        user_id: ID of the user creating the area
-        steps: Optional list of steps to create with the area
-
-    Returns:
-        The created Area object with steps if provided
-
-    Raises:
-        DuplicateAreaError: If an area with the same name already exists for the user
-    """
+    """Create a new area with optional steps."""
+    uuid_user_id = uuid.UUID(user_id)
     area = Area(
-        user_id=user_id,
+        user_id=uuid_user_id,
         name=area_in.name,
         trigger_service=area_in.trigger_service,
         trigger_action=area_in.trigger_action,
@@ -102,10 +93,8 @@ def create_area(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        # Check for unique constraint vs other integrity violations
         if _is_duplicate_area_constraint_violation(exc):
             raise DuplicateAreaError(user_id, area_in.name) from exc
-        # Re-raise other integrity errors (like foreign key violations from steps)
         raise
 
     db.refresh(area)
@@ -117,8 +106,10 @@ def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Opti
 
     If user_id is provided, scope the lookup to that user to prevent cross-user updates.
     """
+    uuid_area_id = uuid.UUID(area_id)
     if user_id is not None:
-        statement = select(Area).where(Area.id == area_id, Area.user_id == user_id)
+        uuid_user_id = uuid.UUID(user_id)
+        statement = select(Area).where(Area.id == uuid_area_id, Area.user_id == uuid_user_id)
         result = db.execute(statement)
         area = result.scalar_one_or_none()
     else:

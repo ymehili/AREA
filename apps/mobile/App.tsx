@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Button,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -11,9 +12,9 @@ import {
   Text,
   TextInput,
   View,
+  RefreshControl,
 } from "react-native";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -25,9 +26,18 @@ import Input from './src/components/ui/Input';
 import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
 
+// Import screens
+import HistoryScreen from './src/components/HistoryScreen';
+import ActivityLogScreen from './src/components/ActivityLogScreen';
+import ConfirmScreen from './src/components/ConfirmScreen';
+
 // Import design system
 import { Colors } from './src/constants/colors';
 import { TextStyles, FontFamilies } from './src/constants/typography';
+
+// Import auth context and API utilities
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { ExecutionLog } from './src/utils/api';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -137,9 +147,51 @@ type UserProfile = {
   login_methods: LoginMethodStatus[];
 };
 
+// Execution Logs (these will use the imported functions)
+async function getExecutionLogsByArea(token: string, areaId: string): Promise<ExecutionLog[]> {
+  return requestJson<ExecutionLog[]>(
+    `/execution-logs/area/${areaId}`,
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+async function getExecutionLogById(token: string, logId: string): Promise<ExecutionLog> {
+  return requestJson<ExecutionLog>(
+    `/execution-logs/${logId}`,
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
 async function getProfile(token: string): Promise<UserProfile> {
   return requestJson<UserProfile>("/users/me", {}, token);
 }
+
+const PROVIDER_LABELS: Record<string, string> = {
+  google: "Google",
+  github: "GitHub",
+  microsoft: "Microsoft",
+};
+
+// Mirrored options from web wizard for a simple, consistent UX
+const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
+const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["New Email", "New Email w/ Attachment"],
+  "Google Drive": ["New File in Folder"],
+  Slack: ["New Message in Channel"],
+  GitHub: ["New Pull Request"],
+};
+const ACTIONS_BY_SERVICE: Record<string, string[]> = {
+  Gmail: ["Send Email"],
+  "Google Drive": ["Upload File", "Create Folder"],
+  Slack: ["Send Message"],
+  GitHub: ["Create Issue"],
+};
 
 async function updateProfileRequest(
   token: string,
@@ -195,185 +247,6 @@ async function unlinkLoginProvider(
     },
     token,
   );
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  google: "Google",
-  github: "GitHub",
-  microsoft: "Microsoft",
-};
-
-// Mirrored options from web wizard for a simple, consistent UX
-const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
-const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["New Email", "New Email w/ Attachment"],
-  "Google Drive": ["New File in Folder"],
-  Slack: ["New Message in Channel"],
-  GitHub: ["New Pull Request"],
-};
-const ACTIONS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["Send Email"],
-  "Google Drive": ["Upload File", "Create Folder"],
-  Slack: ["Send Message"],
-  GitHub: ["Create Issue"],
-};
-
-type AuthContextValue = {
-  token: string | null;
-  email: string | null;
-  initializing: boolean;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  setEmail: (email: string | null) => Promise<void>;
-  persistSession: (token: string | null, email: string | null) => Promise<void>;
-};
-
-const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
-
-function useAuth(): AuthContextValue {
-  const context = React.useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-}
-
-type StoredSession = {
-  token: string;
-  email?: string;
-};
-
-async function loadSession(): Promise<StoredSession | null> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as StoredSession;
-  } catch {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    return null;
-  }
-}
-
-function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-  const [initializing, setInitializing] = useState(true);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadSession()
-      .then((session) => {
-        if (session) {
-          setToken(session.token);
-          setEmail(session.email ?? null);
-        }
-      })
-      .finally(() => setInitializing(false));
-  }, []);
-
-  const persistSession = useCallback(async (nextToken: string | null, nextEmail: string | null) => {
-    setToken(nextToken);
-    setEmail(nextEmail);
-    if (nextToken) {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ token: nextToken, email: nextEmail ?? undefined }),
-      );
-    } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  const login = useCallback(
-    async (loginEmail: string, password: string) => {
-      setLoading(true);
-      try {
-        const data = await requestJson<{ access_token: string }>(
-          "/auth/login",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: loginEmail, password }),
-          },
-        );
-        await persistSession(data.access_token, loginEmail);
-      } catch (error) {
-        if (error instanceof ApiError) {
-          if (error.status === 403) {
-            throw new Error(
-              "Please confirm your email address before logging in. Check your inbox for the confirmation link.",
-            );
-          }
-          if (error.status === 401) {
-            throw new Error("Unable to log in. Please check your credentials.");
-          }
-          throw new Error(error.message);
-        }
-        throw new Error("Unable to log in. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [persistSession],
-  );
-
-  const register = useCallback(
-    async (registerEmail: string, password: string) => {
-      setLoading(true);
-      try {
-        await requestJson<StoredSession>(
-          "/auth/register",
-          {
-            method: "POST",
-            body: JSON.stringify({ email: registerEmail, password }),
-          },
-        );
-      } catch (error) {
-        if (error instanceof ApiError) {
-          throw new Error(error.message);
-        }
-        throw new Error("Unable to create account. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [persistSession],
-  );
-
-  const logout = useCallback(async () => {
-    await persistSession(null, null);
-  }, [persistSession]);
-
-  const setEmailAddress = useCallback(
-    async (nextEmail: string | null) => {
-      if (!token) {
-        setEmail(nextEmail);
-        return;
-      }
-      await persistSession(token, nextEmail);
-    },
-    [persistSession, token],
-  );
-
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      token,
-      email,
-      initializing,
-      loading,
-      login,
-      register,
-      logout,
-      setEmail: setEmailAddress,
-      persistSession,
-    }),
-    [email, initializing, loading, login, logout, register, token, setEmailAddress, persistSession],
-  );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 function LoginScreen() {
@@ -528,15 +401,25 @@ function LoginScreen() {
 function DashboardScreen() {
   const auth = useAuth();
   const navigation = useNavigation<any>();
+  const typedNavigation = useNavigation<any>();
   const [areas, setAreas] = useState<{ id: string; name: string; trigger: string; action: string; enabled: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadAreas = useCallback(async () => {
     if (!auth.token) {
       return;
     }
-    setLoading(true);
+    // Only show loading indicator if this is initial load
+    const shouldShowLoading = areas.length === 0;
+    if (shouldShowLoading) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    
     try {
       const data = await requestJson<{ 
         id: string; 
@@ -572,8 +455,9 @@ function DashboardScreen() {
       Alert.alert("Failed to load areas", message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [auth]);
+  }, [auth, areas.length]);
 
   useEffect(() => {
     void loadAreas();
@@ -606,7 +490,7 @@ function DashboardScreen() {
     }
   };
 
-  if (loading) {
+  if (loading && areas.length === 0) { // Only show full loading screen if no areas exist yet
     return (
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Dashboard</Text>
@@ -650,7 +534,12 @@ function DashboardScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Dashboard</Text>
-      <ScrollView style={{ flex: 1, padding: 16 }}>
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={loadAreas} />
+        }
+      >
         {areas.map((area) => (
           <Card key={area.id} style={{ marginBottom: 16 }}>
             <View style={styles.rowBetween}>
@@ -665,6 +554,7 @@ function DashboardScreen() {
                 title={area.enabled ? "Disable" : "Enable"} 
                 onPress={() => void toggleArea(area.id, !area.enabled)} 
                 variant={area.enabled ? "outline" : "default"}
+                style={{ flex: 1, marginRight: 4 }}
               />
               <CustomButton 
                 title="Delete" 
@@ -685,6 +575,7 @@ function DashboardScreen() {
                   ]);
                 }} 
                 variant="destructive"
+                style={{ flex: 1, marginLeft: 4 }}
               />
             </View>
             <View style={{ height: 8 }} />
@@ -701,22 +592,64 @@ function DashboardScreen() {
 
 function ConnectionsScreen() {
   const auth = useAuth();
-  const [services, setServices] = useState<{ slug: string; name: string; description?: string }[]>([]);
+  const [services, setServices] = useState<{ id: string; name: string; description: string; connected: boolean; connection_id?: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
       return;
     }
-    setLoading(true);
+    // Only show loading indicator if this is initial load
+    const shouldShowLoading = services.length === 0;
+    if (shouldShowLoading) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+    
     try {
-      const data = await requestJson<{ services: { slug: string; name: string; description: string }[] }>(
+      // Load available services from catalog
+      const servicesData = await requestJson<{ services: { slug: string; name: string; description: string }[] }>(
         "/services/services",
         { method: "GET" },
         auth.token,
       );
-      setServices(data.services);
+
+      // Load OAuth providers
+      const providersData = await requestJson<{ providers: string[] }>(
+        "/service-connections/providers",
+        { method: "GET" },
+        auth.token,
+      );
+
+      // Load existing connections
+      const connectionsData = await requestJson<{ id: string; service_name: string; oauth_metadata?: any }[]>(
+        "/users/me/connections",
+        { method: "GET" },
+        auth.token,
+      );
+
+      // Filter services to only show those with OAuth2 implementations
+      // and merge with connection status
+      const transformed = servicesData.services
+        .filter((service) => providersData.providers.includes(service.slug))
+        .map((service) => {
+          const connection = connectionsData.find(
+            (conn) => conn.service_name === service.slug
+          );
+          return {
+            id: service.slug,
+            name: service.name,
+            description: service.description || "",
+            connected: !!connection,
+            connection_id: connection?.id,
+          };
+        });
+
+      setServices(transformed);
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to load services.";
@@ -728,19 +661,72 @@ function ConnectionsScreen() {
       Alert.alert("Failed to load services", message);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [auth]);
+  }, [auth, services.length]);
 
   useEffect(() => {
     void loadServices();
   }, [loadServices]);
 
-  if (loading) {
+  const testConnection = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      const testResult = await requestJson<{ success: boolean; [key: string]: unknown }>(
+        `/service-connections/test/${serviceId}/${connectionId}`,
+        { method: "GET" },
+        auth.token,
+      );
+
+      if (testResult.success) {
+        Alert.alert(`${serviceId} connection test successful!`);
+      } else {
+        Alert.alert(`${serviceId} connection test failed.`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to test connection.";
+      if (message.includes("401")) {
+        await auth.logout();
+        return;
+      }
+      Alert.alert("Test failed", message);
+    }
+  };
+
+  const disconnectService = async (serviceId: string, connectionId: string) => {
+    if (!auth.token) {
+      return;
+    }
+
+    try {
+      await requestJson(
+        `/service-connections/connections/${connectionId}`,
+        { method: "DELETE" },
+        auth.token,
+      );
+
+      Alert.alert(`${serviceId} disconnected successfully.`);
+      // Reload services to update connection status
+      void loadServices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to disconnect service.";
+      if (message.includes("401")) {
+        await auth.logout();
+        return;
+      }
+      Alert.alert("Disconnect failed", message);
+    }
+  };
+
+  if (loading && services.length === 0) { // Only show full loading screen if no services exist yet
     return (
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Service Connection Hub</Text>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -750,11 +736,11 @@ function ConnectionsScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <Text style={styles.h1}>Service Connection Hub</Text>
-        <View style={styles.centered}>
+        <Card style={{ margin: 16 }}>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: 12 }} />
-          <Button title="Retry" onPress={() => void loadServices()} />
-        </View>
+          <CustomButton title="Retry" onPress={() => void loadServices()} variant="outline" />
+        </Card>
       </SafeAreaView>
     );
   }
@@ -762,15 +748,65 @@ function ConnectionsScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Service Connection Hub</Text>
-      {services.map((s) => (
-        <View key={s.slug} style={styles.rowBetween}>
-          <View>
-            <Text>{s.name}</Text>
-            <Text style={styles.muted}>{s.description}</Text>
-          </View>
-          <Button title="Connect" onPress={() => {}} />
-        </View>
-      ))}
+      <ScrollView 
+        style={{ flex: 1, padding: 16 }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={loadServices} />
+        }
+      >
+        {services.map((s) => (
+          <Card key={s.id} style={{ marginBottom: 16 }}>
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.cardTitle}>{s.name}</Text>
+                <Text style={styles.muted}>{s.description}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <View
+                    style={{
+                      backgroundColor: s.connected ? Colors.success : Colors.muted,
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 4,
+                      marginRight: 8,
+                    }}
+                  >
+                    <Text style={{ color: Colors.backgroundLight, fontSize: 12 }}>
+                      {s.connected ? "Connected" : "Not connected"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row' }}>
+                  {s.connected ? (
+                    <>
+                      {s.connection_id && (
+                        <CustomButton 
+                          title="Test" 
+                          onPress={() => testConnection(s.id, s.connection_id!)} 
+                          variant="outline" 
+                          style={{ marginRight: 8 }}
+                        />
+                      )}
+                      <CustomButton 
+                        title="Disconnect" 
+                        onPress={() => s.connection_id && disconnectService(s.id, s.connection_id)}
+                        variant="outline"
+                      />
+                    </>
+                  ) : (
+                    <CustomButton 
+                      title="Connect" 
+                      onPress={() => {}} 
+                      variant="default"
+                    />
+                  )}
+                </View>
+              </View>
+            </View>
+          </Card>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -971,6 +1007,7 @@ function WizardScreen() {
 
 function ProfileScreen() {
   const auth = useAuth();
+  const navigation = useNavigation();
   const { token, logout, setEmail: syncEmail } = auth;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -1008,7 +1045,7 @@ function ProfileScreen() {
     }
     setLoadingProfile(true);
     try {
-      const data = await getProfile(token);
+      const data = await requestJson<UserProfile>("/users/me", {}, token);
       setProfile(data);
       setFullName(data.full_name ?? "");
       setEmailField(data.email);
@@ -1046,7 +1083,14 @@ function ProfileScreen() {
         full_name: fullName.trim() === "" ? null : fullName.trim(),
         email: email.trim(),
       };
-      const updated = await updateProfileRequest(token, payload);
+      const updated = await requestJson<UserProfile>(
+        "/users/me",
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        },
+        token,
+      );
       setProfile(updated);
       setFullName(updated.full_name ?? "");
       setEmailField(updated.email);
@@ -1078,10 +1122,17 @@ function ProfileScreen() {
     }
     setPasswordSaving(true);
     try {
-      const updated = await changePasswordRequest(token, {
-        current_password: currentPassword,
-        new_password: newPassword,
-      });
+      const updated = await requestJson<UserProfile>(
+        "/users/me/password",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+          }),
+        },
+        token,
+      );
       setProfile(updated);
       setCurrentPassword("");
       setNewPassword("");
@@ -1112,7 +1163,14 @@ function ProfileScreen() {
       }
       setProviderPending((prev) => ({ ...prev, [provider]: true }));
       try {
-        const status = await linkLoginProvider(token, provider, trimmed);
+        const status = await requestJson<LoginMethodStatus>(
+          `/users/me/login-methods/${provider}`,
+          {
+            method: "POST",
+            body: JSON.stringify({ identifier: trimmed }),
+          },
+          token,
+        );
         updateLoginMethod(status);
         setLinkIdentifiers((prev) => ({ ...prev, [provider]: "" }));
         Alert.alert("Linked", `${PROVIDER_LABELS[provider] ?? provider} account linked.`);
@@ -1137,7 +1195,13 @@ function ProfileScreen() {
       }
       setProviderPending((prev) => ({ ...prev, [provider]: true }));
       try {
-        const status = await unlinkLoginProvider(token, provider);
+        const status = await requestJson<LoginMethodStatus>(
+          `/users/me/login-methods/${provider}`,
+          {
+            method: "DELETE",
+          },
+          token,
+        );
         updateLoginMethod(status);
         Alert.alert("Unlinked", `${PROVIDER_LABELS[provider] ?? provider} account unlinked.`);
       } catch (err) {
@@ -1201,6 +1265,22 @@ function ProfileScreen() {
             <Text style={styles.alertText}>
               We sent a confirmation link to {profile.email}. Confirm it before signing in again.
             </Text>
+            <View style={{ height: 8 }} />
+            <CustomButton 
+              title="Resend confirmation email" 
+              onPress={async () => {
+                try {
+                  await requestJson(`/auth/confirm/resend`, {
+                    method: "POST",
+                    body: JSON.stringify({ email: profile.email }),
+                  }, token);
+                  Alert.alert("Email sent", "A new confirmation email has been sent.");
+                } catch (error: any) {
+                  Alert.alert("Error", error.message || "Failed to resend confirmation email.");
+                }
+              }} 
+              variant="outline" 
+            />
           </View>
         )}
 
@@ -1320,8 +1400,10 @@ function ProfileScreen() {
           })}
         </View>
 
-        <View style={{ height: 24 }} />
-        <Button title="Logout" onPress={() => logout().catch(() => {})} />
+        <View style={{ height: 12 }} />
+        <CustomButton title="Activity Log" onPress={() => navigation.navigate("ActivityLog" as never)} variant="default" />
+        <View style={{ height: 12 }} />
+        <CustomButton title="Logout" onPress={() => logout().catch(() => {})} variant="outline" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1334,10 +1416,21 @@ function TabsNavigator() {
   return (
     <Tabs.Navigator>
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
+      <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
       <Tabs.Screen name="Wizard" component={WizardScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
+  );
+}
+
+function AuthenticatedNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MainTabs" component={TabsNavigator} />
+      <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
+      <Stack.Screen name="Confirm" component={ConfirmScreen} />
+    </Stack.Navigator>
   );
 }
 
@@ -1355,7 +1448,7 @@ function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {auth.token ? (
-        <Stack.Screen name="Main" component={TabsNavigator} />
+        <Stack.Screen name="Authenticated" component={AuthenticatedNavigator} />
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />
       )}

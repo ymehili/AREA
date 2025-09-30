@@ -12,7 +12,7 @@ from starlette.responses import RedirectResponse
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User
-from app.schemas.auth import TokenResponse, UserCreate
+from app.schemas.auth import TokenResponse
 from app.services.users import get_user_by_email, create_user
 
 
@@ -155,8 +155,8 @@ class OAuthService:
                 # Temporarily use a mock password - we'll overwrite it after creation
                 user_in = UserCreate(
                     email=email,
-                    password="oauth_temp_password",  # This will be overwritten with empty string
-                    full_name=None
+                    password="oauth_temp_password"  # This will be overwritten with empty string
+                    # Note: full_name is not a field in UserCreate schema, so not passing it
                 )
                 
                 # Create the user using the service function
@@ -166,7 +166,7 @@ class OAuthService:
                 user.hashed_password = ""  # Remove password for OAuth users
                 user.google_oauth_sub = google_sub
                 user.is_confirmed = True  # OAuth users are automatically confirmed
-                db.add(user)
+                db.add(user)  # SQLAlchemy needs to track this change
                 db.commit()
                 db.refresh(user)
         
