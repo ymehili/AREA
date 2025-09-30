@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { useAuth, type ExecutionLog, getExecutionLogsForUser } from "../..//App";
+import { useAuth } from "./../contexts/AuthContext";
+import { getExecutionLogsForUser, ExecutionLog } from "../utils/api";
 import { Colors } from "../constants/colors";
 import { TextStyles } from "../constants/typography";
 import CustomButton from "./ui/Button";
@@ -37,7 +38,7 @@ export default function HistoryScreen() {
       const logs = await getExecutionLogsForUser(auth.token);
       // Sort logs by timestamp, newest first
       const sortedLogs = logs.sort(
-        (a, b) => 
+        (a: ExecutionLog, b: ExecutionLog) => 
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       );
       setExecutionLogs(sortedLogs);
@@ -60,7 +61,7 @@ export default function HistoryScreen() {
     void loadExecutionLogs();
   }, [loadExecutionLogs]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): { color: string; textColor: string } => {
     const lowerStatus = status.toLowerCase();
     switch (lowerStatus) {
       case "success":
@@ -116,7 +117,7 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.screen}>
       <Text style={styles.h1}>Execution History</Text>
-      <Text style={styles.smallMuted} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+      <Text style={[styles.smallMuted, { marginHorizontal: 16, marginBottom: 8 }]}>
         {executionLogs.length} {executionLogs.length === 1 ? "log" : "logs"}
       </Text>
       <ScrollView 
@@ -185,7 +186,7 @@ const styles = {
     flex: 1, 
     backgroundColor: Colors.backgroundLight, 
     padding: 16, 
-    justifyContent: "center",
+    justifyContent: "center" as const,
   },
   h1: { 
     ...TextStyles.h2,
@@ -207,14 +208,14 @@ const styles = {
     ...TextStyles.small,
   },
   rowBetween: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "row" as "row",
+    alignItems: "center" as "center",
+    justifyContent: "space-between" as const,
     marginBottom: 8,
   },
   errorText: { 
     color: Colors.error, 
-    textAlign: "center",
+    textAlign: "center" as const,
     ...TextStyles.small,
   },
 };

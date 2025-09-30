@@ -6,7 +6,8 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { useAuth, requestJson } from '../..//App';
+import { useAuth } from "./../contexts/AuthContext";
+import { requestJson } from '../utils/api';
 import { Colors } from '../constants/colors';
 import { TextStyles } from '../constants/typography';
 import CustomButton from './ui/Button';
@@ -109,7 +110,36 @@ export default function ConfirmScreen({ route }: ConfirmScreenProps) {
               </Text>
               <CustomButton
                 title="Try Again"
-                onPress={() => window.location.reload()}
+                onPress={() => {
+                  // Reload the screen by calling the confirmEmail function again
+                  const confirmEmail = async () => {
+                    if (!token) {
+                      setMessage('No confirmation token provided.');
+                      setSuccess(false);
+                      setLoading(false);
+                      return;
+                    }
+
+                    try {
+                      await requestJson(`/auth/confirm/${token}`, {
+                        method: 'POST',
+                      }, null); // No token needed for confirmation endpoint
+                      
+                      setMessage('Email confirmed successfully! You can now sign in.');
+                      setSuccess(true);
+                    } catch (error: any) {
+                      setMessage(error.message || 'Confirmation failed. Please try again.');
+                      setSuccess(false);
+                    } finally {
+                      setLoading(false);
+                    }
+                  };
+                  
+                  setLoading(true);
+                  setMessage(null);
+                  setSuccess(null);
+                  confirmEmail();
+                }}
                 variant="outline"
               />
             </>
@@ -130,24 +160,24 @@ const styles = {
     flex: 1,
     backgroundColor: Colors.backgroundLight,
     padding: 16,
-    justifyContent: 'center',
+    justifyContent: 'center' as const,
   },
   h1: {
     ...TextStyles.h1,
     color: Colors.textDark,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginBottom: 12,
   },
   h2: {
     ...TextStyles.h2,
     color: Colors.textDark,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginBottom: 12,
   },
   muted: {
     color: Colors.mutedForeground,
     marginTop: 4,
     ...TextStyles.small,
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
 };
