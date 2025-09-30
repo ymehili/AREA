@@ -33,7 +33,7 @@ class ExecutionLog(Base):
     )
     area_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("areas.id"),
+        ForeignKey("areas.id", ondelete="CASCADE"),
         nullable=False,
     )
     timestamp: Mapped[datetime] = mapped_column(
