@@ -65,4 +65,18 @@ def require_active_user(
     return user
 
 
-__all__ = ["oauth2_scheme", "require_active_user"]
+def require_admin_user(
+    current_user: Annotated[User, Depends(require_active_user)],
+) -> User:
+    """Check if current user is an admin, otherwise raise 403."""
+    
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    
+    return current_user
+
+
+__all__ = ["oauth2_scheme", "require_active_user", "require_admin_user"]
