@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { UnauthorizedError, requestJson } from "@/lib/api";
+import { UnauthorizedError, requestJson, updateAdminStatus } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 
 // Define the user type based on the backend schema
@@ -260,17 +260,15 @@ export default function AdminUsersContent() {
                           size="sm"
                           className="ml-2 h-7"
                           onClick={async () => {
+                            if (!auth.token) {
+                              toast.error("Authentication token is missing");
+                              return;
+                            }
                             try {
-                              const response = await requestJson<AdminUser>(
-                                `/admin/users/${user.id}/admin-status`,
-                                {
-                                  method: "PUT",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({ is_admin: !user.is_admin }),
-                                },
+                              const response = await updateAdminStatus(
                                 auth.token,
+                                user.id,
+                                !user.is_admin
                               );
                               toast.success(`User status updated to ${response.is_admin ? "admin" : "user"}`);
                               // Refresh the user list

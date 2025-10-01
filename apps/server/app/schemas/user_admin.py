@@ -25,3 +25,9 @@ class PaginatedUserList(BaseModel):
     total_count: int
     skip: int
     limit: int
+
+
+class UpdateAdminStatusRequest(BaseModel):
+    """Request schema for updating user admin status."""
+    
+    is_admin: bool

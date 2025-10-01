@@ -79,4 +79,4 @@ def require_admin_user(
     return current_user
 
 
-__all__ = ["oauth2_scheme", "require_active_user"]
+__all__ = ["oauth2_scheme", "require_active_user", "require_admin_user"]
