@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useRequireAuth } from "@/hooks/use-auth";
-import { getUserDetail, confirmUserEmail, suspendUserAccount, deleteUserAccount } from "@/lib/api";
+import { getUserDetail, confirmUserEmail, suspendUserAccount, deleteUserAccount, updateAdminStatus } from "@/lib/api";
 import UserDetailsCard from "./UserDetailsCard";
 import UserConnectionsCard from "./UserConnectionsCard";
 import UserAreasCard from "./UserAreasCard";
@@ -151,6 +151,28 @@ export default function UserDetailContent({ userId }: { userId: string }) {
     }
   };
 
+  // Handle updating user admin status
+  const handleUpdateAdminStatus = async (isAdmin: boolean) => {
+    if (!auth.token) {
+      toast.error("Authentication token is missing");
+      return;
+    }
+
+    try {
+      const response = await updateAdminStatus(auth.token, user.id, isAdmin);
+      setUser(prev => 
+        prev ? { 
+          ...prev, 
+          is_admin: response.is_admin 
+        } : null
+      );
+      toast.success(`Admin status ${isAdmin ? 'granted' : 'removed'} successfully`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `Failed to ${isAdmin ? 'grant' : 'remove'} admin status`;
+      toast.error(message);
+    }
+  };
+
   // Handle deleting user account
   const handleDeleteAccount = async () => {
     if (!auth.token) {
@@ -185,6 +207,13 @@ export default function UserDetailContent({ userId }: { userId: string }) {
                 Confirm User Email
               </Button>
             )}
+            
+            <Button 
+              onClick={() => handleUpdateAdminStatus(!user.is_admin)}
+              variant={user.is_admin ? "destructive" : "default"}
+            >
+              {user.is_admin ? "Remove Admin Role" : "Grant Admin Role"}
+            </Button>
             
             {!user.is_suspended && (
               <Dialog>

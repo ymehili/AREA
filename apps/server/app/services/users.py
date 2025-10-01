@@ -367,6 +367,57 @@ def suspend_user_account(
     return target_user
 
 
+def create_user_admin(
+    db: Session,
+    email: str,
+    password: str,
+    is_admin: bool = False,
+    full_name: Optional[str] = None,
+    *,
+    background_tasks: BackgroundTasks | None = None,
+    email_sender: Callable[[str, str], None] | None = None,
+    send_email: bool = True,
+) -> User:
+    """Create a new user via admin panel with specified admin status."""
+    
+    normalized_email = _normalize_email(email)
+    existing_user = get_user_by_email(db, normalized_email)
+    if existing_user is not None:
+        raise UserEmailAlreadyExistsError(normalized_email)
+
+    user = User(
+        email=normalized_email,
+        full_name=full_name,
+        hashed_password=get_password_hash(password),
+        is_admin=is_admin,
+        is_confirmed=not send_email,
+    )
+
+    db.add(user)
+    raw_token: str | None = None
+    try:
+        db.flush()
+        if send_email:
+            raw_token = issue_confirmation_token(db, user)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise UserEmailAlreadyExistsError(normalized_email) from exc
+
+    db.refresh(user)
+
+    sender = email_sender or send_confirmation_email
+
+    if send_email and raw_token and sender is not None:
+        confirmation_link = build_confirmation_link(raw_token)
+        if background_tasks is not None:
+            background_tasks.add_task(sender, user.email, confirmation_link)
+        else:
+            sender(user.email, confirmation_link)
+
+    return user
+
+
 def delete_user_account(
     db: Session,
     admin_user: User,
@@ -401,4 +452,5 @@ __all__ = [
     "confirm_user_email_admin",
     "suspend_user_account",
     "delete_user_account",
+    "create_user_admin",
 ]
