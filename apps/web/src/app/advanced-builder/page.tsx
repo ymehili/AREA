@@ -68,6 +68,7 @@ const AdvancedBuilderPage = () => {
             action: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.actionId : null,
             config: {
               ...(nodeData.config || {}),
+              clientId: node.id,
               position: node.position,
               targets: targetEdges,
             },
