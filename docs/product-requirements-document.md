@@ -378,10 +378,11 @@ The application will provide a **Next.js** web client and an **Expo React Native
 4.  The UI provides clear feedback to the user upon a successful upgrade.
 5.  Users with an active premium subscription can use this page to manage their plan (e.g., view next billing date, cancel subscription).
 
-#### Story 7.4: Streamlined Service Integration Framework
-**As a** developer, **I want** a standardized framework and process for adding new third-party services, **so that** we can rapidly expand the platform's integration library.
+#### Story 7.4: Plugin Workshop for Community Blocks
+**As a** developer, **I want** a hosted workshop to build and publish reusable trigger/reaction blocks that call third-party APIs, **so that** the ecosystem of available automations can grow without touching the core codebase.
 **Acceptance Criteria**
-1.  The backend code is refactored to create a modular, plug-in style architecture for service integrations.
-2.  A clear, templated structure is created for defining a new service's `Actions` and `REActions`.
-3.  A `HOWTOCONTRIBUTE.md` file is created, detailing the step-by-step process for a developer to add a new service integration to the platform.
-4.  At least two new services are added to the platform using the new, streamlined framework to prove its effectiveness.
+1.  A "Plugin Workshop" experience (backend APIs plus an authenticated web UI) lets creators register new blocks, define their metadata, and describe any trigger/reaction handlers that wrap external APIs.
+2.  Plugin creators can declare the configuration schema for their blocks, including fields that must be supplied by each end user (e.g., personal API keys, project IDs); the platform securely stores each user's values, scoped to that user and plugin instance.
+3.  The automation engine can load and execute published plugins in a sandboxed runtime, invoking the creator-defined API calls for both triggers and reactions while honoring rate limits and error handling contracts.
+4.  End users can browse, search, and install community plugins from within the AREA builder, and when they add a block the UI prompts them for any required configuration before the workflow is saved.
+5.  At least one showcase plugin (e.g., an OpenAI action/reaction block) is published through the workshop to validate the process end-to-end, including credential capture, execution, and observability.
