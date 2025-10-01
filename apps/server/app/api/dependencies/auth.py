@@ -62,6 +62,12 @@ def require_active_user(
             detail="Email address must be confirmed before accessing this resource.",
         )
 
+    if user.is_suspended:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account has been suspended. Please contact support.",
+        )
+
     return user
 
 
