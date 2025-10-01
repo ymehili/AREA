@@ -353,3 +353,394 @@ def test_toggle_admin_status_endpoint_invalid_payload(
         headers=_auth_headers(admin_token),
     )
     assert response.status_code == 422
+
+
+def test_get_user_detail_endpoint_with_admin_token(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the get user detail endpoint with admin token."""
+    # Create a regular user
+    regular_user = User(
+        email="detailtest@example.com",
+        hashed_password="hashed",
+        is_confirmed=True,
+    )
+    db_session.add(regular_user)
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/admin/users/{regular_user.id}",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Verify that the user detail has expected fields
+    assert "id" in data
+    assert data["id"] == str(regular_user.id)
+    assert data["email"] == "detailtest@example.com"
+    assert "full_name" in data
+    assert "is_confirmed" in data
+    assert "is_admin" in data
+    assert "is_suspended" in data
+    assert "created_at" in data
+    assert "confirmed_at" in data
+    assert "service_connections" in data
+    assert "areas" in data
+
+
+def test_get_user_detail_endpoint_user_not_found(
+    client: SyncASGITestClient,
+    admin_token: str,
+) -> None:
+    """Test the get user detail endpoint with non-existent user."""
+    fake_user_id = str(uuid4())
+    
+    response = client.get(
+        f"/api/v1/admin/users/{fake_user_id}",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+
+
+def test_get_user_detail_endpoint_with_regular_user_token(
+    client: SyncASGITestClient,
+    auth_token: str,
+    db_session,
+) -> None:
+    """Test the get user detail endpoint with regular user token (should fail)."""
+    # Create a regular user
+    regular_user = User(
+        email="test@example.com",
+        hashed_password="hashed",
+        is_confirmed=True,
+    )
+    db_session.add(regular_user)
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/admin/users/{regular_user.id}",
+        headers=_auth_headers(auth_token),
+    )
+    assert response.status_code == 403
+    data = response.json()
+    assert "detail" in data
+
+
+def test_confirm_user_email_endpoint_with_admin_token(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the confirm user email endpoint with admin token."""
+    # Create a non-confirmed user
+    regular_user = User(
+        email="unconfirmed@example.com",
+        hashed_password="hashed",
+        is_confirmed=False,
+    )
+    db_session.add(regular_user)
+    db_session.commit()
+    
+    # Verify user is not confirmed initially
+    assert regular_user.is_confirmed is False
+
+    response = client.post(
+        f"/api/v1/admin/users/{regular_user.id}/confirm-email",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(regular_user.id)
+    assert data["email"] == "unconfirmed@example.com"
+    assert data["is_confirmed"] is True
+    assert "message" in data
+
+    # Verify the user is now confirmed in the database
+    db_session.refresh(regular_user)
+    assert regular_user.is_confirmed is True
+
+
+def test_confirm_user_email_endpoint_user_not_found(
+    client: SyncASGITestClient,
+    admin_token: str,
+) -> None:
+    """Test the confirm user email endpoint with non-existent user."""
+    fake_user_id = str(uuid4())
+    
+    response = client.post(
+        f"/api/v1/admin/users/{fake_user_id}/confirm-email",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+
+
+def test_suspend_user_endpoint_with_admin_token(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the suspend user endpoint with admin token."""
+    # Create a user
+    regular_user = User(
+        email="suspendtest@example.com",
+        hashed_password="hashed",
+        is_confirmed=True,
+    )
+    db_session.add(regular_user)
+    db_session.commit()
+    
+    # Verify user is not suspended initially
+    assert regular_user.is_suspended is False
+
+    response = client.put(
+        f"/api/v1/admin/users/{regular_user.id}/suspend",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(regular_user.id)
+    assert data["email"] == "suspendtest@example.com"
+    assert data["is_suspended"] is True
+    assert "message" in data
+
+    # Verify the user is now suspended in the database
+    db_session.refresh(regular_user)
+    assert regular_user.is_suspended is True
+
+
+def test_suspend_user_endpoint_user_not_found(
+    client: SyncASGITestClient,
+    admin_token: str,
+) -> None:
+    """Test the suspend user endpoint with non-existent user."""
+    fake_user_id = str(uuid4())
+    
+    response = client.put(
+        f"/api/v1/admin/users/{fake_user_id}/suspend",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+
+
+def test_delete_user_endpoint_with_admin_token(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the delete user endpoint with admin token."""
+    # Create a user
+    regular_user = User(
+        email="deletetest@example.com",
+        hashed_password="hashed",
+        is_confirmed=True,
+    )
+    db_session.add(regular_user)
+    db_session.commit()
+    
+    # Verify user exists
+    user_id = regular_user.id
+    user_check = db_session.get(User, user_id)
+    assert user_check is not None
+
+    response = client.delete(
+        f"/api/v1/admin/users/{user_id}",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+
+    # Verify the user is deleted from the database
+    deleted_user = db_session.get(User, user_id)
+    assert deleted_user is None
+
+
+def test_create_user_endpoint_with_admin_token(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the create user endpoint with admin token."""
+    # Test successful user creation
+    new_user_data = {
+        "email": "newuser@example.com",
+        "password": "securepassword123",
+        "is_admin": False,
+        "full_name": "New User"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=new_user_data,
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "newuser@example.com"
+    assert data["is_admin"] is False
+    assert data["full_name"] == "New User"
+    assert data["is_confirmed"] is False  # Assuming user creation requires confirmation
+    assert "id" in data
+    assert "created_at" in data
+    
+    # Verify the user was created in the database
+    created_user = get_user_by_email(db_session, "newuser@example.com")
+    assert created_user is not None
+    assert created_user.email == "newuser@example.com"
+    assert created_user.is_admin is False
+    assert created_user.full_name == "New User"
+
+
+def test_create_user_endpoint_with_admin_privileges(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the create user endpoint with admin privileges."""
+    # Test creating an admin user
+    new_user_data = {
+        "email": "newadmin@example.com",
+        "password": "securepassword123",
+        "is_admin": True,
+        "full_name": "New Admin"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=new_user_data,
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "newadmin@example.com"
+    assert data["is_admin"] is True
+    assert "id" in data
+    
+    # Verify the admin user was created in the database
+    created_user = get_user_by_email(db_session, "newadmin@example.com")
+    assert created_user is not None
+    assert created_user.is_admin is True
+
+
+def test_create_user_endpoint_duplicate_email(
+    client: SyncASGITestClient,
+    admin_token: str,
+    db_session,
+) -> None:
+    """Test the create user endpoint with duplicate email (should fail)."""
+    # Create an existing user first
+    existing_user = User(
+        email="existing@example.com",
+        hashed_password="hashed",
+        is_confirmed=True,
+    )
+    db_session.add(existing_user)
+    db_session.commit()
+    
+    # Try to create a user with the same email
+    duplicate_user_data = {
+        "email": "existing@example.com",
+        "password": "differentpassword123",
+        "is_admin": False,
+        "full_name": "Duplicate User"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=duplicate_user_data,
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 409  # Conflict status
+    data = response.json()
+    assert "detail" in data
+    assert "already exists" in data["detail"]
+
+
+def test_create_user_endpoint_short_password(
+    client: SyncASGITestClient,
+    admin_token: str,
+) -> None:
+    """Test the create user endpoint with short password (should fail)."""
+    # Try to create a user with a short password
+    invalid_user_data = {
+        "email": "shortpass@example.com",
+        "password": "123",  # Too short
+        "is_admin": False,
+        "full_name": "Short Password User"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=invalid_user_data,
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 422  # Validation error
+    data = response.json()
+    assert "detail" in str(data).lower() or "validation" in str(data).lower()
+
+
+def test_create_user_endpoint_with_regular_user_token(
+    client: SyncASGITestClient,
+    auth_token: str,
+) -> None:
+    """Test the create user endpoint with regular user token (should fail)."""
+    new_user_data = {
+        "email": "forbidden@example.com",
+        "password": "securepassword123",
+        "is_admin": False,
+        "full_name": "Forbidden User"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=new_user_data,
+        headers=_auth_headers(auth_token),
+    )
+    assert response.status_code == 403  # Forbidden
+    data = response.json()
+    assert "detail" in data
+
+
+def test_create_user_endpoint_without_token(
+    client: SyncASGITestClient,
+) -> None:
+    """Test the create user endpoint without token (should fail)."""
+    new_user_data = {
+        "email": "notoken@example.com",
+        "password": "securepassword123",
+        "is_admin": False,
+        "full_name": "No Token User"
+    }
+    
+    response = client.post(
+        "/api/v1/admin/users",
+        json=new_user_data,
+    )
+    assert response.status_code == 401  # Unauthorized
+    data = response.json()
+    assert "detail" in data
+
+
+def test_delete_user_endpoint_user_not_found(
+    client: SyncASGITestClient,
+    admin_token: str,
+) -> None:
+    """Test the delete user endpoint with non-existent user."""
+    fake_user_id = str(uuid4())
+    
+    response = client.delete(
+        f"/api/v1/admin/users/{fake_user_id}",
+        headers=_auth_headers(admin_token),
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data

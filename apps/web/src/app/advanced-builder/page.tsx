@@ -11,8 +11,8 @@ import { createAreaWithSteps, loadStoredSession } from '@/lib/api';
 
 const AdvancedBuilderPage = () => {
   const router = useRouter();
-  const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes] = useState<Node<NodeData>[]>([]);
+  const [edges] = useState<Edge[]>([]);
   const [areaName, setAreaName] = useState('');
   const [areaDescription, setAreaDescription] = useState('');
   const areaFlowRef = useRef<AreaFlowHandles>(null);

@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import CreateUserForm from "@/components/admin/CreateUserForm";
 import { UnauthorizedError, requestJson, updateAdminStatus } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 
@@ -29,6 +31,7 @@ type PaginatedUsersResponse = {
 
 export default function AdminUsersContent() {
   const auth = useRequireAuth();
+  const router = useRouter();
   
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,19 +154,21 @@ export default function AdminUsersContent() {
   }
 
   return (
-    <Card>
-      <CardContent className="p-0 mt-4">
-        <div className="flex gap-2 mb-4">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <Input
-              placeholder="Search by email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="max-w-xs"
-            />
-            <Button type="submit">Search</Button>
-          </form>
-        </div>
+    <div className="space-y-6">
+      <CreateUserForm onUserCreated={loadUsers} />
+      <Card>
+        <CardContent className="p-0 mt-4">
+          <div className="flex gap-2 mb-4">
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <Input
+                placeholder="Search by email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button type="submit">Search</Button>
+            </form>
+          </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -235,7 +240,11 @@ export default function AdminUsersContent() {
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={user.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => router.push(`/admin/users/${user.id}`)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                       {user.id.substring(0, 8)}...
                     </td>
@@ -251,8 +260,8 @@ export default function AdminUsersContent() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center">
-                        <Badge variant={user.is_admin ? "secondary" : "outline"}>
+                      <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                        <Badge variant={user.is_admin ? "default" : "outline"}>
                           {user.is_admin ? "Admin" : "User"}
                         </Badge>
                         <Button
@@ -389,5 +398,6 @@ export default function AdminUsersContent() {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }
