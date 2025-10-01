@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 import logging
 
 from app.models.area_step import AreaStep
+from app.models.area import Area
 from app.schemas.area_step import AreaStepCreate, AreaStepUpdate
 
 
@@ -108,11 +109,21 @@ def get_area_step_by_id(db: Session, step_id: Union[str, uuid_module.UUID]) -> A
     return result.scalar_one_or_none()
 
 
-def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in: AreaStepUpdate) -> AreaStep:
+def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in: AreaStepUpdate, *, user_id: str) -> AreaStep:
     """Update an existing area step."""
     step = get_area_step_by_id(db, step_id)
     if step is None:
         raise AreaStepNotFoundError(str(step_id))
+
+    # Verify ownership at DB level to prevent TOCTOU race condition
+    area = db.execute(
+        select(Area).where(
+            Area.id == step.area_id,
+            Area.user_id == _ensure_uuid(user_id)
+        )
+    ).scalar_one_or_none()
+    if not area:
+        raise AreaStepNotFoundError(str(step_id))  # Don't reveal the area exists but doesn't belong to user
 
     # Update fields if provided
     if step_in.step_type is not None:
@@ -155,11 +166,21 @@ def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in
     return step
 
 
-def delete_area_step(db: Session, step_id: Union[str, uuid_module.UUID]) -> bool:
+def delete_area_step(db: Session, step_id: Union[str, uuid_module.UUID], *, user_id: str) -> bool:
     """Delete an area step by its ID."""
     step = get_area_step_by_id(db, step_id)
     if step is None:
         return False
+
+    # Verify ownership at DB level to prevent TOCTOU race condition
+    area = db.execute(
+        select(Area).where(
+            Area.id == step.area_id,
+            Area.user_id == _ensure_uuid(user_id)
+        )
+    ).scalar_one_or_none()
+    if not area:
+        return False  # Don't reveal the area exists but doesn't belong to user
 
     db.delete(step)
     db.commit()

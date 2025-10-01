@@ -18,7 +18,9 @@ def _is_duplicate_area_constraint_violation(exc: IntegrityError) -> bool:
     """Check if the IntegrityError is due to duplicate area constraint violation."""
     error_str = str(exc.orig) if exc.orig else str(exc)
     # Check for the unique constraint on user_id and name
-    return "uq_areas_user_id_name" in error_str
+    # This can vary between database backends, so check for multiple patterns
+    return ("uq_areas_user_id_name" in error_str or 
+            ("UNIQUE constraint failed" in error_str and "user_id" in error_str and "name" in error_str))
 
 
 class AreaNotFoundError(Exception):
@@ -114,7 +116,9 @@ def create_area(
                     updated_targets = []
                     for target_id in step.config['targets']:
                         # Try to find the new UUID for this target
-                        new_target_id = old_id_to_new_id.get(str(target_id), str(target_id))
+                        new_target_id = old_id_to_new_id.get(str(target_id))
+                        if new_target_id is None:
+                            raise ValueError(f"Invalid target ID '{target_id}' in step connections")
                         updated_targets.append(new_target_id)
 
                     # Update the step's config with the new targets
@@ -251,7 +255,9 @@ def update_area_with_steps(
             updated_targets = []
             for target_id in step.config['targets']:
                 # Try to find the new UUID for this target
-                new_target_id = old_id_to_new_id.get(str(target_id), str(target_id))
+                new_target_id = old_id_to_new_id.get(str(target_id))
+                if new_target_id is None:
+                    raise ValueError(f"Invalid target ID '{target_id}' in step connections")
                 updated_targets.append(new_target_id)
 
             # Update the step's config with the new targets
