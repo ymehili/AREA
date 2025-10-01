@@ -51,12 +51,12 @@ def upgrade() -> None:
     # Create trigger function for updated_at
     op.execute("""
         CREATE OR REPLACE FUNCTION update_updated_at_column()
-        RETURNS TRIGGER AS $
+        RETURNS TRIGGER AS $$
         BEGIN
             NEW.updated_at = CURRENT_TIMESTAMP;
             RETURN NEW;
         END;
-        $ language 'plpgsql';
+        $$ language 'plpgsql';
     """)
     
     # Create the trigger on the area_steps table
