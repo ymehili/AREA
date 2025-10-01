@@ -16,8 +16,8 @@ import { cn, headingClasses } from '@/lib/utils';
 export default function WizardPage() {
   const router = useRouter();
   const auth = useAuth();
-  const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [nodes] = useState<Node<NodeData>[]>([]);
+  const [edges] = useState<Edge[]>([]);
   const [areaName, setAreaName] = useState('');
   const [areaDescription, setAreaDescription] = useState('');
   const [hasSelectedNode, setHasSelectedNode] = useState(false);
@@ -30,13 +30,7 @@ export default function WizardPage() {
     }
   };
 
-  // Function to check if there's a selected node in the flow
-  const checkSelectedNode = () => {
-    if (areaFlowRef.current) {
-      const selectedId = areaFlowRef.current.getSelectedNodeId();
-      setHasSelectedNode(!!selectedId);
-    }
-  };
+
 
   const handleSave = async () => {
     if (!areaName) {
@@ -139,10 +133,6 @@ export default function WizardPage() {
               ref={areaFlowRef}
               initialNodes={nodes}
               initialEdges={edges}
-              onSave={(newNodes, newEdges) => {
-                setNodes(newNodes);
-                setEdges(newEdges);
-              }}
               onNodeSelect={(nodeId) => setHasSelectedNode(!!nodeId)}
             />
           </CardContent>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -11,6 +11,7 @@ import ReactFlow, {
   Node,
   NodeTypes,
   ConnectionLineType,
+  OnSelectionChangeFunc,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -39,7 +40,6 @@ const nodeTypes: NodeTypes = {
 export interface AreaFlowProps {
   initialNodes?: Node<NodeData>[];
   initialEdges?: Edge[];
-  onSave?: (nodes: Node<NodeData>[], edges: Edge[]) => void;
   onNodeSelect?: (nodeId: string | null) => void;
   onDeleteNode?: () => void;
 }
@@ -55,7 +55,6 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   const { 
     initialNodes = [], 
     initialEdges = [], 
-    onSave,
     onNodeSelect,
     onDeleteNode
   } = props;
@@ -150,14 +149,14 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   }, [onNodeSelect]);
 
   // Handle selection changes
-  const onSelectionChange = useCallback((selection: any) => {
-    if (selection?.size === 1) {
-      const nodeId = Array.from(selection)[0].id;
+  const onSelectionChange = useCallback<OnSelectionChangeFunc>((selection) => {
+    if (selection?.nodes?.length === 1) {
+      const nodeId = selection.nodes[0].id;
       setSelectedNodeId(nodeId);
       if (onNodeSelect) {
         onNodeSelect(nodeId);
       }
-    } else if (selection?.size === 0) {
+    } else if (selection?.nodes?.length === 0) {
       setSelectedNodeId(null);
       if (onNodeSelect) {
         onNodeSelect(null);
@@ -184,12 +183,6 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
     );
   }, [setNodes]);
 
-  // Save the flow
-  const handleSave = useCallback(() => {
-    if (onSave) {
-      onSave(nodes, edges);
-    }
-  }, [nodes, edges, onSave]);
 
   // Delete selected node
   const handleDelete = useCallback(() => {
@@ -262,5 +255,6 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   );
 });
 
+AreaFlow.displayName = 'AreaFlow';
+
 export default AreaFlow;
-export type { AreaFlowProps, AreaFlowHandles };
