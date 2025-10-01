@@ -1,10 +1,14 @@
 """Admin API routes."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from uuid import UUID
 from fastapi import HTTPException
+from typing import Optional
+from fastapi import Body
 
 from app.api.dependencies import require_admin_user
 from app.models.user import User
@@ -19,7 +23,8 @@ from app.services.users import (
     create_user_admin,
     UserEmailAlreadyExistsError
 )
-from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest, CreateUserAdminRequest
+from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest, CreateUserAdminRequest, SuspendUserRequest, DeleteUserRequest
+from pydantic import BaseModel, Field
 from app.schemas.user_detail_admin import UserDetailAdminResponse
 from app.services.admin_audit import create_admin_audit_log
 
@@ -89,6 +94,8 @@ def create_user_admin_endpoint(
             "email": user.email,
             "is_admin": user.is_admin,
             "is_confirmed": user.is_confirmed,
+            "full_name": user.full_name,  # Include full_name in response
+            "created_at": user.created_at, # Include created_at in response
             "message": f"User {user.email} has been created successfully"
         }
     except UserEmailAlreadyExistsError:
@@ -201,22 +208,14 @@ def confirm_user_email(
 @router.put("/users/{user_id}/suspend")
 def suspend_user(
     user_id: UUID,
+    reason: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_user),
 ):
     """Suspend a user account (admin only)."""
-    target_user = suspend_user_account(db, current_user, user_id)
+    target_user = suspend_user_account(db, current_user, user_id, reason=reason)
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Log the admin action
-    create_admin_audit_log(
-        db,
-        admin_user_id=current_user.id,
-        target_user_id=user_id,
-        action_type="suspend_account",
-        details=f"Account suspended by admin {current_user.email}"
-    )
     
     return {
         "id": target_user.id,
@@ -229,22 +228,14 @@ def suspend_user(
 @router.delete("/users/{user_id}")
 def delete_user(
     user_id: UUID,
+    reason: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_user),
 ):
     """Delete a user account (admin only)."""
-    success = delete_user_account(db, current_user, user_id)
+    success = delete_user_account(db, current_user, user_id, reason=reason)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Log the admin action
-    create_admin_audit_log(
-        db,
-        admin_user_id=current_user.id,
-        target_user_id=user_id,
-        action_type="delete_account",
-        details=f"Account deleted by admin {current_user.email}"
-    )
     
     return {
         "message": "User account has been deleted"

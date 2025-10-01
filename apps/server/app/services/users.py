@@ -340,11 +340,13 @@ def confirm_user_email_admin(
     if not target_user:
         return None
     
+    from datetime import datetime, timezone
+    
     if target_user.is_confirmed:
         return target_user  # Already confirmed
     
     target_user.is_confirmed = True
-    target_user.confirmed_at = func.now()
+    target_user.confirmed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(target_user)
     return target_user
@@ -364,6 +366,21 @@ def suspend_user_account(
     target_user.is_suspended = True
     db.commit()
     db.refresh(target_user)
+    
+    # Create audit log for the suspension action
+    from app.services.admin_audit import create_admin_audit_log
+    details = f"Account suspended by admin {admin_user.email}"
+    if reason:
+        details += f". Reason: {reason}"
+    
+    create_admin_audit_log(
+        db,
+        admin_user_id=admin_user.id,
+        target_user_id=target_user_id,
+        action_type="suspend_account",
+        details=details
+    )
+    
     return target_user
 
 
@@ -428,6 +445,20 @@ def delete_user_account(
     target_user = db.get(User, target_user_id)
     if not target_user:
         return False
+    
+    # Create audit log for the deletion action before deleting the user
+    from app.services.admin_audit import create_admin_audit_log
+    details = f"Account deleted by admin {admin_user.email}"
+    if reason:
+        details += f". Reason: {reason}"
+    
+    create_admin_audit_log(
+        db,
+        admin_user_id=admin_user.id,
+        target_user_id=target_user_id,
+        action_type="delete_account",
+        details=details
+    )
     
     db.delete(target_user)
     db.commit()
