@@ -256,12 +256,15 @@ export type AreaCreatePayload = {
   trigger_action: string;
   reaction_service: string;
   reaction_action: string;
+  description?: string;
+  is_active?: boolean;
 };
 
 export type AreaResponse = {
   id: string;
   user_id: string;
   name: string;
+  description?: string;
   trigger_service: string;
   trigger_action: string;
   reaction_service: string;
@@ -269,6 +272,42 @@ export type AreaResponse = {
   enabled: boolean;
   created_at: string;
   updated_at: string;
+};
+
+// Area Steps
+export type AreaStepType = 'trigger' | 'action' | 'reaction' | 'condition' | 'delay';
+
+export type AreaStepCreatePayload = {
+  area_id: string;
+  step_type: AreaStepType;
+  order: number;
+  service?: string | null;
+  action?: string | null;
+  config?: Record<string, unknown>;
+};
+
+export type AreaStepUpdatePayload = {
+  step_type?: AreaStepType;
+  order?: number;
+  service?: string | null;
+  action?: string | null;
+  config?: Record<string, unknown>;
+};
+
+export type AreaStepResponse = {
+  id: string;
+  area_id: string;
+  step_type: AreaStepType;
+  order: number;
+  service?: string | null;
+  action?: string | null;
+  config?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AreaWithStepsResponse = AreaResponse & {
+  steps: AreaStepResponse[];
 };
 
 export async function createArea(
@@ -285,12 +324,123 @@ export async function createArea(
   );
 }
 
+export async function createAreaWithSteps(
+  token: string,
+  payload: AreaCreatePayload & { steps: Omit<AreaStepCreatePayload, 'area_id'>[] },
+): Promise<AreaWithStepsResponse> {
+  return requestJson<AreaWithStepsResponse>(
+    "/areas/with-steps",
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function getAreaWithSteps(
+  token: string,
+  areaId: string,
+): Promise<AreaWithStepsResponse> {
+  return requestJson<AreaWithStepsResponse>(
+    `/areas/${areaId}`,
+    {
+      method: 'GET',
+    },
+    token,
+  );
+}
+
+export async function updateArea(
+  token: string,
+  areaId: string,
+  payload: Partial<AreaCreatePayload>,
+): Promise<AreaResponse> {
+  return requestJson<AreaResponse>(
+    `/areas/${areaId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
 export async function deleteArea(
   token: string,
   areaId: string,
 ): Promise<boolean> {
   return requestJson<boolean>(
     `/areas/${areaId}`,
+    {
+      method: 'DELETE',
+    },
+    token,
+  );
+}
+
+// Area Steps API
+export async function createAreaStep(
+  token: string,
+  payload: AreaStepCreatePayload,
+): Promise<AreaStepResponse> {
+  return requestJson<AreaStepResponse>(
+    "/areas/steps",
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function getAreaSteps(
+  token: string,
+  areaId: string,
+): Promise<AreaStepResponse[]> {
+  return requestJson<AreaStepResponse[]>(
+    `/areas/${areaId}/steps`,
+    {
+      method: 'GET',
+    },
+    token,
+  );
+}
+
+export async function getAreaStep(
+  token: string,
+  stepId: string,
+): Promise<AreaStepResponse> {
+  return requestJson<AreaStepResponse>(
+    `/areas/steps/${stepId}`,
+    {
+      method: 'GET',
+    },
+    token,
+  );
+}
+
+export async function updateAreaStep(
+  token: string,
+  stepId: string,
+  payload: AreaStepUpdatePayload,
+): Promise<AreaStepResponse> {
+  return requestJson<AreaStepResponse>(
+    `/areas/steps/${stepId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function deleteAreaStep(
+  token: string,
+  stepId: string,
+): Promise<boolean> {
+  return requestJson<boolean>(
+    `/areas/steps/${stepId}`,
     {
       method: 'DELETE',
     },
