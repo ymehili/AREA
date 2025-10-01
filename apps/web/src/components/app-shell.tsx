@@ -70,14 +70,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
           const profile = await fetchProfile(auth.token!);
           setIsAdmin(profile.is_admin || false);
         } catch (error) {
-          console.error("Error fetching user profile:", error);
-          
           // If it's an UnauthorizedError (401), it means the token is invalid/expired
           if (error instanceof UnauthorizedError) {
             // Automatically log out the user
             auth.logout();
           } else {
             // For other errors, we assume the user is not an admin
+            // Only log non-unauthorized errors to avoid console spam
+            console.error("Error fetching user profile:", error);
             setIsAdmin(false);
           }
         }
