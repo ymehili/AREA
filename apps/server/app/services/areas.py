@@ -168,6 +168,42 @@ def disable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) ->
     return update_area(db, area_id, AreaUpdate(enabled=False), user_id=user_id)
 
 
+def update_area_with_steps(
+    db: Session,
+    area_id: str,
+    area_in: AreaUpdate,
+    steps: List[AreaStepCreate],
+    *,
+    user_id: Optional[str] = None,
+) -> Area:
+    """Update an existing area and replace all its steps.
+
+    This will delete all existing steps and create new ones from the provided list.
+    """
+    # First update the area metadata
+    area = update_area(db, area_id, area_in, user_id=user_id)
+
+    # Delete all existing steps for this area
+    uuid_area_id = uuid.UUID(area_id)
+    db.query(AreaStep).filter(AreaStep.area_id == uuid_area_id).delete()
+
+    # Create new steps
+    for step_in in steps:
+        step = AreaStep(
+            area_id=uuid_area_id,
+            step_type=step_in.step_type,
+            order=step_in.order,
+            service=step_in.service,
+            action=step_in.action,
+            config=step_in.config,
+        )
+        db.add(step)
+
+    db.commit()
+    db.refresh(area)
+    return area
+
+
 __all__ = [
     "AreaNotFoundError",
     "DuplicateAreaError",
@@ -175,6 +211,7 @@ __all__ = [
     "get_area_by_id",
     "get_areas_by_user",
     "update_area",
+    "update_area_with_steps",
     "delete_area",
     "enable_area",
     "disable_area",
