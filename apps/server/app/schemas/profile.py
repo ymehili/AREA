@@ -24,6 +24,7 @@ class UserProfileResponse(BaseModel):
     full_name: Optional[str] = None
     is_confirmed: bool
     has_password: bool
+    is_admin: bool
     login_methods: list[LoginMethodStatus]
 
     model_config = ConfigDict(frozen=True)
