@@ -315,6 +315,156 @@ def update_user_admin_status(
     return user
 
 
+def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
+    """Retrieve specific user by ID with relationships."""
+    statement = select(User).where(User.id == user_id)
+    result = db.execute(statement)
+    user = result.scalar_one_or_none()
+    
+    # Eager load the relationships to include service connections and areas
+    if user:
+        # Access the relationships to ensure they're loaded
+        _ = user.service_connections
+        _ = user.areas
+    
+    return user
+
+
+def confirm_user_email_admin(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID
+) -> Optional[User]:
+    """Manually confirm email for a user."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return None
+    
+    from datetime import datetime, timezone
+    
+    if target_user.is_confirmed:
+        return target_user  # Already confirmed
+    
+    target_user.is_confirmed = True
+    target_user.confirmed_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(target_user)
+    return target_user
+
+
+def suspend_user_account(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID,
+    reason: Optional[str] = None
+) -> Optional[User]:
+    """Suspend user account."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return None
+    
+    target_user.is_suspended = True
+    db.commit()
+    db.refresh(target_user)
+    
+    # Create audit log for the suspension action
+    from app.services.admin_audit import create_admin_audit_log
+    details = f"Account suspended by admin {admin_user.email}"
+    if reason:
+        details += f". Reason: {reason}"
+    
+    create_admin_audit_log(
+        db,
+        admin_user_id=admin_user.id,
+        target_user_id=target_user_id,
+        action_type="suspend_account",
+        details=details
+    )
+    
+    return target_user
+
+
+def create_user_admin(
+    db: Session,
+    email: str,
+    password: str,
+    is_admin: bool = False,
+    full_name: Optional[str] = None,
+    *,
+    background_tasks: BackgroundTasks | None = None,
+    email_sender: Callable[[str, str], None] | None = None,
+    send_email: bool = True,
+) -> User:
+    """Create a new user via admin panel with specified admin status."""
+    
+    normalized_email = _normalize_email(email)
+    existing_user = get_user_by_email(db, normalized_email)
+    if existing_user is not None:
+        raise UserEmailAlreadyExistsError(normalized_email)
+
+    user = User(
+        email=normalized_email,
+        full_name=full_name,
+        hashed_password=get_password_hash(password),
+        is_admin=is_admin,
+        is_confirmed=not send_email,
+    )
+
+    db.add(user)
+    raw_token: str | None = None
+    try:
+        db.flush()
+        if send_email:
+            raw_token = issue_confirmation_token(db, user)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise UserEmailAlreadyExistsError(normalized_email) from exc
+
+    db.refresh(user)
+
+    sender = email_sender or send_confirmation_email
+
+    if send_email and raw_token and sender is not None:
+        confirmation_link = build_confirmation_link(raw_token)
+        if background_tasks is not None:
+            background_tasks.add_task(sender, user.email, confirmation_link)
+        else:
+            sender(user.email, confirmation_link)
+
+    return user
+
+
+def delete_user_account(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID,
+    reason: Optional[str] = None
+) -> bool:
+    """Delete user account."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return False
+    
+    # Create audit log for the deletion action before deleting the user
+    from app.services.admin_audit import create_admin_audit_log
+    details = f"Account deleted by admin {admin_user.email}"
+    if reason:
+        details += f". Reason: {reason}"
+    
+    create_admin_audit_log(
+        db,
+        admin_user_id=admin_user.id,
+        target_user_id=target_user_id,
+        action_type="delete_account",
+        details=details
+    )
+    
+    db.delete(target_user)
+    db.commit()
+    return True
+
+
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -329,4 +479,9 @@ __all__ = [
     "update_user_profile",
     "get_paginated_users",
     "update_user_admin_status",
+    "get_user_by_id",
+    "confirm_user_email_admin",
+    "suspend_user_account",
+    "delete_user_account",
+    "create_user_admin",
 ]
