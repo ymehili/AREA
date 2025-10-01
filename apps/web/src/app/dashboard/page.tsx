@@ -184,9 +184,22 @@ export default function DashboardPage() {
                     checked={area.enabled}
                     onCheckedChange={(v) => void toggleArea(area.id, v)}
                   />
-                  <Button variant="destructive" size="sm" onClick={() => void removeArea(area.id)}>
-                    Delete
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.href = `/wizard/${area.id}`}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => void removeArea(area.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -196,4 +209,3 @@ export default function DashboardPage() {
     </AppShell>
   );
 }
-

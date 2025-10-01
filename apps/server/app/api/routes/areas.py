@@ -115,6 +115,54 @@ def list_user_areas(
     return [AreaResponse.model_validate(area) for area in areas]
 
 
+@router.get(
+    "/areas/{area_id}",
+    response_model=AreaResponse,
+    dependencies=[Depends(require_active_user)],
+)
+def get_area_by_id_endpoint(
+    area_id: str,
+    current_user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> AreaResponse:
+    """Get a specific area by its ID with its steps."""
+    area = db.query(Area).filter(Area.id == area_id).first()
+    if not area:
+        raise HTTPException(
+            status_code=404,
+            detail="Area not found",
+        )
+
+    # Check if the area belongs to the current user
+    if str(area.user_id) != str(current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to access this area",
+        )
+
+    # Load steps for this area
+    steps = get_steps_by_area(db, area_id)
+
+    # Convert to response format with steps
+    area_dict = {
+        "id": area.id,
+        "user_id": area.user_id,
+        "name": area.name,
+        "trigger_service": area.trigger_service,
+        "trigger_action": area.trigger_action,
+        "trigger_params": area.trigger_params,
+        "reaction_service": area.reaction_service,
+        "reaction_action": area.reaction_action,
+        "reaction_params": area.reaction_params,
+        "enabled": area.enabled,
+        "created_at": area.created_at,
+        "updated_at": area.updated_at,
+        "steps": [AreaStepResponse.model_validate(step) for step in steps],
+    }
+
+    return AreaResponse.model_validate(area_dict)
+
+
 @router.patch(
     "/areas/{area_id}",
     response_model=AreaResponse,

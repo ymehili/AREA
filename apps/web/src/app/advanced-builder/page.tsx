@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
-import { NodeData, isTriggerNode } from '@/components/area-builder/node-types';
+import { NodeData, isTriggerNode, isActionNode } from '@/components/area-builder/node-types';
 import { createAreaWithSteps, loadStoredSession } from '@/lib/api';
 
 const AdvancedBuilderPage = () => {
@@ -30,9 +30,10 @@ const AdvancedBuilderPage = () => {
         throw new Error('User not authenticated');
       }
 
-      // Get the current nodes directly from the flow ref to ensure we have the latest
+      // Get the current nodes and edges directly from the flow ref to ensure we have the latest
       const currentNodes = areaFlowRef.current?.getCurrentNodes() || nodes;
-      
+      const currentEdges = areaFlowRef.current?.getCurrentEdges() || edges;
+
       // Find the trigger node to use as the initial trigger
       const triggerNode = currentNodes.find(node => node.type === 'trigger');
       if (!triggerNode) {
@@ -56,13 +57,22 @@ const AdvancedBuilderPage = () => {
         })(),
         reaction_service: 'manual',  // We'll update this based on the last node or first action if no other reaction is found
         reaction_action: 'reaction',
-        steps: currentNodes.map((node, index) => ({
-          type: node.type as 'trigger' | 'action' | 'condition' | 'delay',
-          name: node.data.label,
-          description: node.data.description || '',
-          position: index,
-          config: node.data.config || {},
-        })),
+        steps: currentNodes.map((node, index) => {
+          const nodeData = node.data as NodeData;
+          // Find edges connected to this node
+          const targetEdges = currentEdges.filter(edge => edge.source === node.id).map(edge => edge.target);
+          return {
+            step_type: node.type as 'trigger' | 'action' | 'condition' | 'delay',
+            order: index,
+            service: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.serviceId : null,
+            action: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.actionId : null,
+            config: {
+              ...(nodeData.config || {}),
+              position: node.position,
+              targets: targetEdges,
+            },
+          };
+        }),
       };
 
       // Call the API to create the area with steps
