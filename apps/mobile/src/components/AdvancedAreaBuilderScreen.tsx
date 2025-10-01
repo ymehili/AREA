@@ -257,6 +257,7 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
           action: (isTriggerNode(step) || isActionNode(step)) ? step.actionId : null,
           config: {
             ...(step.config || {}),
+            clientId: step.id,
             label: step.label,
             description: step.description,
             targets: step.connections || [],
@@ -288,7 +289,7 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
         Alert.alert('Success', 'Area created successfully!');
       }
 
-      navigation.navigate('Dashboard');
+      navigation.navigate('MainTabs', { screen: 'Dashboard' });
     } catch (error) {
       console.error('Error saving area:', error);
       const message = error instanceof Error ? error.message : 'Failed to save area';
@@ -422,7 +423,7 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
           />
           <CustomButton
             title="Cancel"
-            onPress={() => navigation.navigate('Dashboard')}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Dashboard' })}
             variant="outline"
             style={{ flex: 1 }}
           />

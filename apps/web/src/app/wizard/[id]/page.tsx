@@ -140,6 +140,7 @@ export default function EditAreaPage() {
         await updateAreaStep(auth.token, node.id, {
           config: {
             ...(nodeData.config || {}),
+            clientId: node.id,
             position: node.position,
             targets: targetEdges,
           },
