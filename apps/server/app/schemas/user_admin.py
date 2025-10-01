@@ -42,3 +42,19 @@ class CreateUserAdminRequest(BaseModel):
     full_name: Optional[str] = None
     
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+
+class SuspendUserRequest(BaseModel):
+    """Request schema for suspending a user account."""
+    
+    reason: Optional[str] = Field(default=None, max_length=1000)
+    
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)
+
+
+class DeleteUserRequest(BaseModel):
+    """Request schema for deleting a user account."""
+    
+    reason: Optional[str] = Field(default=None, max_length=1000)
+    
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True)

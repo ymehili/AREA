@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -28,10 +28,12 @@ class AdminAuditLog(Base):
     )
     admin_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     target_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     action_type: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -42,9 +44,13 @@ class AdminAuditLog(Base):
         nullable=False,
     )
 
-    # Relationships would be defined here if needed
-    # admin_user: Mapped["User"] = relationship("User", foreign_keys=[admin_user_id])
-    # target_user: Mapped["User"] = relationship("User", foreign_keys=[target_user_id])
+    # Relationships to user
+    admin_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[admin_user_id], viewonly=True
+    )
+    target_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[target_user_id], viewonly=True
+    )
 
 
 __all__ = ["AdminAuditLog"]
