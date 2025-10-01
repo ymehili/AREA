@@ -21,6 +21,7 @@ def test_user_profile_response_contains_login_methods() -> None:
         full_name="Example User",
         is_confirmed=True,
         has_password=True,
+        is_admin=False,
         login_methods=[
             LoginMethodStatus(provider="google", linked=True, identifier="google-123"),
             LoginMethodStatus(provider="github", linked=False),
