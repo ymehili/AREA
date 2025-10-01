@@ -19,14 +19,31 @@ class AreaStepBase(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
 
+class AreaStepCreateInternal(AreaStepBase):
+    """Schema for creating a new AreaStep internally (without area_id)."""
+    
+    @field_validator("step_type")
+    @classmethod
+    def validate_step_type(cls, v: str) -> str:
+        """Validate step_type is one of the allowed values."""
+        allowed_types = {"trigger", "action", "reaction", "condition", "delay"}
+        if v not in allowed_types:
+            raise ValueError(
+                f"step_type must be one of {allowed_types}, got '{v}'"
+            )
+        return v
+
+
 class AreaStepCreate(AreaStepBase):
-    """Schema for creating a new AreaStep."""
+    """Schema for creating a new AreaStep via API (includes area_id) - can be used internally without area_id."""
+    
+    area_id: Optional[str] = None  # Optional to maintain backward compatibility
 
     @field_validator("step_type")
     @classmethod
     def validate_step_type(cls, v: str) -> str:
         """Validate step_type is one of the allowed values."""
-        allowed_types = {"action", "reaction", "condition", "delay"}
+        allowed_types = {"trigger", "action", "reaction", "condition", "delay"}
         if v not in allowed_types:
             raise ValueError(
                 f"step_type must be one of {allowed_types}, got '{v}'"
@@ -49,7 +66,7 @@ class AreaStepUpdate(BaseModel):
         """Validate step_type is one of the allowed values."""
         if v is None:
             return v
-        allowed_types = {"action", "reaction", "condition", "delay"}
+        allowed_types = {"trigger", "action", "reaction", "condition", "delay"}
         if v not in allowed_types:
             raise ValueError(
                 f"step_type must be one of {allowed_types}, got '{v}'"

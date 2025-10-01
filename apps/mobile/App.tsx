@@ -30,6 +30,7 @@ import Switch from './src/components/ui/Switch';
 import HistoryScreen from './src/components/HistoryScreen';
 import ActivityLogScreen from './src/components/ActivityLogScreen';
 import ConfirmScreen from './src/components/ConfirmScreen';
+import AdvancedAreaBuilderScreen from './src/components/AdvancedAreaBuilderScreen';
 
 // Import design system
 import { Colors } from './src/constants/colors';
@@ -521,10 +522,16 @@ function DashboardScreen() {
         <Card style={{ margin: 16 }}>
           <Text style={styles.muted}>You have no AREAs yet.</Text>
           <View style={{ height: 12 }} />
-          <CustomButton 
-            title="Create your first AREA" 
-            onPress={() => navigation.navigate("Wizard") } 
+          <CustomButton
+            title="Simple Wizard"
+            onPress={() => navigation.navigate("Wizard") }
             variant="default"
+          />
+          <View style={{ height: 8 }} />
+          <CustomButton
+            title="Advanced Builder"
+            onPress={() => navigation.navigate("AdvancedAreaBuilder") }
+            variant="outline"
           />
         </Card>
       </SafeAreaView>
@@ -533,8 +540,15 @@ function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.h1}>Dashboard</Text>
-      <ScrollView 
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
+        <Text style={styles.h1}>Dashboard</Text>
+        <CustomButton
+          title="+ New"
+          onPress={() => navigation.navigate("AdvancedAreaBuilder") }
+          variant="default"
+        />
+      </View>
+      <ScrollView
         style={{ flex: 1, padding: 16 }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={loadAreas} />
@@ -549,15 +563,21 @@ function DashboardScreen() {
             <Text style={styles.muted}>When: {area.trigger}</Text>
             <Text style={styles.muted}>Then: {area.action}</Text>
             <View style={{ height: 12 }} />
-            <View style={styles.rowBetween}>
-              <CustomButton 
-                title={area.enabled ? "Disable" : "Enable"} 
-                onPress={() => void toggleArea(area.id, !area.enabled)} 
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <CustomButton
+                title="Edit"
+                onPress={() => navigation.navigate("AdvancedAreaBuilder", { areaId: area.id })}
+                variant="outline"
+                style={{ flex: 1, marginRight: 4 }}
+              />
+              <CustomButton
+                title={area.enabled ? "Disable" : "Enable"}
+                onPress={() => void toggleArea(area.id, !area.enabled)}
                 variant={area.enabled ? "outline" : "default"}
                 style={{ flex: 1, marginRight: 4 }}
               />
-              <CustomButton 
-                title="Delete" 
+              <CustomButton
+                title="Delete"
                 onPress={() => {
                   Alert.alert("Delete AREA", "Are you sure?", [
                     { text: "Cancel", style: "cancel" },
@@ -573,9 +593,9 @@ function DashboardScreen() {
                         });
                     } },
                   ]);
-                }} 
+                }}
                 variant="destructive"
-                style={{ flex: 1, marginLeft: 4 }}
+                style={{ flex: 1 }}
               />
             </View>
             <View style={{ height: 8 }} />
@@ -840,8 +860,11 @@ function WizardScreen() {
     }
     setSubmitting(true);
     try {
-      await requestJson(
-        "/areas",
+      // Create area with two steps (trigger and action) for visual flow editor
+      const createdArea = await requestJson<{
+        id: string;
+      }>(
+        "/areas/with-steps",
         {
           method: "POST",
           body: JSON.stringify({
@@ -850,12 +873,75 @@ function WizardScreen() {
             trigger_action: trigger,
             reaction_service: actionService,
             reaction_action: action,
+            steps: [
+              {
+                step_type: "trigger",
+                order: 0,
+                service: triggerService,
+                action: trigger,
+                config: {
+                  position: { x: 250, y: 50 },
+                },
+              },
+              {
+                step_type: "action",
+                order: 1,
+                service: actionService,
+                action: action,
+                config: {
+                  position: { x: 250, y: 200 },
+                },
+              },
+            ],
           }),
         },
         auth.token,
       );
+
+      // Fetch the created area with steps to get the step IDs
+      const areaWithSteps = await requestJson<{
+        id: string;
+        steps: Array<{
+          id: string;
+          step_type: string;
+          order: number;
+          service: string | null;
+          action: string | null;
+          config: Record<string, unknown> | null;
+        }>;
+      }>(
+        `/areas/${createdArea.id}`,
+        {
+          method: "GET",
+        },
+        auth.token,
+      );
+
+      // Now update the trigger step to link to the action step
+      if (areaWithSteps.steps && areaWithSteps.steps.length >= 2) {
+        const triggerStep = areaWithSteps.steps.find((s) => s.step_type === "trigger");
+        const actionStep = areaWithSteps.steps.find((s) => s.step_type === "action");
+
+        if (triggerStep && actionStep) {
+          await requestJson(
+            `/areas/steps/${triggerStep.id}`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({
+                config: {
+                  ...triggerStep.config,
+                  position: { x: 250, y: 50 },
+                  targets: [actionStep.id],
+                },
+              }),
+            },
+            auth.token,
+          );
+        }
+      }
+
       Alert.alert("Created", "Your AREA was created successfully.");
-      navigation.navigate("Dashboard");
+      navigation.navigate("MainTabs", { screen: "Dashboard" });
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Failed to create AREA.";
       if (err instanceof ApiError && err.status === 401) {
@@ -1430,6 +1516,7 @@ function AuthenticatedNavigator() {
       <Stack.Screen name="MainTabs" component={TabsNavigator} />
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="Confirm" component={ConfirmScreen} />
+      <Stack.Screen name="AdvancedAreaBuilder" component={AdvancedAreaBuilderScreen} />
     </Stack.Navigator>
   );
 }
