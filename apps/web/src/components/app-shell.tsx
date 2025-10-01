@@ -91,8 +91,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-10 w-full border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center gap-4 justify-between">
-          <div className="flex items-center gap-4">
+        <div className="container mx-auto px-4 h-16 flex items-center gap-6 justify-between">
+          <div className="flex items-center gap-6">
             <Link 
               href="/dashboard" 
               className="font-heading font-normal text-xl tracking-[1px] uppercase text-foreground"
@@ -130,10 +130,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       
-      <div className="container mx-auto px-4 py-4 flex-1">
+      <div className="container mx-auto px-4 py-6 flex-1">
         {/* Breadcrumb navigation */}
         {breadcrumbs.length > 1 && (
-          <nav className="mb-4" aria-label="Breadcrumb">
+          <nav className="mb-6" aria-label="Breadcrumb">
             <ol className="flex items-center space-x-2 text-sm text-muted-foreground">
               {breadcrumbs.map((crumb, index) => (
                 <li key={index} className="flex items-center">
