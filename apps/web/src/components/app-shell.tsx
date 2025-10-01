@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 import { useRequireAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { fetchProfile } from "@/lib/api";
 
 
 // Define navigation routes
@@ -14,6 +15,7 @@ const NAV_ROUTES = [
   { href: "/connections", label: "Connections", showInNav: true },
   { href: "/profile", label: "Account", showInNav: true },
   { href: "/history", label: "History", showInNav: true },
+  { href: "/admin/users", label: "User Management", showInNav: true },  // Admin route
 ];
 
 type Breadcrumb = {
@@ -58,6 +60,28 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useRequireAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Fetch user profile when token is available
+  useEffect(() => {
+    if (auth.token) {
+      const fetchUserProfile = async () => {
+        try {
+          const profile = await fetchProfile(auth.token!);
+          setIsAdmin(profile.is_admin || false);
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+          // If there's an error, we assume the user is not an admin
+          setIsAdmin(false);
+        }
+      };
+
+      fetchUserProfile();
+    } else {
+      // Reset admin status if there's no token
+      setIsAdmin(false);
+    }
+  }, [auth.token]);
 
   if (auth.initializing) {
     return (
@@ -86,6 +110,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
     );
   };
 
+  // Filter navigation routes based on whether the user is an admin
+  const filteredRoutes = NAV_ROUTES.filter(route => {
+    // If the route is an admin route, only show it to admin users
+    if (route.href.startsWith('/admin')) {
+      return route.showInNav && isAdmin;
+    }
+    // Otherwise, show regular routes to all users
+    return route.showInNav;
+  });
+
   const breadcrumbs = getBreadcrumbs(pathname);
 
   return (
@@ -102,12 +136,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <Separator orientation="vertical" className="h-6 bg-border" />
             <nav className="hidden md:flex items-center gap-2" aria-label="Main navigation">
-              {NAV_ROUTES.filter(route => route.showInNav).map(route => (
+              {filteredRoutes.map(route => (
                 <NavLink key={route.href} href={route.href} label={route.label} />
               ))}
             </nav>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button 
+                size="sm" 
+                variant="secondary"
+                onClick={() => router.push("/admin/users")}
+                aria-label="Admin dashboard"
+              >
+                Admin Panel
+              </Button>
+            )}
             <Button 
               size="sm" 
               variant="default" 

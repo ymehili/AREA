@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, List
+from uuid import UUID
 
 from fastapi import BackgroundTasks
-from sqlalchemy import select
+from sqlalchemy import select, func, asc, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.core.security import get_password_hash, verify_password
@@ -242,6 +243,78 @@ def unlink_login_provider(
     db.refresh(user)
     return user
 
+def get_paginated_users(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    search: Optional[str] = None,
+    sort_field: Optional[str] = "created_at",
+    sort_direction: Optional[str] = "desc"
+) -> tuple[List[User], int]:
+    """
+    Get paginated list of users with optional search and sorting.
+    
+    Args:
+        db: Database session
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        search: Optional search string to filter by email
+        sort_field: Field to sort by (id, email, created_at, is_confirmed)
+        sort_direction: Sort direction ('asc' or 'desc')
+    
+    Returns:
+        Tuple of (list of users, total count)
+    """
+    # Allowed sort fields to prevent injection
+    ALLOWED_SORT_FIELDS = {"id", "email", "created_at", "is_confirmed"}
+    
+    # Validate sort_field at service layer
+    if sort_field not in ALLOWED_SORT_FIELDS:
+        sort_field = "created_at"  # Default to safe value
+    
+    # Base query
+    query = select(User)
+    
+    # Apply search filter if provided
+    if search:
+        query = query.where(User.email.ilike(f"%{search}%"))
+    
+    # Apply sorting
+    if sort_field:
+        if sort_direction == "asc":
+            query = query.order_by(asc(getattr(User, sort_field)))
+        else:
+            query = query.order_by(desc(getattr(User, sort_field)))
+    
+    # Get total count
+    count_query = select(func.count()).select_from(query.subquery())
+    total_count = db.execute(count_query).scalar_one()
+    
+    # Apply pagination
+    query = query.offset(skip).limit(limit)
+    
+    result = db.execute(query)
+    users = result.scalars().all()
+    
+    return users, total_count
+
+
+def update_user_admin_status(
+    db: Session,
+    user_id: UUID,
+    is_admin: bool
+) -> Optional[User]:
+    """Update a user's admin status."""
+    user = db.get(User, user_id)
+    if not user:
+        return None
+    
+    user.is_admin = is_admin
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -254,4 +327,6 @@ __all__ = [
     "link_login_provider",
     "unlink_login_provider",
     "update_user_profile",
+    "get_paginated_users",
+    "update_user_admin_status",
 ]
