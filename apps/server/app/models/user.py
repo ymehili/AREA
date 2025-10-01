@@ -54,6 +54,12 @@ class User(Base):
         default=False,
         server_default=expression.false(),
     )
+    is_suspended: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=expression.false(),
+    )
     confirmed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
