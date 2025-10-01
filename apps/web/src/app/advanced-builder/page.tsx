@@ -123,10 +123,6 @@ const AdvancedBuilderPage = () => {
             ref={areaFlowRef}
             initialNodes={nodes}
             initialEdges={edges}
-            onSave={(newNodes, newEdges) => {
-              setNodes(newNodes);
-              setEdges(newEdges);
-            }}
           />
         </CardContent>
       </Card>
