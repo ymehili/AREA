@@ -9,8 +9,17 @@ from fastapi import HTTPException
 from app.api.dependencies import require_admin_user
 from app.models.user import User
 from app.db.session import get_db
-from app.services.users import get_paginated_users, update_user_admin_status
+from app.services.users import (
+    get_paginated_users, 
+    update_user_admin_status,
+    get_user_by_id,
+    confirm_user_email_admin,
+    suspend_user_account,
+    delete_user_account
+)
 from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest
+from app.schemas.user_detail_admin import UserDetailAdminResponse
+from app.services.admin_audit import create_admin_audit_log
 
 
 router = APIRouter(
@@ -85,6 +94,128 @@ def get_admin_status(
         "status": "ok",
         "admin_user": current_user.email,
         "message": "Admin access confirmed"
+    }
+
+
+@router.get("/users/{user_id}", response_model=UserDetailAdminResponse)
+def get_user_detail(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_user),
+):
+    """Get detailed information for a specific user (admin only)."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Build the response using the schema
+    return UserDetailAdminResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_confirmed=user.is_confirmed,
+        is_admin=user.is_admin,
+        is_suspended=user.is_suspended,
+        created_at=user.created_at,
+        confirmed_at=user.confirmed_at,
+        service_connections=[
+            ServiceConnectionForUserDetail(
+                id=conn.id,
+                service_name=conn.service_name,
+                created_at=conn.created_at
+            ) for conn in user.service_connections
+        ],
+        areas=[
+            AreaForUserDetail(
+                id=area.id,
+                name=area.name,
+                trigger_service=area.trigger_service,
+                reaction_service=area.reaction_service,
+                enabled=area.enabled,
+                created_at=area.created_at
+            ) for area in user.areas
+        ]
+    )
+
+
+@router.post("/users/{user_id}/confirm-email")
+def confirm_user_email(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_user),
+):
+    """Manually confirm a user's email (admin only)."""
+    target_user = confirm_user_email_admin(db, current_user, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log the admin action
+    create_admin_audit_log(
+        db,
+        admin_user_id=current_user.id,
+        target_user_id=user_id,
+        action_type="confirm_email",
+        details=f"Email confirmed by admin {current_user.email}"
+    )
+    
+    return {
+        "id": target_user.id,
+        "email": target_user.email,
+        "is_confirmed": target_user.is_confirmed,
+        "message": f"User {target_user.email}'s email has been confirmed"
+    }
+
+
+@router.put("/users/{user_id}/suspend")
+def suspend_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_user),
+):
+    """Suspend a user account (admin only)."""
+    target_user = suspend_user_account(db, current_user, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log the admin action
+    create_admin_audit_log(
+        db,
+        admin_user_id=current_user.id,
+        target_user_id=user_id,
+        action_type="suspend_account",
+        details=f"Account suspended by admin {current_user.email}"
+    )
+    
+    return {
+        "id": target_user.id,
+        "email": target_user.email,
+        "is_suspended": target_user.is_suspended,
+        "message": f"User {target_user.email}'s account has been suspended"
+    }
+
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_user),
+):
+    """Delete a user account (admin only)."""
+    success = delete_user_account(db, current_user, user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Log the admin action
+    create_admin_audit_log(
+        db,
+        admin_user_id=current_user.id,
+        target_user_id=user_id,
+        action_type="delete_account",
+        details=f"Account deleted by admin {current_user.email}"
+    )
+    
+    return {
+        "message": "User account has been deleted"
     }
 
 

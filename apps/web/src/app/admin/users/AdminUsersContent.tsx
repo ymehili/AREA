@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type PaginatedUsersResponse = {
 
 export default function AdminUsersContent() {
   const auth = useRequireAuth();
+  const router = useRouter();
   
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,7 +237,11 @@ export default function AdminUsersContent() {
                 </tr>
               ) : (
                 users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr 
+                    key={user.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => router.push(`/admin/users/${user.id}`)}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                       {user.id.substring(0, 8)}...
                     </td>
@@ -251,7 +257,7 @@ export default function AdminUsersContent() {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center">
+                      <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                         <Badge variant={user.is_admin ? "secondary" : "outline"}>
                           {user.is_admin ? "Admin" : "User"}
                         </Badge>
