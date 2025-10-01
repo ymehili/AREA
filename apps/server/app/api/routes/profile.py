@@ -58,6 +58,7 @@ def _build_profile(user: User) -> UserProfileResponse:
         full_name=user.full_name,
         is_confirmed=user.is_confirmed,
         has_password=bool(user.hashed_password),
+        is_admin=user.is_admin,
         login_methods=_build_login_methods(user),
     )
 
