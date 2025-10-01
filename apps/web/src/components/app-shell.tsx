@@ -151,7 +151,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             {isAdmin && (
               <Button 
                 size="sm" 
-                variant="secondary"
+                variant="default"
                 onClick={() => router.push("/admin/users")}
                 aria-label="Admin dashboard"
               >

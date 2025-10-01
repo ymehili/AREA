@@ -577,6 +577,21 @@ export type UserDetailAdminResponse = {
   areas: AreaForUserDetail[];
 };
 
+export type CreateUserAdminRequest = {
+  email: string;
+  password: string;
+  is_admin: boolean;
+  full_name?: string;
+};
+
+export type CreateUserAdminResponse = {
+  id: string;
+  email: string;
+  is_admin: boolean;
+  is_confirmed: boolean;
+  message: string;
+};
+
 export type AdminActionResponse = {
   id?: string;
   email?: string;
@@ -619,6 +634,20 @@ export async function suspendUserAccount(
     `/admin/users/${userId}/suspend`,
     {
       method: "PUT",
+    },
+    token,
+  );
+}
+
+export async function createUserAdmin(
+  token: string,
+  data: CreateUserAdminRequest,
+): Promise<CreateUserAdminResponse> {
+  return requestJson<CreateUserAdminResponse>(
+    `/admin/users`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
     },
     token,
   );

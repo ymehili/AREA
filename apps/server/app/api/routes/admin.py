@@ -15,9 +15,11 @@ from app.services.users import (
     get_user_by_id,
     confirm_user_email_admin,
     suspend_user_account,
-    delete_user_account
+    delete_user_account,
+    create_user_admin,
+    UserEmailAlreadyExistsError
 )
-from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest
+from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest, CreateUserAdminRequest
 from app.schemas.user_detail_admin import UserDetailAdminResponse
 from app.services.admin_audit import create_admin_audit_log
 
@@ -63,6 +65,36 @@ def get_all_users(
         "skip": skip,
         "limit": limit
     }
+
+
+@router.post("/users")
+def create_user_admin_endpoint(
+    request: CreateUserAdminRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin_user),
+):
+    """Create a new user via admin panel (admin only)."""
+    try:
+        user = create_user_admin(
+            db,
+            email=request.email,
+            password=request.password,
+            is_admin=request.is_admin,
+            full_name=request.full_name,
+            send_email=True  # Send confirmation email to new user
+        )
+        
+        return {
+            "id": user.id,
+            "email": user.email,
+            "is_admin": user.is_admin,
+            "is_confirmed": user.is_confirmed,
+            "message": f"User {user.email} has been created successfully"
+        }
+    except UserEmailAlreadyExistsError:
+        raise HTTPException(status_code=409, detail=f"User with email {request.email} already exists")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while creating the user: {str(e)}")
 
 
 @router.put("/users/{user_id}/admin-status")
