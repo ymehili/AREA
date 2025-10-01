@@ -1,290 +1,176 @@
 "use client";
+
+import React, { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import AppShell from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMemo, useState } from "react";
-import { createArea, ApiError } from "@/lib/api";
-import { useAuth } from "@/hooks/use-auth";
-import { cn, headingClasses } from "@/lib/utils";
-import { toast } from "sonner";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
-} from "@/components/ui/dialog";
-
-type Step = 1 | 2 | 3 | 4 | 5;
-
-const services = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
-const triggersByService: Record<string, string[]> = {
-  Gmail: ["New Email", "New Email w/ Attachment"],
-  "Google Drive": ["New File in Folder"],
-  Slack: ["New Message in Channel"],
-  GitHub: ["New Pull Request"],
-};
-const actionsByService: Record<string, string[]> = {
-  Gmail: ["Send Email"],
-  "Google Drive": ["Upload File", "Create Folder"],
-  Slack: ["Send Message"],
-  GitHub: ["Create Issue"],
-};
+import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
+import { Node, Edge } from 'reactflow';
+import { NodeData } from '@/components/area-builder/node-types';
+import { createAreaWithSteps } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
+import { cn, headingClasses } from '@/lib/utils';
 
 export default function WizardPage() {
+  const router = useRouter();
   const auth = useAuth();
-  const [step, setStep] = useState<Step>(1);
-  const [triggerService, setTriggerService] = useState<string>("");
-  const [trigger, setTrigger] = useState<string>("");
-  const [actionService, setActionService] = useState<string>("");
-  const [action, setAction] = useState<string>("");
-  const [submitting, setSubmitting] = useState(false);
-  const [showDuplicateNameDialog, setShowDuplicateNameDialog] = useState(false);
-  type AreaPayload = {
-    name: string;
-    trigger_service: string;
-    trigger_action: string;
-    reaction_service: string;
-    reaction_action: string;
+  const [nodes, setNodes] = useState<Node<NodeData>[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [areaName, setAreaName] = useState('');
+  const [areaDescription, setAreaDescription] = useState('');
+  const [hasSelectedNode, setHasSelectedNode] = useState(false);
+  const areaFlowRef = useRef<AreaFlowHandles>(null);
+
+  const handleDelete = () => {
+    if (areaFlowRef.current) {
+      areaFlowRef.current.deleteSelectedNode();
+      setHasSelectedNode(false); // Reset selection state
+    }
   };
 
-  const [duplicateAreaData, setDuplicateAreaData] = useState<{
-    name: string;
-    uniqueName: string;
-    payload: AreaPayload;
-  } | null>(null);
+  // Function to check if there's a selected node in the flow
+  const checkSelectedNode = () => {
+    if (areaFlowRef.current) {
+      const selectedId = areaFlowRef.current.getSelectedNodeId();
+      setHasSelectedNode(!!selectedId);
+    }
+  };
 
-  const next = () => setStep((s) => Math.min(s + 1, 5) as Step);
-  const back = () => setStep((s) => Math.max(s - 1, 1) as Step);
+  const handleSave = async () => {
+    if (!areaName) {
+      toast.error('Please enter an area name');
+      return;
+    }
 
-  const canNext = useMemo(() => {
-    if (step === 1) return !!triggerService;
-    if (step === 2) return !!trigger;
-    if (step === 3) return !!actionService;
-    if (step === 4) return !!action;
-    return true;
-  }, [step, triggerService, trigger, actionService, action]);
+    try {
+      // Get the token from the stored session
+      if (!auth.token) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get the current nodes directly from the flow ref to ensure we have the latest
+      const currentNodes = areaFlowRef.current?.getCurrentNodes() || nodes;
+      
+      // Find the trigger node to use as the initial trigger
+      const triggerNode = currentNodes.find(node => node.type === 'trigger');
+      if (!triggerNode) {
+        toast.error('Please add a trigger to your area');
+        return;
+      }
+
+      // Convert the flow nodes/edges to the appropriate format for the API
+      // The first node should be a trigger, and we'll use it to create the area
+      const castedTriggerNodeData = triggerNode.data as NodeData;
+      const areaData = {
+        name: areaName,
+        description: areaDescription,
+        is_active: true,
+        trigger_service: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.serviceId || 'manual' : 'manual',
+        trigger_action: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.actionId || 'trigger' : 'trigger',
+        reaction_service: 'manual',  // We'll update this based on the last node or first action if no other reaction is found
+        reaction_action: 'reaction',
+        steps: currentNodes.map((node, index) => ({
+          type: node.type as 'trigger' | 'action' | 'condition' | 'delay',
+          name: node.data.label,
+          description: node.data.description || '',
+          position: index,
+          config: node.data.config || {},
+        })),
+      };
+
+      // Call the API to create the area with steps
+      const result = await createAreaWithSteps(auth.token, areaData);
+      console.log('Area created:', result);
+      
+      // Redirect to dashboard or show success message
+      toast.success('Area created successfully!');
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error creating area:', error);
+      toast.error('Failed to create area. Please try again.');
+    }
+  };
 
   return (
     <AppShell>
-      <Card className="p-6">
-        <CardHeader className="p-0 mb-4">
-          <CardTitle className={cn(headingClasses(1), "text-foreground")}>AREA Creation Wizard</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 space-y-6">
-          <div className="text-sm text-muted-foreground mb-4">Step {step} of 5</div>
+      <div className="container mx-auto py-8">
+        <div className="mb-8">
+          <h1 className={cn(headingClasses(1), "text-foreground")}>Advanced AREA Builder</h1>
+          <p className="text-muted-foreground mt-2">
+            Create multi-step automations with the visual flow editor
+          </p>
+        </div>
 
-          {/* Step progress indicator */}
-          <div className="flex items-center justify-between mb-6">
-            {([1, 2, 3, 4, 5] as Step[]).map((s) => (
-              <div key={s} className="flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  s === step 
-                    ? 'bg-primary text-primary-foreground' 
-                    : s < step 
-                      ? 'bg-success text-success-foreground' 
-                      : 'bg-muted text-muted-foreground'
-                }`}>
-                  {s}
-                </div>
-                <div className="text-xs mt-2 text-center">
-                  {s === 1 && 'Trigger Service'}
-                  {s === 2 && 'Trigger'}
-                  {s === 3 && 'Action Service'}
-                  {s === 4 && 'Action'}
-                  {s === 5 && 'Review'}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="text-xl font-medium text-foreground">Step 1: Choose Trigger Service</div>
-              <div className="text-sm text-muted-foreground mb-4">Select the service that will trigger the action</div>
-              <Select onValueChange={setTriggerService} value={triggerService}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Select a service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Area Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Area Name *</label>
+              <input
+                type="text"
+                value={areaName}
+                onChange={(e) => setAreaName(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Enter area name"
+              />
             </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="text-xl font-medium text-foreground">Step 2: Choose Trigger</div>
-              <div className="text-sm text-muted-foreground mb-4">Select the specific trigger event</div>
-              <Select onValueChange={setTrigger} value={trigger}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Select a trigger" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(triggersByService[triggerService] ?? []).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div>
+              <label className="block text-sm font-medium mb-2">Description</label>
+              <textarea
+                value={areaDescription}
+                onChange={(e) => setAreaDescription(e.target.value)}
+                className="w-full p-2 border rounded"
+                placeholder="Enter area description"
+              />
             </div>
-          )}
+          </CardContent>
+        </Card>
 
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="text-xl font-medium text-foreground">Step 3: Choose REAction Service</div>
-              <div className="text-sm text-muted-foreground mb-4">Select the service that will react to the trigger</div>
-              <Select onValueChange={setActionService} value={actionService}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Select a service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-4">
-              <div className="text-xl font-medium text-foreground">Step 4: Choose REAction</div>
-              <div className="text-sm text-muted-foreground mb-4">Select the specific reaction action</div>
-              <Select onValueChange={setAction} value={action}>
-                <SelectTrigger className="w-full md:w-80">
-                  <SelectValue placeholder="Select an action" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(actionsByService[actionService] ?? []).map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="space-y-4">
-              <div className="text-xl font-medium text-foreground">Step 5: Review & Confirm</div>
-              <div className="text-sm text-muted-foreground mb-4">Confirm your AREA configuration</div>
-              <div className="bg-muted p-4 rounded-md">
-                <div className="text-sm text-muted-foreground">
-                  If new &quot;{trigger}&quot; in {triggerService}, then &quot;{action}&quot; in {actionService}.
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-6 border-t">
-            <Button variant="outline" onClick={back} disabled={step === 1}>
-              Back
-            </Button>
-            {step < 5 ? (
-              <Button onClick={next} disabled={!canNext}>
-                Next
-              </Button>
-            ) : (
-              <Button
-                disabled={submitting}
-                onClick={async () => {
-                  if (!auth.token) return;
-                  setSubmitting(true);
-                  try {
-                    await createArea(auth.token, {
-                      name: `${triggerService} → ${actionService}`,
-                      trigger_service: triggerService,
-                      trigger_action: trigger,
-                      reaction_service: actionService,
-                      reaction_action: action,
-                    });
-                    window.location.href = "/dashboard";
-                  } catch (error) {
-                    if (error instanceof ApiError && error.status === 409) {
-                      // Handle duplicate area name error by showing a dialog
-                      const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      const uniqueName = `${triggerService} → ${actionService} (${timestamp})`;
-                      
-                      setDuplicateAreaData({
-                        name: `${triggerService} → ${actionService}`,
-                        uniqueName,
-                        payload: {
-                          name: uniqueName,
-                          trigger_service: triggerService,
-                          trigger_action: trigger,
-                          reaction_service: actionService,
-                          reaction_action: action,
-                        }
-                      });
-                      setShowDuplicateNameDialog(true);
-                    } else {
-                      // For other errors, display a toast notification
-                      toast.error(error instanceof Error ? error.message : "An error occurred while creating the area");
-                    }
-                  } finally {
-                    setSubmitting(false);
-                  }
-                }}
-              >
-                {submitting ? "Saving..." : "Finish"}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Dialog for duplicate area name */}
-      <Dialog open={showDuplicateNameDialog} onOpenChange={setShowDuplicateNameDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Duplicate Area Name</DialogTitle>
-            <DialogDescription>
-              An area with the name &quot;{duplicateAreaData?.name}&quot; already exists.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
-            <p className="text-sm text-muted-foreground">
-              Would you like to create it with a unique name: <strong>&quot;{duplicateAreaData?.uniqueName}&quot;</strong>?
-            </p>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDuplicateNameDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!auth.token || !duplicateAreaData) return;
-                
-                try {
-                  await createArea(auth.token, duplicateAreaData.payload);
-                  window.location.href = "/dashboard";
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "An error occurred while creating the area");
-                } finally {
-                  setShowDuplicateNameDialog(false);
-                }
+        <Card className="h-[600px] mb-6">
+          <CardHeader>
+            <CardTitle>Automation Flow</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 h-[calc(100%-60px)]">
+            <AreaFlow
+              ref={areaFlowRef}
+              initialNodes={nodes}
+              initialEdges={edges}
+              onSave={(newNodes, newEdges) => {
+                setNodes(newNodes);
+                setEdges(newEdges);
               }}
+              onNodeSelect={(nodeId) => setHasSelectedNode(!!nodeId)}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end gap-4">
+          <Button
+            variant="default"
+            onClick={handleSave}
+          >
+            Save AREA
+          </Button>
+          {hasSelectedNode && (
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
             >
-              Create with New Name
+              Delete Selected
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => router.push('/dashboard')}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
     </AppShell>
   );
 }

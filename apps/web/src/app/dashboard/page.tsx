@@ -154,32 +154,32 @@ export default function DashboardPage() {
       </div>
       {areas.length === 0 ? (
         <Card className="p-6">
-          <CardHeader className="p-0 mb-4">
+          <CardHeader className="p-0 pb-4">
             <CardTitle className={cn(headingClasses(3), "text-foreground")}>Get started</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <p className="text-sm text-muted-foreground mb-4">You have no AREAs yet.</p>
+            <p className="text-sm text-muted-foreground mb-6">You have no AREAs yet.</p>
             <Button onClick={() => (window.location.href = "/wizard")}>Create your first AREA</Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {areas.map((area) => (
-            <Card key={area.id} className="p-4">
-              <CardHeader className="p-0 mb-4">
-                <div className="flex flex-row items-center justify-between space-y-0">
+            <Card key={area.id} className="p-6 flex flex-col">
+              <CardHeader className="p-0 pb-4">
+                <div className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-medium text-foreground">{area.name}</CardTitle>
                   <Badge variant={area.enabled ? "default" : "secondary"} className={area.enabled ? "" : "text-white"}>
                     {area.enabled ? "Enabled" : "Disabled"}
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="text-sm text-muted-foreground mb-4">
-                  <div>When: {area.trigger}</div>
+              <CardContent className="p-0 flex-grow">
+                <div className="text-sm text-muted-foreground mb-6">
+                  <div className="mb-2">When: {area.trigger}</div>
                   <div>Then: {area.action}</div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between pt-4">
                   <Switch
                     checked={area.enabled}
                     onCheckedChange={(v) => void toggleArea(area.id, v)}
