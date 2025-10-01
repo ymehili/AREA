@@ -155,9 +155,11 @@ export type LoginMethodStatus = {
 };
 
 export type UserProfile = {
+  id: string;
   email: string;
   full_name?: string | null;
   is_confirmed: boolean;
+  is_admin: boolean;
   has_password: boolean;
   login_methods: LoginMethodStatus[];
 };
@@ -332,6 +334,47 @@ export async function getExecutionLogsByArea(token: string, areaId: string): Pro
 export async function getExecutionLogById(token: string, logId: string): Promise<ExecutionLog> {
   return requestJson<ExecutionLog>(
     `/execution-logs/${logId}`,
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+// Admin API Functions
+export type AdminUserResponse = {
+  id: string;
+  email: string;
+  is_admin: boolean;
+  created_at: string;
+  is_confirmed: boolean;
+};
+
+export type PaginatedUsersResponse = {
+  users: AdminUserResponse[];
+  total_count: number;
+  skip: number;
+  limit: number;
+};
+
+export async function getAdminUsers(
+  token: string,
+  skip: number = 0,
+  limit: number = 100,
+  search?: string,
+  sort_field: string = "created_at",
+  sort_direction: string = "desc"
+): Promise<PaginatedUsersResponse> {
+  const params = new URLSearchParams({
+    skip: skip.toString(),
+    limit: limit.toString(),
+    search: search || "",
+    sort_field,
+    sort_direction,
+  });
+
+  return requestJson<PaginatedUsersResponse>(
+    `/admin/users?${params.toString()}`,
     {
       method: "GET",
     },
