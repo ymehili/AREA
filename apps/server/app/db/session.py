@@ -31,6 +31,16 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def get_db_sync() -> Generator[Session, None, None]:
+    """Yield a synchronous database session for CLI commands."""
+
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def verify_connection(max_attempts: int = 20, delay_seconds: float = 1.0) -> None:
     """Ensure the database connection is reachable with simple retries.
 
@@ -58,4 +68,4 @@ def verify_connection(max_attempts: int = 20, delay_seconds: float = 1.0) -> Non
     raise last_exc if last_exc else RuntimeError("Database connection verification failed")
 
 
-__all__ = ["engine", "SessionLocal", "get_db", "verify_connection"]
+__all__ = ["engine", "SessionLocal", "get_db", "get_db_sync", "verify_connection"]

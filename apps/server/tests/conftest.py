@@ -203,3 +203,36 @@ def auth_token(
     assert login_response.status_code == 200
     token_data = login_response.json()
     return token_data["access_token"]
+
+
+@pytest.fixture()
+def admin_user_credentials() -> dict[str, str]:
+    """Default credentials used to register/login test admin users."""
+    return {"email": "admin@example.com", "password": "secret123"}
+
+
+@pytest.fixture()
+def admin_token(
+    client: SyncASGITestClient,
+    db_session: Session,
+    admin_user_credentials: dict[str, str],
+) -> str:
+    """Create and confirm an admin user, returning an authentication token."""
+    from app.models.user import User
+    from uuid import uuid4
+
+    register_response = client.post("/api/v1/auth/register", json=admin_user_credentials)
+    assert register_response.status_code == 201
+
+    user = get_user_by_email(db_session, admin_user_credentials["email"])
+    assert user is not None
+    # Make the user an admin directly in the database
+    user.is_admin = True
+    user.is_confirmed = True
+    user.confirmed_at = datetime.now(timezone.utc)
+    db_session.commit()
+
+    login_response = client.post("/api/v1/auth/login", json=admin_user_credentials)
+    assert login_response.status_code == 200
+    token_data = login_response.json()
+    return token_data["access_token"]
