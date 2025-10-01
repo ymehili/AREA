@@ -349,7 +349,7 @@ def test_update_area_step(db_session: Session):
         action="send",
         config={"to": "test@example.com"},
     )
-    updated_step = update_area_step(db_session, step.id, update_data)
+    updated_step = update_area_step(db_session, step.id, update_data, user_id=user_id)
 
     assert updated_step.step_type == "reaction"
     assert updated_step.service == "email"
@@ -362,9 +362,10 @@ def test_update_nonexistent_step(db_session: Session):
     """Test that updating a nonexistent step raises an error."""
     fake_id = uuid.uuid4()
     update_data = AreaStepUpdate(step_type="action")
+    user_id = uuid.uuid4()
 
     with pytest.raises(AreaStepNotFoundError):
-        update_area_step(db_session, fake_id, update_data)
+        update_area_step(db_session, fake_id, update_data, user_id=str(user_id))
 
 
 def test_delete_area_step(db_session: Session):
@@ -390,7 +391,7 @@ def test_delete_area_step(db_session: Session):
     )
 
     # Delete the step
-    result = delete_area_step(db_session, step.id)
+    result = delete_area_step(db_session, step.id, user_id=user_id)
     assert result is True
 
     # Verify step was deleted
@@ -400,5 +401,6 @@ def test_delete_area_step(db_session: Session):
 def test_delete_nonexistent_step(db_session: Session):
     """Test that deleting a nonexistent step returns False."""
     fake_id = uuid.uuid4()
-    result = delete_area_step(db_session, fake_id)
+    user_id = uuid.uuid4()
+    result = delete_area_step(db_session, fake_id, user_id=user_id)
     assert result is False

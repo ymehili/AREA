@@ -18,7 +18,9 @@ def _is_duplicate_area_constraint_violation(exc: IntegrityError) -> bool:
     """Check if the IntegrityError is due to duplicate area constraint violation."""
     error_str = str(exc.orig) if exc.orig else str(exc)
     # Check for the unique constraint on user_id and name
-    return "uq_areas_user_id_name" in error_str
+    # This can vary between database backends, so check for multiple patterns
+    return ("uq_areas_user_id_name" in error_str or 
+            ("UNIQUE constraint failed" in error_str and "user_id" in error_str and "name" in error_str))
 
 
 class AreaNotFoundError(Exception):
@@ -79,6 +81,10 @@ def create_area(
 
         # Create steps if provided (in same transaction)
         if steps:
+            # First pass: create all steps and build ID mapping
+            created_steps: List[AreaStep] = []
+            old_id_to_new_id = {}  # Map from old client-side IDs to new UUIDs
+
             for step_in in steps:
                 step = AreaStep(
                     area_id=area.id,
@@ -89,6 +95,34 @@ def create_area(
                     config=step_in.config,
                 )
                 db.add(step)
+                created_steps.append(step)
+
+            # Flush to assign UUIDs to all steps
+            db.flush()
+
+            # Build mapping: if step config has a 'clientId' field (client-side temp ID), map it to the new UUID
+            # Otherwise, map by order index
+            for i, step in enumerate(created_steps):
+                # Check if the original step_in had a clientId in its config
+                if steps[i].config and 'clientId' in steps[i].config:
+                    old_id = steps[i].config['clientId']
+                    old_id_to_new_id[str(old_id)] = str(step.id)
+                # Also map by order for robustness
+                old_id_to_new_id[f"order_{i}"] = str(step.id)
+
+            # Second pass: update all 'targets' arrays in configs to use new UUIDs
+            for step in created_steps:
+                if step.config and 'targets' in step.config and isinstance(step.config['targets'], list):
+                    updated_targets = []
+                    for target_id in step.config['targets']:
+                        # Try to find the new UUID for this target
+                        new_target_id = old_id_to_new_id.get(str(target_id))
+                        if new_target_id is None:
+                            raise ValueError(f"Invalid target ID '{target_id}' in step connections")
+                        updated_targets.append(new_target_id)
+
+                    # Update the step's config with the new targets
+                    step.config = {**step.config, 'targets': updated_targets}
 
         db.commit()
     except IntegrityError as exc:
@@ -168,6 +202,72 @@ def disable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) ->
     return update_area(db, area_id, AreaUpdate(enabled=False), user_id=user_id)
 
 
+def update_area_with_steps(
+    db: Session,
+    area_id: str,
+    area_in: AreaUpdate,
+    steps: List[AreaStepCreate],
+    *,
+    user_id: Optional[str] = None,
+) -> Area:
+    """Update an existing area and replace all its steps.
+
+    This will delete all existing steps and create new ones from the provided list.
+    """
+    # First update the area metadata
+    area = update_area(db, area_id, area_in, user_id=user_id)
+
+    # Delete all existing steps for this area
+    uuid_area_id = uuid.UUID(area_id)
+    db.query(AreaStep).filter(AreaStep.area_id == uuid_area_id).delete()
+
+    # Create new steps with ID remapping
+    created_steps: List[AreaStep] = []
+    old_id_to_new_id = {}  # Map from old client-side IDs to new UUIDs
+
+    for step_in in steps:
+        step = AreaStep(
+            area_id=uuid_area_id,
+            step_type=step_in.step_type,
+            order=step_in.order,
+            service=step_in.service,
+            action=step_in.action,
+            config=step_in.config,
+        )
+        db.add(step)
+        created_steps.append(step)
+
+    # Flush to assign UUIDs to all steps
+    db.flush()
+
+    # Build mapping from old IDs to new UUIDs
+    for i, step in enumerate(created_steps):
+        # Check if the original step_in had a clientId in its config
+        if steps[i].config and 'clientId' in steps[i].config:
+            old_id = steps[i].config['clientId']
+            old_id_to_new_id[str(old_id)] = str(step.id)
+        # Also map by order for robustness
+        old_id_to_new_id[f"order_{i}"] = str(step.id)
+
+    # Update all 'targets' arrays in configs to use new UUIDs
+    for step in created_steps:
+        if step.config and 'targets' in step.config and isinstance(step.config['targets'], list):
+            updated_targets = []
+            for target_id in step.config['targets']:
+                # Try to find the new UUID for this target
+                new_target_id = old_id_to_new_id.get(str(target_id))
+                if new_target_id is None:
+                    raise ValueError(f"Invalid target ID '{target_id}' in step connections")
+                updated_targets.append(new_target_id)
+
+            # Update the step's config with the new targets
+            step.config = {**step.config, 'targets': updated_targets}
+
+    db.commit()
+    db.refresh(area)
+    return area
+
+
 __all__ = [
     "AreaNotFoundError",
     "DuplicateAreaError",
@@ -175,6 +275,7 @@ __all__ = [
     "get_area_by_id",
     "get_areas_by_user",
     "update_area",
+    "update_area_with_steps",
     "delete_area",
     "enable_area",
     "disable_area",
