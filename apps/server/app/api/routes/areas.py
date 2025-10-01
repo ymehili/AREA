@@ -15,6 +15,7 @@ from app.services.areas import (
     create_area,
     get_areas_by_user,
     update_area,
+    update_area_with_steps,
     delete_area,
     enable_area,
     disable_area,
@@ -193,6 +194,74 @@ def update_user_area(
         return AreaResponse.model_validate(updated)
     except AreaNotFoundError:
         # In case service layer also checks and signals not found
+        raise HTTPException(
+            status_code=404,
+            detail="Area not found",
+        )
+
+
+@router.put(
+    "/areas/{area_id}/with-steps",
+    response_model=AreaResponse,
+    dependencies=[Depends(require_active_user)],
+)
+def update_user_area_with_steps(
+    area_id: str,
+    area_with_steps: AreaCreateWithSteps,
+    current_user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> AreaResponse:
+    """Update an existing area with steps."""
+    # Verify ownership first
+    existing = db.query(Area).filter(Area.id == area_id).first()
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail="Area not found",
+        )
+    if str(existing.user_id) != str(current_user.id):
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to update this area",
+        )
+
+    # Convert to AreaUpdate
+    area_update = AreaUpdate(
+        name=area_with_steps.name,
+        trigger_service=area_with_steps.trigger_service,
+        trigger_action=area_with_steps.trigger_action,
+        reaction_service=area_with_steps.reaction_service,
+        reaction_action=area_with_steps.reaction_action,
+        enabled=area_with_steps.is_active,
+    )
+
+    try:
+        area = update_area_with_steps(
+            db,
+            area_id,
+            area_update,
+            area_with_steps.steps,
+            user_id=str(current_user.id),
+        )
+        # Load the steps for the response
+        steps = get_steps_by_area(db, area_id)
+        area_dict = {
+            "id": area.id,
+            "user_id": area.user_id,
+            "name": area.name,
+            "trigger_service": area.trigger_service,
+            "trigger_action": area.trigger_action,
+            "trigger_params": area.trigger_params,
+            "reaction_service": area.reaction_service,
+            "reaction_action": area.reaction_action,
+            "reaction_params": area.reaction_params,
+            "enabled": area.enabled,
+            "created_at": area.created_at,
+            "updated_at": area.updated_at,
+            "steps": [AreaStepResponse.model_validate(step) for step in steps],
+        }
+        return AreaResponse.model_validate(area_dict)
+    except AreaNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Area not found",
