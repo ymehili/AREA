@@ -21,13 +21,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }
       toastOptions={{
         style: {
-          background: "hsl(var(--background))",
+          background: "white",
           color: "hsl(var(--foreground))",
           borderRadius: "calc(var(--radius) - 2px)",
           border: "1px solid hsl(var(--border))",
-          backdropFilter: "none", // Remove any transparency effects
+          backdropFilter: "none",
         },
-        duration: 5000, // Increased duration to make sure users see the message
+        duration: 5000,
       }}
       {...props}
     />

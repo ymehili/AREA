@@ -272,31 +272,32 @@ export type AreaResponse = {
 };
 
 // Area Steps
-export type AreaStepType = 'trigger' | 'action' | 'condition' | 'delay';
+export type AreaStepType = 'trigger' | 'action' | 'reaction' | 'condition' | 'delay';
 
 export type AreaStepCreatePayload = {
   area_id: string;
-  type: AreaStepType;
-  name: string;
-  description?: string;
-  position: number;
+  step_type: AreaStepType;
+  order: number;
+  service?: string | null;
+  action?: string | null;
   config?: Record<string, unknown>;
 };
 
 export type AreaStepUpdatePayload = {
-  name?: string;
-  description?: string;
-  position?: number;
+  step_type?: AreaStepType;
+  order?: number;
+  service?: string | null;
+  action?: string | null;
   config?: Record<string, unknown>;
 };
 
 export type AreaStepResponse = {
   id: string;
   area_id: string;
-  type: AreaStepType;
-  name: string;
-  description?: string;
-  position: number;
+  step_type: AreaStepType;
+  order: number;
+  service?: string | null;
+  action?: string | null;
   config?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -325,7 +326,7 @@ export async function createAreaWithSteps(
   payload: AreaCreatePayload & { steps: Omit<AreaStepCreatePayload, 'area_id'>[] },
 ): Promise<AreaWithStepsResponse> {
   return requestJson<AreaWithStepsResponse>(
-    "/areas",
+    "/areas/with-steps",
     {
       method: 'POST',
       body: JSON.stringify(payload),

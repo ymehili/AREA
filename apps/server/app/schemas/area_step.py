@@ -26,7 +26,7 @@ class AreaStepCreate(AreaStepBase):
     @classmethod
     def validate_step_type(cls, v: str) -> str:
         """Validate step_type is one of the allowed values."""
-        allowed_types = {"action", "reaction", "condition", "delay"}
+        allowed_types = {"trigger", "action", "reaction", "condition", "delay"}
         if v not in allowed_types:
             raise ValueError(
                 f"step_type must be one of {allowed_types}, got '{v}'"
@@ -49,7 +49,7 @@ class AreaStepUpdate(BaseModel):
         """Validate step_type is one of the allowed values."""
         if v is None:
             return v
-        allowed_types = {"action", "reaction", "condition", "delay"}
+        allowed_types = {"trigger", "action", "reaction", "condition", "delay"}
         if v not in allowed_types:
             raise ValueError(
                 f"step_type must be one of {allowed_types}, got '{v}'"
