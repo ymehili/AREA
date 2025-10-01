@@ -265,6 +265,13 @@ def get_paginated_users(
     Returns:
         Tuple of (list of users, total count)
     """
+    # Allowed sort fields to prevent injection
+    ALLOWED_SORT_FIELDS = {"id", "email", "created_at", "is_confirmed"}
+    
+    # Validate sort_field at service layer
+    if sort_field not in ALLOWED_SORT_FIELDS:
+        sort_field = "created_at"  # Default to safe value
+    
     # Base query
     query = select(User)
     

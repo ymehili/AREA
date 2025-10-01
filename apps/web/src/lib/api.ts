@@ -144,6 +144,7 @@ export type LoginResponse = {
 export type UserResponse = {
   id: string;
   email: string;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -377,6 +378,21 @@ export async function getAdminUsers(
     `/admin/users?${params.toString()}`,
     {
       method: "GET",
+    },
+    token,
+  );
+}
+
+export async function updateAdminStatus(
+  token: string,
+  userId: string,
+  isAdmin: boolean,
+): Promise<AdminUserResponse> {
+  return requestJson<AdminUserResponse>(
+    `/admin/users/${userId}/admin-status`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ is_admin: isAdmin }),
     },
     token,
   );
