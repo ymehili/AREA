@@ -15,7 +15,6 @@ const NAV_ROUTES = [
   { href: "/connections", label: "Connections", showInNav: true },
   { href: "/profile", label: "Account", showInNav: true },
   { href: "/history", label: "History", showInNav: true },
-  { href: "/admin/users", label: "User Management", showInNav: true },  // Admin route
 ];
 
 type Breadcrumb = {
@@ -88,7 +87,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // Reset admin status if there's no token
       setIsAdmin(false);
     }
-  }, [auth.token]);
+  }, [auth]);
 
   if (auth.initializing) {
     return (

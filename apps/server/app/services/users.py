@@ -315,6 +315,74 @@ def update_user_admin_status(
     return user
 
 
+def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
+    """Retrieve specific user by ID with relationships."""
+    statement = select(User).where(User.id == user_id)
+    result = db.execute(statement)
+    user = result.scalar_one_or_none()
+    
+    # Eager load the relationships to include service connections and areas
+    if user:
+        # Access the relationships to ensure they're loaded
+        _ = user.service_connections
+        _ = user.areas
+    
+    return user
+
+
+def confirm_user_email_admin(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID
+) -> Optional[User]:
+    """Manually confirm email for a user."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return None
+    
+    if target_user.is_confirmed:
+        return target_user  # Already confirmed
+    
+    target_user.is_confirmed = True
+    target_user.confirmed_at = func.now()
+    db.commit()
+    db.refresh(target_user)
+    return target_user
+
+
+def suspend_user_account(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID,
+    reason: Optional[str] = None
+) -> Optional[User]:
+    """Suspend user account."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return None
+    
+    target_user.is_suspended = True
+    db.commit()
+    db.refresh(target_user)
+    return target_user
+
+
+def delete_user_account(
+    db: Session,
+    admin_user: User,
+    target_user_id: UUID,
+    reason: Optional[str] = None
+) -> bool:
+    """Delete user account."""
+    target_user = db.get(User, target_user_id)
+    if not target_user:
+        return False
+    
+    db.delete(target_user)
+    db.commit()
+    return True
+
+
 __all__ = [
     "UserEmailAlreadyExistsError",
     "IncorrectPasswordError",
@@ -329,4 +397,8 @@ __all__ = [
     "update_user_profile",
     "get_paginated_users",
     "update_user_admin_status",
+    "get_user_by_id",
+    "confirm_user_email_admin",
+    "suspend_user_account",
+    "delete_user_account",
 ]

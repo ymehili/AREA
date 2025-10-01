@@ -547,3 +547,92 @@ export async function updateAdminStatus(
     token,
   );
 }
+
+// New admin API functions for user management
+export type ServiceConnectionForUserDetail = {
+  id: string;
+  service_name: string;
+  created_at: string;
+};
+
+export type AreaForUserDetail = {
+  id: string;
+  name: string;
+  trigger_service: string;
+  reaction_service: string;
+  enabled: boolean;
+  created_at: string;
+};
+
+export type UserDetailAdminResponse = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_confirmed: boolean;
+  is_admin: boolean;
+  is_suspended: boolean;
+  created_at: string;
+  confirmed_at: string | null;
+  service_connections: ServiceConnectionForUserDetail[];
+  areas: AreaForUserDetail[];
+};
+
+export type AdminActionResponse = {
+  id?: string;
+  email?: string;
+  is_confirmed?: boolean;
+  is_suspended?: boolean;
+  message: string;
+};
+
+export async function getUserDetail(
+  token: string,
+  userId: string,
+): Promise<UserDetailAdminResponse> {
+  return requestJson<UserDetailAdminResponse>(
+    `/admin/users/${userId}`,
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+export async function confirmUserEmail(
+  token: string,
+  userId: string,
+): Promise<AdminActionResponse> {
+  return requestJson<AdminActionResponse>(
+    `/admin/users/${userId}/confirm-email`,
+    {
+      method: "POST",
+    },
+    token,
+  );
+}
+
+export async function suspendUserAccount(
+  token: string,
+  userId: string,
+): Promise<AdminActionResponse> {
+  return requestJson<AdminActionResponse>(
+    `/admin/users/${userId}/suspend`,
+    {
+      method: "PUT",
+    },
+    token,
+  );
+}
+
+export async function deleteUserAccount(
+  token: string,
+  userId: string,
+): Promise<AdminActionResponse> {
+  return requestJson<AdminActionResponse>(
+    `/admin/users/${userId}`,
+    {
+      method: "DELETE",
+    },
+    token,
+  );
+}
