@@ -6,7 +6,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { fetchProfile } from "@/lib/api";
+import { fetchProfile, UnauthorizedError } from "@/lib/api";
 
 
 // Define navigation routes
@@ -71,8 +71,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
           setIsAdmin(profile.is_admin || false);
         } catch (error) {
           console.error("Error fetching user profile:", error);
-          // If there's an error, we assume the user is not an admin
-          setIsAdmin(false);
+          
+          // If it's an UnauthorizedError (401), it means the token is invalid/expired
+          if (error instanceof UnauthorizedError) {
+            // Automatically log out the user
+            auth.logout();
+          } else {
+            // For other errors, we assume the user is not an admin
+            setIsAdmin(false);
+          }
         }
       };
 
