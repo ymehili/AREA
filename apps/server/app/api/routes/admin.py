@@ -10,7 +10,7 @@ from app.api.dependencies import require_admin_user
 from app.models.user import User
 from app.db.session import get_db
 from app.services.users import get_paginated_users, update_user_admin_status
-from app.schemas.user_admin import PaginatedUserList
+from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest
 
 
 router = APIRouter(
@@ -57,14 +57,14 @@ def get_all_users(
 
 
 @router.put("/users/{user_id}/admin-status")
-def update_user_admin_status(
+def toggle_admin_status(
     user_id: UUID,
-    is_admin: bool,
+    request: UpdateAdminStatusRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_user),
 ):
     """Update a user's admin status (admin only)."""
-    updated_user = update_user_admin_status(db, user_id=user_id, is_admin=is_admin)
+    updated_user = update_user_admin_status(db, user_id=user_id, is_admin=request.is_admin)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     
