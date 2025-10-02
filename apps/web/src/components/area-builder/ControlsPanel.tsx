@@ -7,12 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { AreaStepNodeData, NodeData, ConditionNodeData } from './node-types';
+import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
   selectedNodeId?: string;
-  onNodeConfigChange?: (id: string, config: Partial<AreaStepNodeData>) => void;
+  onNodeConfigChange?: (id: string, config: Partial<NodeData>) => void;
   nodeConfig?: Partial<NodeData>;
 }
 
@@ -63,7 +63,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
           </Button>
         </CardContent>
       </Card>
-      
+
       {selectedNodeId && onNodeConfigChange && (
         <>
           <Separator />
@@ -86,7 +86,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       id="label"
                       type="text"
                       value={nodeConfig.label || ''}
-                      onChange={(e) => onNodeConfigChange(selectedNodeId, { ...nodeConfig, label: e.target.value })}
+                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
                     />
                   </div>
                   <div>
@@ -95,7 +95,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       id="description"
                       className="w-full p-2 border rounded mt-1 min-h-[60px]"
                       value={nodeConfig.description || ''}
-                      onChange={(e) => onNodeConfigChange(selectedNodeId, { ...nodeConfig, description: e.target.value })}
+                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                     />
                   </div>
 
@@ -219,6 +219,45 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       </>
                     );
                   })()}
+
+                  {/* Delay-specific configuration */}
+                  {isDelayNode(nodeConfig) && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="duration">Duration</Label>
+                          <Input
+                            id="duration"
+                            type="number"
+                            min="1"
+                            value={nodeConfig.duration || 1}
+                            onChange={(e) => {
+                              const newDuration = parseInt(e.target.value, 10) || 1;
+                              onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="unit">Unit</Label>
+                          <Select
+                            value={nodeConfig.unit || 'seconds'}
+                            onValueChange={(value) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, unit: value as 'seconds' | 'minutes' | 'hours' | 'days' })}
+                          >
+                            <SelectTrigger id="unit">
+                              <SelectValue placeholder="Select time unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="seconds">Seconds</SelectItem>
+                              <SelectItem value="minutes">Minutes</SelectItem>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>

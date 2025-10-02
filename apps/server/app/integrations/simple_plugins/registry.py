@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 if TYPE_CHECKING:
     from app.models.area import Area
 
 logger = logging.getLogger("area")
 
-# Handler type: callable that takes (area, params, event) and returns None
-PluginHandler = Callable[["Area", dict, dict], None]
+# Handler type: callable that takes (area, params, event) and returns None or Awaitable[None]
+PluginHandler = Callable[["Area", dict, dict], None | Awaitable[None]]
 
 
 class PluginsRegistry:
@@ -27,6 +27,10 @@ class PluginsRegistry:
         # Time trigger doesn't need a handler (scheduler handles it)
         # Debug reaction handler
         self._handlers[("debug", "log")] = self._debug_log_handler
+        
+        # Delay handler
+        from app.integrations.simple_plugins.delay_plugin import delay_handler
+        self._handlers[("delay", "wait")] = delay_handler
 
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
