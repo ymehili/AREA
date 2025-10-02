@@ -47,8 +47,17 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations with an engine connection."""
 
+    # Get config section and add connection args to prevent hanging on locks
+    config_section = config.get_section(config.config_ini_section, {})
+
+    # Add statement_timeout to prevent migrations from hanging indefinitely
+    # This is critical when there are active connections from the app
+    config_section["sqlalchemy.connect_args"] = {
+        "options": "-c statement_timeout=30000 -c lock_timeout=10000"
+    }
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        config_section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
