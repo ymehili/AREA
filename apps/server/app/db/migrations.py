@@ -35,16 +35,44 @@ def _alembic_config() -> Config:
 
 
 def run_migrations() -> None:
-    """Apply all pending migrations up to the latest revision."""
+    """Apply all pending migrations up to the latest revision.
+
+    This function ensures migrations don't hang by:
+    1. Disposing the app's engine to close any pooled connections
+    2. Checking if migrations are needed before running
+    3. Setting statement_timeout to prevent indefinite waits on locks
+    """
+    # Import here to avoid circular dependency
+    from app.db.session import engine as app_engine
+    from alembic.runtime.migration import MigrationContext
+
+    # Close all connections in the app's connection pool to prevent lock conflicts
+    # This ensures Alembic migrations won't be blocked by app connections
+    logger.info("Disposing application database connections before migrations")
+    app_engine.dispose()
 
     cfg = _alembic_config()
-    # Log migration heads known to the script directory
+
+    # Check if migration is needed by comparing current revision with heads
     try:
         script = ScriptDirectory.from_config(cfg)
-        heads = ",".join(script.get_heads() or [])
-        logger.info("Alembic migration heads: %s", heads)
-    except Exception as e:  # pragma: no cover - logging only
-        logger.warning("Unable to read Alembic heads: %s", e)
+        heads_list = list(script.get_heads() or [])
+        heads_str = ",".join(heads_list)
+        logger.info("Alembic migration heads: %s", heads_str)
+
+        # Get current database revision
+        with app_engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            current_rev = context.get_current_revision()
+            logger.info("Current database revision: %s", current_rev)
+
+            # Check if current revision is one of the heads - if so, no migration needed
+            if current_rev and current_rev in heads_list:
+                logger.info("Database is already at head revision, skipping migrations")
+                return
+
+    except Exception as e:
+        logger.warning("Unable to check migration status: %s, proceeding with upgrade", e)
 
     logger.info("Applying database migrations (alembic upgrade heads)")
     try:
