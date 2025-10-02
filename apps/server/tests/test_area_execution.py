@@ -12,6 +12,7 @@ from app.models.area import Area
 from app.models.area_step import AreaStep
 from app.services.area_execution import execute_area_steps
 from app.services.area_steps import get_steps_by_area
+from app.services.execution_logs import create_execution_log
 
 
 @pytest.mark.asyncio
@@ -38,19 +39,25 @@ async def test_execute_area_with_single_delay_step():
     
     # Mock the get_steps_by_area function to return our delay step
     with patch('app.services.area_execution.get_steps_by_area', return_value=[delay_step]):
-        # Event data
-        event = {
-            "now": datetime.now(timezone.utc).isoformat(),
-            "area_id": str(mock_area.id),
-            "user_id": str(mock_area.user_id),
-            "tick": True
-        }
-        
-        # Execute the area
-        result = await execute_area_steps(mock_db, mock_area, event)
-        
-        # Should complete successfully
-        assert result is True
+        with patch('app.services.area_execution.create_execution_log') as mock_create_log:
+            # Mock return value for create_execution_log with proper structure
+            mock_execution_log = Mock()
+            mock_execution_log.step_details = {}
+            mock_execution_log.status = "Started"
+            mock_create_log.return_value = mock_execution_log
+            # Event data
+            event = {
+                "now": datetime.now(timezone.utc).isoformat(),
+                "area_id": str(mock_area.id),
+                "user_id": str(mock_area.user_id),
+                "tick": True
+            }
+            
+            # Execute the area
+            result = await execute_area_steps(mock_db, mock_area, event)
+            
+            # Should complete successfully
+            assert result is True
 
 
 @pytest.mark.asyncio
@@ -99,26 +106,32 @@ async def test_execute_area_with_multiple_steps_including_delay():
     
     # Mock the get_steps_by_area function to return our steps
     with patch('app.services.area_execution.get_steps_by_area', return_value=steps):
-        # Mock the reaction handler
-        with patch('app.services.area_execution.ExecutionEngine._execute_action_reaction_step') as mock_exec_action:
-            mock_exec_action.return_value = None  # Mock implementation
-            
-            # Event data
-            event = {
-                "now": datetime.now(timezone.utc).isoformat(),
-                "area_id": str(mock_area.id),
-                "user_id": str(mock_area.user_id),
-                "tick": True
-            }
-            
-            # Execute the area
-            result = await execute_area_steps(mock_db, mock_area, event)
-            
-            # Should complete successfully
-            assert result is True
-            
-            # Verify that all steps were processed
-            mock_exec_action.assert_called()
+        with patch('app.services.area_execution.create_execution_log') as mock_create_log:
+            # Mock return value for create_execution_log with proper structure
+            mock_execution_log = Mock()
+            mock_execution_log.step_details = {}
+            mock_execution_log.status = "Started"
+            mock_create_log.return_value = mock_execution_log
+            # Mock the reaction handler
+            with patch('app.services.area_execution.ExecutionEngine._execute_action_reaction_step') as mock_exec_action:
+                mock_exec_action.return_value = None  # Mock implementation
+                
+                # Event data
+                event = {
+                    "now": datetime.now(timezone.utc).isoformat(),
+                    "area_id": str(mock_area.id),
+                    "user_id": str(mock_area.user_id),
+                    "tick": True
+                }
+                
+                # Execute the area
+                result = await execute_area_steps(mock_db, mock_area, event)
+                
+                # Should complete successfully
+                assert result is True
+                
+                # Verify that all steps were processed
+                mock_exec_action.assert_called()
 
 
 @pytest.mark.asyncio
@@ -157,19 +170,25 @@ async def test_execute_area_delay_with_different_units():
     
     # Mock the get_steps_by_area function to return our steps
     with patch('app.services.area_execution.get_steps_by_area', return_value=steps):
-        # Event data
-        event = {
-            "now": datetime.now(timezone.utc).isoformat(),
-            "area_id": str(mock_area.id),
-            "user_id": str(mock_area.user_id),
-            "tick": True
-        }
-        
-        # Execute the area
-        result = await execute_area_steps(mock_db, mock_area, event)
-        
-        # Should complete successfully
-        assert result is True
+        with patch('app.services.area_execution.create_execution_log') as mock_create_log:
+            # Mock return value for create_execution_log with proper structure
+            mock_execution_log = Mock()
+            mock_execution_log.step_details = {}
+            mock_execution_log.status = "Started"
+            mock_create_log.return_value = mock_execution_log
+            # Event data
+            event = {
+                "now": datetime.now(timezone.utc).isoformat(),
+                "area_id": str(mock_area.id),
+                "user_id": str(mock_area.user_id),
+                "tick": True
+            }
+            
+            # Execute the area
+            result = await execute_area_steps(mock_db, mock_area, event)
+            
+            # Should complete successfully
+            assert result is True
 
 
 @pytest.mark.asyncio
@@ -209,19 +228,25 @@ async def test_execute_area_delay_defaults():
     
     # Mock the get_steps_by_area function to return our steps
     with patch('app.services.area_execution.get_steps_by_area', return_value=steps):
-        # Event data
-        event = {
-            "now": datetime.now(timezone.utc).isoformat(),
-            "area_id": str(mock_area.id),
-            "user_id": str(mock_area.user_id),
-            "tick": True
-        }
-        
-        # Execute the area
-        result = await execute_area_steps(mock_db, mock_area, event)
-        
-        # Should complete successfully
-        assert result is True
+        with patch('app.services.area_execution.create_execution_log') as mock_create_log:
+            # Mock return value for create_execution_log with proper structure
+            mock_execution_log = Mock()
+            mock_execution_log.step_details = {}
+            mock_execution_log.status = "Started"
+            mock_create_log.return_value = mock_execution_log
+            # Event data
+            event = {
+                "now": datetime.now(timezone.utc).isoformat(),
+                "area_id": str(mock_area.id),
+                "user_id": str(mock_area.user_id),
+                "tick": True
+            }
+            
+            # Execute the area
+            result = await execute_area_steps(mock_db, mock_area, event)
+            
+            # Should complete successfully
+            assert result is True
 
 
 @pytest.mark.asyncio
@@ -250,16 +275,22 @@ async def test_execute_area_delay_missing_config():
     
     # Mock the get_steps_by_area function to return our step
     with patch('app.services.area_execution.get_steps_by_area', return_value=steps):
-        # Event data
-        event = {
-            "now": datetime.now(timezone.utc).isoformat(),
-            "area_id": str(mock_area.id),
-            "user_id": str(mock_area.user_id),
-            "tick": True
-        }
-        
-        # Execute the area
-        result = await execute_area_steps(mock_db, mock_area, event)
-        
-        # Should complete successfully
-        assert result is True
+        with patch('app.services.area_execution.create_execution_log') as mock_create_log:
+            # Mock return value for create_execution_log with proper structure
+            mock_execution_log = Mock()
+            mock_execution_log.step_details = {}
+            mock_execution_log.status = "Started"
+            mock_create_log.return_value = mock_execution_log
+            # Event data
+            event = {
+                "now": datetime.now(timezone.utc).isoformat(),
+                "area_id": str(mock_area.id),
+                "user_id": str(mock_area.user_id),
+                "tick": True
+            }
+            
+            # Execute the area
+            result = await execute_area_steps(mock_db, mock_area, event)
+            
+            # Should complete successfully
+            assert result is True

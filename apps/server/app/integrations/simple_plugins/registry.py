@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 if TYPE_CHECKING:
     from app.models.area import Area
 
 logger = logging.getLogger("area")
 
-# Handler type: callable that takes (area, params, event) and returns None
-PluginHandler = Callable[["Area", dict, dict], None]
+# Handler type: callable that takes (area, params, event) and returns None or Awaitable[None]
+PluginHandler = Callable[["Area", dict, dict], None | Awaitable[None]]
 
 
 class PluginsRegistry:
