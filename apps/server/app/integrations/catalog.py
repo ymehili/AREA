@@ -54,6 +54,19 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         ),
     ),
     ServiceIntegration(
+        slug="delay",
+        name="Delay",
+        description="Add a pause between steps in your automation workflow.",
+        actions=(),
+        reactions=(
+            AutomationOption(
+                key="wait",
+                name="Wait for Duration",
+                description="Pause the execution for a specified duration (seconds, minutes, hours, days).",
+            ),
+        ),
+    ),
+    ServiceIntegration(
         slug="gmail",
         name="Gmail",
         description="Automate workflows around incoming and outgoing email events.",
