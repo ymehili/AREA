@@ -143,7 +143,7 @@ async def scheduler_task() -> None:
                                 "tick": True,
                             }
 
-                            # Execute area using new step executor
+                            # Execute area using step executor (supports conditional branching)
                             try:
                                 result = execute_area(db, area, trigger_data)
 

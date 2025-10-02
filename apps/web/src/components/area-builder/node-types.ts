@@ -39,7 +39,7 @@ export interface ConditionNodeData extends AreaStepNodeData {
 export interface DelayNodeData extends AreaStepNodeData {
   type: 'delay';
   duration: number;
-  unit: 'seconds' | 'minutes' | 'hours';
+  unit: 'seconds' | 'minutes' | 'hours' | 'days';
   config?: Record<string, unknown>;
 }
 
@@ -50,19 +50,19 @@ export type NodeData = TriggerNodeData | ActionNodeData | ConditionNodeData | De
 export type AreaStepNodeProps<T extends NodeData = NodeData> = Omit<NodeProps<T>, 'data'> & { data: T };
 
 // Type guard functions to check node types
-export const isTriggerNode = (data: NodeData): data is TriggerNodeData => {
+export const isTriggerNode = (data: Partial<NodeData>): data is TriggerNodeData => {
   return data.type === 'trigger';
 };
 
-export const isActionNode = (data: NodeData): data is ActionNodeData => {
+export const isActionNode = (data: Partial<NodeData>): data is ActionNodeData => {
   return data.type === 'action';
 };
 
-export const isConditionNode = (data: NodeData): data is ConditionNodeData => {
+export const isConditionNode = (data: Partial<NodeData>): data is ConditionNodeData => {
   return data.type === 'condition';
 };
 
-export const isDelayNode = (data: NodeData): data is DelayNodeData => {
+export const isDelayNode = (data: Partial<NodeData>): data is DelayNodeData => {
   return data.type === 'delay';
 };
 

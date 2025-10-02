@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
-import { NodeData } from '@/components/area-builder/node-types';
+import { NodeData, DelayNodeData } from '@/components/area-builder/node-types';
 import { getAreaWithSteps, updateArea, updateAreaStep } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { cn, headingClasses } from '@/lib/utils';
@@ -44,20 +44,48 @@ export default function EditAreaPage() {
 
         // Convert steps to nodes
         if (area.steps && area.steps.length > 0) {
-          const nodes: Node<NodeData>[] = area.steps.map((step, index) => ({
-            id: step.id,
-            type: step.step_type,
-            // Use saved position if available, otherwise calculate based on index
-            position: (step.config?.position as { x: number; y: number }) || { x: 250, y: index * 150 + 50 },
-            data: {
-              label: `${step.step_type}: ${step.service || 'custom'}/${step.action || 'action'}`,
-              description: '',
-              config: step.config || {},
-              type: step.step_type as 'trigger' | 'action' | 'condition' | 'delay',
-              serviceId: step.service || '',
-              actionId: step.action || '',
-            } as NodeData,
-          }));
+          const nodes: Node<NodeData>[] = area.steps.map((step, index) => {
+            // Prepare base node data
+            let nodeData: NodeData;
+            
+            if (step.step_type === 'delay') {
+              // For delay nodes, extract duration and unit from config if available
+              // Validate unit to ensure it's one of the allowed values
+              const rawUnit = step.config?.unit;
+              const validUnits = ['seconds', 'minutes', 'hours', 'days'] as const;
+              const unit = (validUnits as readonly string[]).includes(rawUnit as string) 
+                ? (rawUnit as 'seconds' | 'minutes' | 'hours' | 'days') 
+                : 'seconds';
+
+              const delayData: DelayNodeData = {
+                label: `${step.step_type}: ${step.service || 'custom'}/${step.action || 'action'}`,
+                description: '',
+                type: 'delay',
+                duration: typeof step.config?.duration === 'number' ? step.config.duration : 1,
+                unit,
+                config: step.config || {},
+              };
+              nodeData = delayData;
+            } else {
+              // For other node types, use generic data
+              nodeData = {
+                label: `${step.step_type}: ${step.service || 'custom'}/${step.action || 'action'}`,
+                description: '',
+                config: step.config || {},
+                type: step.step_type as 'trigger' | 'action' | 'condition',
+                serviceId: step.service || '',
+                actionId: step.action || '',
+              } as NodeData;
+            }
+            
+            return {
+              id: step.id,
+              type: step.step_type,
+              // Use saved position if available, otherwise calculate based on index
+              position: (step.config?.position as { x: number; y: number }) || { x: 250, y: index * 150 + 50 },
+              data: nodeData,
+            };
+          });
 
           // Restore edges from saved targets
           const edges: Edge[] = [];
@@ -136,14 +164,27 @@ export default function EditAreaPage() {
         const nodeData = node.data as NodeData;
         const targetEdges = currentEdges.filter(edge => edge.source === node.id).map(edge => edge.target);
 
+        // Prepare the config to save, including delay-specific properties if it's a delay node
+        let configToSave: Record<string, unknown> = {
+          ...(nodeData.config || {}),
+          clientId: node.id,
+          position: node.position,
+          targets: targetEdges,
+        };
+
+        // If this is a delay node, include duration and unit in the config
+        if (node.type === 'delay') {
+          const delayNodeData = nodeData as DelayNodeData;
+          configToSave = {
+            ...configToSave,
+            duration: delayNodeData.duration,
+            unit: delayNodeData.unit,
+          };
+        }
+
         // Update step with new position and targets
         await updateAreaStep(auth.token, node.id, {
-          config: {
-            ...(nodeData.config || {}),
-            clientId: node.id,
-            position: node.position,
-            targets: targetEdges,
-          },
+          config: configToSave,
         });
       });
 
