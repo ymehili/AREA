@@ -70,16 +70,29 @@ export default function WizardPage() {
           const nodeData = node.data as NodeData;
           // Find edges connected to this node
           const targetEdges = currentEdges.filter(edge => edge.source === node.id).map(edge => edge.target);
+          
+          // Prepare the base config with common properties
+          let stepConfig: Record<string, unknown> = {
+            ...(nodeData.config || {}),
+            position: node.position,
+            targets: targetEdges,
+          };
+          
+          // Add delay-specific configuration if this is a delay node
+          if (node.type === 'delay' && 'duration' in nodeData && 'unit' in nodeData) {
+            stepConfig = {
+              ...stepConfig,
+              duration: (nodeData as { duration?: number }).duration,
+              unit: (nodeData as { unit?: string }).unit,
+            };
+          }
+          
           return {
             step_type: node.type as 'trigger' | 'action' | 'condition' | 'delay',
             order: index,
             service: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.serviceId : null,
             action: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.actionId : null,
-            config: {
-              ...(nodeData.config || {}),
-              position: node.position,
-              targets: targetEdges,
-            },
+            config: stepConfig,
           };
         }),
       };
