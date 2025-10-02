@@ -113,10 +113,10 @@ class ExecutionEngine:
                 elif step.step_type in ["action", "reaction"]:
                     # Handle action/reaction step
                     await self._execute_action_reaction_step(area, step, event)
-                elif step.step_type == "condition":
-                    # Handle condition step (placeholder for future implementation)
+                elif step.step_type in ["condition", "trigger"]:
+                    # Handle condition and trigger steps (placeholder for future implementation)
                     logger.info(
-                        f"Condition step not yet implemented for area {area.id}, step order {step.order}",
+                        f"{step.step_type.title()} step not yet implemented for area {area.id}, step order {step.order}",
                         extra={
                             "area_id": str(area.id),
                             "user_id": str(area.user_id),

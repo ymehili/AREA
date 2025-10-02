@@ -1,6 +1,7 @@
 """Integration tests for multi-step area execution with delay steps."""
 
 import asyncio
+import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -21,8 +22,8 @@ async def test_execute_area_with_single_delay_step():
     
     # Create mock area
     mock_area = Mock(spec=Area)
-    mock_area.id = "test-area-id"
-    mock_area.user_id = "test-user-id"
+    mock_area.id = uuid.uuid4()
+    mock_area.user_id = uuid.uuid4()
     
     # Create a delay step
     delay_step = AreaStep(
@@ -60,8 +61,8 @@ async def test_execute_area_with_multiple_steps_including_delay():
     
     # Create mock area
     mock_area = Mock(spec=Area)
-    mock_area.id = "test-area-id"
-    mock_area.user_id = "test-user-id"
+    mock_area.id = uuid.uuid4()
+    mock_area.user_id = uuid.uuid4()
     
     # Create steps: trigger -> delay -> reaction
     trigger_step = AreaStep(
@@ -128,8 +129,8 @@ async def test_execute_area_delay_with_different_units():
     
     # Create mock area
     mock_area = Mock(spec=Area)
-    mock_area.id = "test-area-id"
-    mock_area.user_id = "test-user-id"
+    mock_area.id = uuid.uuid4()
+    mock_area.user_id = uuid.uuid4()
     
     # Create delay steps with different units
     delay_seconds = AreaStep(
@@ -179,8 +180,8 @@ async def test_execute_area_delay_defaults():
     
     # Create mock area
     mock_area = Mock(spec=Area)
-    mock_area.id = "test-area-id"
-    mock_area.user_id = "test-user-id"
+    mock_area.id = uuid.uuid4()
+    mock_area.user_id = uuid.uuid4()
     
     # Create delay step with minimal config (defaults should apply)
     delay_step = AreaStep(
@@ -231,8 +232,8 @@ async def test_execute_area_delay_missing_config():
     
     # Create mock area
     mock_area = Mock(spec=Area)
-    mock_area.id = "test-area-id"
-    mock_area.user_id = "test-user-id"
+    mock_area.id = uuid.uuid4()
+    mock_area.user_id = uuid.uuid4()
     
     # Create delay step with no config (should default)
     delay_step = AreaStep(
