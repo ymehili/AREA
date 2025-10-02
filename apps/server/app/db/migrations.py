@@ -46,27 +46,6 @@ def run_migrations() -> None:
     except Exception as e:  # pragma: no cover - logging only
         logger.warning("Unable to read Alembic heads: %s", e)
 
-    # Check current database revision to skip if already at head
-    try:
-        from alembic.runtime.migration import MigrationContext
-        from sqlalchemy import create_engine
-
-        engine = create_engine(settings.database_url)
-        with engine.connect() as connection:
-            context = MigrationContext.configure(connection)
-            current_rev = context.get_current_revision()
-            logger.info(f"Current database revision: {current_rev}")
-
-            # Check if already at head
-            script = ScriptDirectory.from_config(cfg)
-            heads_list = list(script.get_heads() or [])
-            if current_rev in heads_list:
-                logger.info("Database is already at head, skipping migrations")
-                return
-        engine.dispose()
-    except Exception as e:
-        logger.warning(f"Unable to check current revision: {e}, proceeding with upgrade")
-
     logger.info("Applying database migrations (alembic upgrade heads)")
     try:
         command.upgrade(cfg, "heads")

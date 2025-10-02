@@ -103,6 +103,7 @@ async def scheduler_task() -> None:
 
                     # Check if area is due to run
                     if is_area_due(area, now, last_run):
+                        execution_log = None  # Initialize before try block
                         try:
                             # Create execution log entry for start of execution
                             execution_log_start = ExecutionLogCreate(
@@ -197,7 +198,7 @@ async def scheduler_task() -> None:
                             # Try to update execution log with error status, but don't fail if db operations fail too
                             try:
                                 # If execution_log exists, update it with error status
-                                if 'execution_log' in locals():
+                                if execution_log is not None:
                                     execution_log.status = "Failed"
                                     execution_log.error_message = str(e)
                                     db.commit()
