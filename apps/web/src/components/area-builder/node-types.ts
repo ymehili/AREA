@@ -29,6 +29,7 @@ export interface ConditionNodeData extends AreaStepNodeData {
   conditionType: 'simple' | 'expression';
   conditionValue: string;
   config?: {
+    field?: string;
     operator?: string;
     value?: unknown;
     expression?: string;
