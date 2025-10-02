@@ -68,6 +68,8 @@ class Area(Base):
     execution_logs: Mapped[list["ExecutionLog"]] = relationship(
         "ExecutionLog",
         back_populates="area",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     # Relationship to AreaStep

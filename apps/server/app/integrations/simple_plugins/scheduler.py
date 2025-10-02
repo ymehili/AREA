@@ -14,6 +14,7 @@ from app.integrations.simple_plugins.registry import get_plugins_registry
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
 from app.services.execution_logs import create_execution_log
+from app.services.step_executor import execute_area
 
 logger = logging.getLogger("area")
 
@@ -125,68 +126,63 @@ async def scheduler_task() -> None:
                             if area.trigger_params:
                                 interval_seconds = area.trigger_params.get("interval_seconds", 60)
 
-                            # Assemble event data
-                            event = {
+                            # Assemble trigger event data with datetime context
+                            trigger_data = {
                                 "now": now.isoformat(),
+                                "timestamp": now.timestamp(),
+                                "year": now.year,
+                                "month": now.month,
+                                "day": now.day,
+                                "hour": now.hour,
+                                "minute": now.minute,
+                                "second": now.second,
+                                "weekday": now.weekday(),
                                 "area_id": area_id_str,
                                 "user_id": str(area.user_id),
                                 "tick": True,
                             }
 
-                            # Get reaction handler
-                            handler = registry.get_reaction_handler(
-                                area.reaction_service, area.reaction_action
-                            )
+                            # Execute area using new step executor
+                            try:
+                                result = execute_area(db, area, trigger_data)
 
-                            if handler:
-                                # Execute reaction with params
-                                reaction_params = area.reaction_params or {}
-                                try:
-                                    handler(area, reaction_params, event)
+                                # Update last run time
+                                _last_run_by_area_id[area_id_str] = now
 
-                                    # Update last run time
-                                    _last_run_by_area_id[area_id_str] = now
-
-                                    # Update execution log with success status
-                                    execution_log.status = "Success"
-                                    db.commit()
-
-                                    # Log execution with interval for troubleshooting
-                                    logger.info(
-                                        "Area executed",
-                                        extra={
-                                            "area_id": area_id_str,
-                                            "area_name": area.name,
-                                            "interval_seconds": interval_seconds,
-                                            "reaction": f"{area.reaction_service}.{area.reaction_action}",
-                                        },
-                                    )
-                                except Exception as handler_error:
-                                    # Update execution log with failure status
-                                    execution_log.status = "Failed"
-                                    execution_log.error_message = str(handler_error)
-                                    db.commit()
-
-                                    logger.error(
-                                        "Error executing area handler",
-                                        extra={
-                                            "area_id": area_id_str,
-                                            "error": str(handler_error),
-                                        },
-                                        exc_info=True,
-                                    )
-                            else:
-                                # Update execution log with failure status
-                                execution_log.status = "Failed"
-                                execution_log.error_message = f"No handler found for reaction {area.reaction_service}.{area.reaction_action}"
+                                # Update execution log based on result
+                                execution_log.status = "Success" if result["status"] == "success" else "Failed"
+                                execution_log.output = f"Executed {result['steps_executed']} step(s)"
+                                execution_log.error_message = result.get("error")
+                                execution_log.step_details = {
+                                    "execution_log": result.get("execution_log", []),
+                                    "steps_executed": result["steps_executed"],
+                                }
                                 db.commit()
 
-                                logger.warning(
-                                    "No handler found for reaction",
+                                # Log execution with interval for troubleshooting
+                                logger.info(
+                                    "Area executed",
                                     extra={
                                         "area_id": area_id_str,
-                                        "reaction": f"{area.reaction_service}.{area.reaction_action}",
-                                    }
+                                        "area_name": area.name,
+                                        "interval_seconds": interval_seconds,
+                                        "status": result["status"],
+                                        "steps_executed": result["steps_executed"],
+                                    },
+                                )
+                            except Exception as execution_error:
+                                # Update execution log with failure status
+                                execution_log.status = "Failed"
+                                execution_log.error_message = str(execution_error)
+                                db.commit()
+
+                                logger.error(
+                                    "Error executing area",
+                                    extra={
+                                        "area_id": area_id_str,
+                                        "error": str(execution_error),
+                                    },
+                                    exc_info=True,
                                 )
 
                         except Exception as e:

@@ -46,6 +46,8 @@ class AreaCreateWithSteps(BaseModel):
     trigger_action: str
     reaction_service: str
     reaction_action: str
+    trigger_params: Optional[dict] = None
+    reaction_params: Optional[dict] = None
     description: Optional[str] = None
     is_active: Optional[bool] = True
     steps: TypingList[AreaStepCreate]
@@ -90,6 +92,8 @@ def create_user_area_with_steps(
         trigger_action=area_with_steps.trigger_action,
         reaction_service=area_with_steps.reaction_service,
         reaction_action=area_with_steps.reaction_action,
+        trigger_params=area_with_steps.trigger_params,
+        reaction_params=area_with_steps.reaction_params,
     )
     
     # Remove area_id from steps if present (it's not needed for internal creation)
