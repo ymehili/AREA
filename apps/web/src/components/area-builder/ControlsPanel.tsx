@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
-import { AreaStepNodeData, NodeData } from './node-types';
+import { NodeData, isDelayNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
   selectedNodeId?: string;
-  onNodeConfigChange?: (id: string, config: Partial<AreaStepNodeData>) => void;
+  onNodeConfigChange?: (id: string, config: Partial<NodeData>) => void;
   nodeConfig?: Partial<NodeData>;
 }
 
@@ -83,7 +83,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       type="text"
                       className="w-full p-2 border rounded mt-1"
                       value={nodeConfig.label || ''}
-                      onChange={(e) => onNodeConfigChange(selectedNodeId, { ...nodeConfig, label: e.target.value })}
+                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
                     />
                   </div>
                   <div>
@@ -91,9 +91,41 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                     <textarea
                       className="w-full p-2 border rounded mt-1"
                       value={nodeConfig.description || ''}
-                      onChange={(e) => onNodeConfigChange(selectedNodeId, { ...nodeConfig, description: e.target.value })}
+                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                     />
                   </div>
+
+                  {/* Delay-specific configuration */}
+                  {isDelayNode(nodeConfig) && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium">Duration</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full p-2 border rounded mt-1"
+                          value={nodeConfig.duration || 1}
+                          onChange={(e) => {
+                            const newDuration = parseInt(e.target.value, 10) || 1;
+                            onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Unit</label>
+                        <select
+                          className="w-full p-2 border rounded mt-1"
+                          value={nodeConfig.unit || 'seconds'}
+                          onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, unit: e.target.value as 'seconds' | 'minutes' | 'hours' | 'days' })}
+                        >
+                          <option value="seconds">Seconds</option>
+                          <option value="minutes">Minutes</option>
+                          <option value="hours">Hours</option>
+                          <option value="days">Days</option>
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
