@@ -46,6 +46,8 @@ class AreaCreateWithSteps(BaseModel):
     trigger_action: str
     reaction_service: str
     reaction_action: str
+    trigger_params: Optional[dict] = None
+    reaction_params: Optional[dict] = None
     description: Optional[str] = None
     is_active: Optional[bool] = True
     steps: TypingList[AreaStepCreate]
@@ -90,21 +92,17 @@ def create_user_area_with_steps(
         trigger_action=area_with_steps.trigger_action,
         reaction_service=area_with_steps.reaction_service,
         reaction_action=area_with_steps.reaction_action,
+        trigger_params=area_with_steps.trigger_params,
+        reaction_params=area_with_steps.reaction_params,
     )
     
     # Remove area_id from steps if present (it's not needed for internal creation)
-    # Area ID will be set by the system when the area is created
+    # Area ID will be set by the create_area service when the area is created
     processed_steps = []
     for step in area_with_steps.steps:
-        # Create a new step without area_id for internal processing
-        processed_step = AreaStepCreate(
-            step_type=step.step_type,
-            order=step.order,
-            service=step.service,
-            action=step.action,
-            config=step.config,
-            area_id=None  # Explicitly set to None to remove it
-        )
+        # Create step schema, excluding area_id (will be set by create_area service)
+        step_dict = step.model_dump(exclude={'area_id'})
+        processed_step = AreaStepCreate(**step_dict)
         processed_steps.append(processed_step)
     
     try:
@@ -260,15 +258,9 @@ def update_user_area_with_steps(
     # Remove area_id from steps if present (it's not needed for internal processing)
     processed_steps = []
     for step in area_with_steps.steps:
-        # Create a new step without area_id for internal processing
-        processed_step = AreaStepCreate(
-            step_type=step.step_type,
-            order=step.order,
-            service=step.service,
-            action=step.action,
-            config=step.config,
-            area_id=None  # Explicitly set to None to remove it
-        )
+        # Create step schema, excluding area_id (will be set by update service)
+        step_dict = step.model_dump(exclude={'area_id'})
+        processed_step = AreaStepCreate(**step_dict)
         processed_steps.append(processed_step)
 
     try:
@@ -440,15 +432,9 @@ def create_area_step_endpoint(
             detail="You don't have permission to add steps to this area",
         )
     
-    # Create a new step without area_id for internal processing
-    step_internal = AreaStepCreate(
-        step_type=step_in.step_type,
-        order=step_in.order,
-        service=step_in.service,
-        action=step_in.action,
-        config=step_in.config,
-        area_id=None  # Explicitly set to None to remove it
-    )
+    # Create step schema, excluding area_id (will be set by create_area_step service)
+    step_dict = step_in.model_dump(exclude={'area_id'})
+    step_internal = AreaStepCreate(**step_dict)
     
     try:
         step = create_area_step(db, str(uuid_area_id), step_internal)
