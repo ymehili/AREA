@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { NodeData, isDelayNode } from './node-types';
+import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
@@ -60,7 +63,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
           </Button>
         </CardContent>
       </Card>
-      
+
       {selectedNodeId && onNodeConfigChange && (
         <>
           <Separator />
@@ -69,60 +72,189 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
               <CardTitle className="text-lg">Configure Step</CardTitle>
             </CardHeader>
             <CardContent>
-              {/* Configuration UI would be implemented here based on the selected node type */}
+              {/* Configuration UI based on the selected node type */}
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {nodeConfig ? 'Configuration options for selected node' : 'Select a node to configure'}
               </div>
-              
-              {/* Placeholder configuration fields - these would be dynamic based on node type */}
+
+              {/* Configuration fields - dynamic based on node type */}
               {nodeConfig && (
                 <div className="mt-4 space-y-3">
                   <div>
-                    <label className="text-sm font-medium">Step Label</label>
-                    <input
+                    <Label htmlFor="label">Step Label</Label>
+                    <Input
+                      id="label"
                       type="text"
-                      className="w-full p-2 border rounded mt-1"
                       value={nodeConfig.label || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Description</label>
+                    <Label htmlFor="description">Description</Label>
                     <textarea
-                      className="w-full p-2 border rounded mt-1"
+                      id="description"
+                      className="w-full p-2 border rounded mt-1 min-h-[60px]"
                       value={nodeConfig.description || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                     />
                   </div>
 
+                  {/* Condition-specific fields */}
+                  {nodeConfig.type === 'condition' && (() => {
+                    const conditionData = nodeConfig as Partial<ConditionNodeData>;
+                    const conditionType = conditionData.conditionType || 'simple';
+                    const conditionConfig = conditionData.config || {};
+
+                    return (
+                      <>
+                        <Separator className="my-3" />
+                        <div className="space-y-3">
+                          <div>
+                            <Label htmlFor="conditionType">Condition Type</Label>
+                            <Select
+                              value={conditionType}
+                              onValueChange={(value: 'simple' | 'expression') =>
+                                onNodeConfigChange(selectedNodeId, {
+                                  ...conditionData,
+                                  conditionType: value,
+                                  config: { ...conditionConfig }
+                                } as AreaStepNodeData)
+                              }
+                            >
+                              <SelectTrigger id="conditionType">
+                                <SelectValue placeholder="Select condition type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="simple">Simple Comparison</SelectItem>
+                                <SelectItem value="expression">Expression</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {conditionType === 'simple' ? (
+                            <>
+                              <div>
+                                <Label htmlFor="field">Field / Variable</Label>
+                                <Input
+                                  id="field"
+                                  type="text"
+                                  placeholder="e.g., trigger.minute"
+                                  value={(conditionConfig.field as string) || ''}
+                                  onChange={(e) =>
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...conditionData,
+                                      config: { ...conditionConfig, field: e.target.value }
+                                    } as AreaStepNodeData)
+                                  }
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Use dot notation for nested values</p>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="operator">Operator</Label>
+                                <Select
+                                  value={(conditionConfig.operator as string) || 'eq'}
+                                  onValueChange={(value) =>
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...conditionData,
+                                      config: { ...conditionConfig, operator: value }
+                                    } as AreaStepNodeData)
+                                  }
+                                >
+                                  <SelectTrigger id="operator">
+                                    <SelectValue placeholder="Select operator" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="eq">== (equals)</SelectItem>
+                                    <SelectItem value="ne">!= (not equals)</SelectItem>
+                                    <SelectItem value="gt">&gt; (greater than)</SelectItem>
+                                    <SelectItem value="lt">&lt; (less than)</SelectItem>
+                                    <SelectItem value="gte">&gt;= (greater or equal)</SelectItem>
+                                    <SelectItem value="lte">&lt;= (less or equal)</SelectItem>
+                                    <SelectItem value="contains">contains</SelectItem>
+                                    <SelectItem value="startswith">starts with</SelectItem>
+                                    <SelectItem value="endswith">ends with</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="value">Expected Value</Label>
+                                <Input
+                                  id="value"
+                                  type="text"
+                                  placeholder="e.g., 0"
+                                  value={(conditionConfig.value as string) || ''}
+                                  onChange={(e) =>
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...conditionData,
+                                      config: { ...conditionConfig, value: e.target.value }
+                                    } as AreaStepNodeData)
+                                  }
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Numbers will be auto-converted</p>
+                              </div>
+                            </>
+                          ) : (
+                            <div>
+                              <Label htmlFor="expression">Expression</Label>
+                              <textarea
+                                id="expression"
+                                className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
+                                placeholder="e.g., trigger.minute % 2 == 0"
+                                value={(conditionConfig.expression as string) || ''}
+                                onChange={(e) =>
+                                  onNodeConfigChange(selectedNodeId, {
+                                    ...conditionData,
+                                    config: { ...conditionConfig, expression: e.target.value }
+                                  } as AreaStepNodeData)
+                                }
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                Write a Python-like expression that evaluates to True/False
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+
                   {/* Delay-specific configuration */}
                   {isDelayNode(nodeConfig) && (
                     <>
-                      <div>
-                        <label className="text-sm font-medium">Duration</label>
-                        <input
-                          type="number"
-                          min="1"
-                          className="w-full p-2 border rounded mt-1"
-                          value={nodeConfig.duration || 1}
-                          onChange={(e) => {
-                            const newDuration = parseInt(e.target.value, 10) || 1;
-                            onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Unit</label>
-                        <select
-                          className="w-full p-2 border rounded mt-1"
-                          value={nodeConfig.unit || 'seconds'}
-                          onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, unit: e.target.value as 'seconds' | 'minutes' | 'hours' | 'days' })}
-                        >
-                          <option value="seconds">Seconds</option>
-                          <option value="minutes">Minutes</option>
-                          <option value="hours">Hours</option>
-                          <option value="days">Days</option>
-                        </select>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="duration">Duration</Label>
+                          <Input
+                            id="duration"
+                            type="number"
+                            min="1"
+                            value={nodeConfig.duration || 1}
+                            onChange={(e) => {
+                              const newDuration = parseInt(e.target.value, 10) || 1;
+                              onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="unit">Unit</Label>
+                          <Select
+                            value={nodeConfig.unit || 'seconds'}
+                            onValueChange={(value) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, unit: value as 'seconds' | 'minutes' | 'hours' | 'days' })}
+                          >
+                            <SelectTrigger id="unit">
+                              <SelectValue placeholder="Select time unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="seconds">Seconds</SelectItem>
+                              <SelectItem value="minutes">Minutes</SelectItem>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </>
                   )}
