@@ -14,7 +14,7 @@ from app.integrations.simple_plugins.registry import get_plugins_registry
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
 from app.services.execution_logs import create_execution_log
-from app.services.area_execution import execute_area_steps  # Import the new multi-step execution engine
+from app.services.step_executor import execute_area
 
 logger = logging.getLogger("area")
 
@@ -103,36 +103,87 @@ async def scheduler_task() -> None:
 
                     # Check if area is due to run
                     if is_area_due(area, now, last_run):
+                        execution_log = None  # Initialize before try block
                         try:
-                            # Assemble event data
-                            event = {
+                            # Create execution log entry for start of execution
+                            execution_log_start = ExecutionLogCreate(
+                                area_id=area.id,
+                                status="Started",
+                                output=None,
+                                error_message=None,
+                                step_details={
+                                    "event": {
+                                        "now": now.isoformat(),
+                                        "area_id": area_id_str,
+                                        "user_id": str(area.user_id),
+                                        "tick": True,
+                                    }
+                                }
+                            )
+                            execution_log = create_execution_log(db, execution_log_start)
+
+                            # Get configured interval for logging
+                            interval_seconds = 60
+                            if area.trigger_params:
+                                interval_seconds = area.trigger_params.get("interval_seconds", 60)
+
+                            # Assemble trigger event data with datetime context
+                            trigger_data = {
                                 "now": now.isoformat(),
+                                "timestamp": now.timestamp(),
+                                "year": now.year,
+                                "month": now.month,
+                                "day": now.day,
+                                "hour": now.hour,
+                                "minute": now.minute,
+                                "second": now.second,
+                                "weekday": now.weekday(),
                                 "area_id": area_id_str,
                                 "user_id": str(area.user_id),
                                 "tick": True,
                             }
 
-                            # Use the new multi-step execution engine to execute the area
-                            execution_result = await execute_area_steps(db, area, event)
+                            # Execute area using step executor (supports conditional branching)
+                            try:
+                                result = execute_area(db, area, trigger_data)
 
-                            # Update last run time regardless of execution result
-                            _last_run_by_area_id[area_id_str] = now
+                                # Update last run time
+                                _last_run_by_area_id[area_id_str] = now
 
-                            if execution_result:
+                                # Update execution log based on result
+                                execution_log.status = "Success" if result["status"] == "success" else "Failed"
+                                execution_log.output = f"Executed {result['steps_executed']} step(s)"
+                                execution_log.error_message = result.get("error")
+                                execution_log.step_details = {
+                                    "execution_log": result.get("execution_log", []),
+                                    "steps_executed": result["steps_executed"],
+                                }
+                                db.commit()
+
+                                # Log execution with interval for troubleshooting
                                 logger.info(
-                                    "Area executed successfully",
+                                    "Area executed",
                                     extra={
                                         "area_id": area_id_str,
                                         "area_name": area.name,
+                                        "interval_seconds": interval_seconds,
+                                        "status": result["status"],
+                                        "steps_executed": result["steps_executed"],
                                     },
                                 )
-                            else:
-                                logger.warning(
-                                    "Area execution failed",
+                            except Exception as execution_error:
+                                # Update execution log with failure status
+                                execution_log.status = "Failed"
+                                execution_log.error_message = str(execution_error)
+                                db.commit()
+
+                                logger.error(
+                                    "Error executing area",
                                     extra={
                                         "area_id": area_id_str,
-                                        "area_name": area.name,
+                                        "error": str(execution_error),
                                     },
+                                    exc_info=True,
                                 )
 
                         except Exception as e:
@@ -144,6 +195,22 @@ async def scheduler_task() -> None:
                                 },
                                 exc_info=True,
                             )
+                            # Try to update execution log with error status, but don't fail if db operations fail too
+                            try:
+                                # If execution_log exists, update it with error status
+                                if execution_log is not None:
+                                    execution_log.status = "Failed"
+                                    execution_log.error_message = str(e)
+                                    db.commit()
+                            except Exception as log_error:
+                                logger.error(
+                                    "Error updating execution log",
+                                    extra={
+                                        "area_id": area_id_str,
+                                        "error": str(log_error),
+                                    },
+                                    exc_info=True,
+                                )
 
             finally:
                 db.close()
