@@ -31,6 +31,8 @@ from app.services.area_steps import (
     AreaStepNotFoundError,
     DuplicateStepOrderError,
 )
+from app.services.user_activity_logs import create_user_activity_log
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 router = APIRouter(tags=["areas"])
 
@@ -66,6 +68,16 @@ def create_user_area(
     """Create a new area for the authenticated user."""
     try:
         area = create_area(db, area_in, str(current_user.id))
+        
+        # Log area creation activity
+        activity_log = UserActivityLogCreate(
+            user_id=current_user.id,
+            action_type="area_created",
+            details=f"User created new area: {area.name}",
+            service_name=f"{area.trigger_service} → {area.reaction_service}"
+        )
+        create_user_activity_log(db, activity_log)
+        
         return AreaResponse.model_validate(area)
     except DuplicateAreaError:
         raise HTTPException(
@@ -107,6 +119,16 @@ def create_user_area_with_steps(
     
     try:
         area = create_area(db, area_create, str(current_user.id), steps=processed_steps)
+        
+        # Log area creation activity
+        activity_log = UserActivityLogCreate(
+            user_id=current_user.id,
+            action_type="area_created",
+            details=f"User created new area: {area.name}",
+            service_name=f"{area.trigger_service} → {area.reaction_service}"
+        )
+        create_user_activity_log(db, activity_log)
+        
         return AreaResponse.model_validate(area)
     except DuplicateAreaError:
         raise HTTPException(
@@ -209,6 +231,16 @@ def update_user_area(
         )
     try:
         updated = update_area(db, str(uuid_area_id), area_in, user_id=str(current_user.id))
+        
+        # Log area update activity
+        activity_log = UserActivityLogCreate(
+            user_id=current_user.id,
+            action_type="area_updated",
+            details=f"User updated area: {updated.name}",
+            service_name=f"{updated.trigger_service} → {updated.reaction_service}"
+        )
+        create_user_activity_log(db, activity_log)
+        
         return AreaResponse.model_validate(updated)
     except AreaNotFoundError:
         # In case service layer also checks and signals not found
@@ -323,6 +355,15 @@ def delete_user_area(
             status_code=403,
             detail="You don't have permission to delete this area",
         )
+    
+    # Log area deletion activity before actually deleting the area
+    activity_log = UserActivityLogCreate(
+        user_id=current_user.id,
+        action_type="area_deleted",
+        details=f"User deleted area: {area.name}",
+        service_name=f"{area.trigger_service} → {area.reaction_service}"
+    )
+    create_user_activity_log(db, activity_log)
     
     return delete_area(db, str(uuid_area_id))
 

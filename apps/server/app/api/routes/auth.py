@@ -28,6 +28,8 @@ from app.services import (
     issue_confirmation_token,
     send_confirmation_email,
 )
+from app.services.user_activity_logs import create_user_activity_log
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 
 router = APIRouter(tags=["auth"])
@@ -78,6 +80,15 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespon
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email address must be confirmed before logging in.",
         )
+
+    # Log successful login activity
+    activity_log = UserActivityLogCreate(
+        user_id=user.id,
+        action_type="user_login",
+        details="User successfully logged in to their account",
+        service_name="User Account"
+    )
+    create_user_activity_log(db, activity_log)
 
     token = create_access_token(subject=str(user.id))
     return TokenResponse(access_token=token)
