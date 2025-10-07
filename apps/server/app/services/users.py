@@ -15,7 +15,7 @@ from app.schemas.auth import UserCreate
 from app.schemas.profile import PasswordChangeRequest, UserProfileUpdate
 from app.services.email import send_confirmation_email
 from app.services.email_verification import build_confirmation_link, issue_confirmation_token
-from app.services.user_activity_logs import create_user_activity_log
+from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
 from app.schemas.user_activity_log import UserActivityLogCreate
 
 
@@ -184,7 +184,8 @@ def update_user_profile(
         else:
             sender(user.email, confirmation_link)
 
-    # Log profile update activity
+    # Schedule profile update activity log using background task
+    # so that if logging fails, the main operation is still successful
     details = "User updated profile information"
     if update.full_name is not None and update.email is not None:
         details = "User updated profile name and email"
@@ -193,14 +194,25 @@ def update_user_profile(
     elif update.email is not None:
         details = "User updated email"
     
-    activity_log = UserActivityLogCreate(
-        user_id=user.id,
-        action_type="profile_update",
-        details=details,
-        service_name="User Account",
-        status="success"
-    )
-    create_user_activity_log(db, activity_log)
+    if background_tasks is not None:
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(user.id),
+            action_type="profile_update",
+            details=details,
+            service_name="User Account",
+            status="success"
+        )
+    else:
+        # Fallback to sync logging if no background tasks available
+        activity_log = UserActivityLogCreate(
+            user_id=user.id,
+            action_type="profile_update",
+            details=details,
+            service_name="User Account",
+            status="success"
+        )
+        create_user_activity_log(db, activity_log)
 
     return user
 

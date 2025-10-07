@@ -1,6 +1,7 @@
 """Area API routes."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.background import BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -22,6 +23,9 @@ from app.services.areas import (
     AreaNotFoundError,
     DuplicateAreaError,
 )
+from app.services.user_activity_logs import log_user_activity_task
+from app.schemas.user_activity_log import UserActivityLogCreate, UserActivityLogResponse
+from app.services.user_activity_logs import create_user_activity_log
 from app.services.area_steps import (
     create_area_step,
     get_steps_by_area,
@@ -62,6 +66,7 @@ class AreaCreateWithSteps(BaseModel):
 )
 def create_user_area(
     area_in: AreaCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> AreaResponse:
@@ -69,15 +74,16 @@ def create_user_area(
     try:
         area = create_area(db, area_in, str(current_user.id))
         
-        # Log area creation activity
-        activity_log = UserActivityLogCreate(
-            user_id=current_user.id,
+        # Schedule area creation activity log using background task
+        # so that if logging fails, the main operation is still successful
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
             action_type="area_created",
             details=f"User created new area: {area.name}",
             service_name=f"{area.trigger_service} → {area.reaction_service}",
             status="success"
         )
-        create_user_activity_log(db, activity_log)
         
         return AreaResponse.model_validate(area)
     except DuplicateAreaError:
@@ -94,6 +100,7 @@ def create_user_area(
 )
 def create_user_area_with_steps(
     area_with_steps: AreaCreateWithSteps,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> AreaResponse:
@@ -121,15 +128,16 @@ def create_user_area_with_steps(
     try:
         area = create_area(db, area_create, str(current_user.id), steps=processed_steps)
         
-        # Log area creation activity
-        activity_log = UserActivityLogCreate(
-            user_id=current_user.id,
+        # Schedule area creation activity log using background task
+        # so that if logging fails, the main operation is still successful
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
             action_type="area_created",
             details=f"User created new area: {area.name}",
             service_name=f"{area.trigger_service} → {area.reaction_service}",
             status="success"
         )
-        create_user_activity_log(db, activity_log)
         
         return AreaResponse.model_validate(area)
     except DuplicateAreaError:
@@ -212,6 +220,7 @@ def get_area_by_id_endpoint(
 def update_user_area(
     area_id: str,
     area_in: AreaUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> AreaResponse:
@@ -234,15 +243,16 @@ def update_user_area(
     try:
         updated = update_area(db, str(uuid_area_id), area_in, user_id=str(current_user.id))
         
-        # Log area update activity
-        activity_log = UserActivityLogCreate(
-            user_id=current_user.id,
+        # Schedule area update activity log using background task
+        # so that if logging fails, the main operation is still successful
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
             action_type="area_updated",
             details=f"User updated area: {updated.name}",
             service_name=f"{updated.trigger_service} → {updated.reaction_service}",
             status="success"
         )
-        create_user_activity_log(db, activity_log)
         
         return AreaResponse.model_validate(updated)
     except AreaNotFoundError:
@@ -338,6 +348,7 @@ def update_user_area_with_steps(
 )
 def delete_user_area(
     area_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> bool:
@@ -359,15 +370,16 @@ def delete_user_area(
             detail="You don't have permission to delete this area",
         )
     
-    # Log area deletion activity before actually deleting the area
-    activity_log = UserActivityLogCreate(
-        user_id=current_user.id,
+    # Schedule area deletion activity log using background task
+    # so that if logging fails, the main operation is still successful
+    background_tasks.add_task(
+        log_user_activity_task,
+        user_id=str(current_user.id),
         action_type="area_deleted",
         details=f"User deleted area: {area.name}",
         service_name=f"{area.trigger_service} → {area.reaction_service}",
         status="success"
     )
-    create_user_activity_log(db, activity_log)
     
     return delete_area(db, str(uuid_area_id))
 
