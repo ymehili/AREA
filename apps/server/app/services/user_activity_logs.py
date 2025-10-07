@@ -53,6 +53,7 @@ def create_user_activity_log(
         action_type=activity_in.action_type,
         details=activity_in.details,
         service_name=activity_in.service_name,
+        status=activity_in.status,
     )
 
     db.add(activity_log)

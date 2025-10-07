@@ -177,7 +177,8 @@ class OAuthService:
             user_id=user.id,
             action_type="user_login",
             details=f"User successfully logged in via Google OAuth",
-            service_name="Google OAuth"
+            service_name="Google OAuth",
+            status="success"
         )
         create_user_activity_log(db, activity_log)
         

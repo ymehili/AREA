@@ -105,7 +105,8 @@ async def handle_service_connection_callback(
             user_id=uuid.UUID(user_id),
             action_type="service_connected",
             details=f"User connected {provider} service",
-            service_name=provider.title()
+            service_name=provider.title(),
+            status="success"
         )
         create_user_activity_log(db, activity_log)
 
@@ -191,7 +192,8 @@ def disconnect_service(
         user_id=current_user.id,
         action_type="service_disconnected",
         details=f"User disconnected {connection.service_name} service",
-        service_name=connection.service_name
+        service_name=connection.service_name,
+        status="success"
     )
     create_user_activity_log(db, activity_log)
 
