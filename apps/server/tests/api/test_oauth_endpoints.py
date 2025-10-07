@@ -116,7 +116,7 @@ class TestOAuthService:
         
         # Mock user creation by mocking the entire _find_or_create_google_user method
         mock_user = Mock()
-        mock_user.id = 1
+        mock_user.id = uuid.uuid4()  # Use proper UUID for the user ID
         mock_find_or_create.return_value = mock_user
         
         mock_request = Mock()
@@ -154,7 +154,7 @@ class TestOAuthService:
         
         # Mock existing user
         mock_user = Mock()
-        mock_user.id = 1
+        mock_user.id = uuid.uuid4()  # Use proper UUID for the user ID
         mock_user.google_oauth_sub = 'google123456'
         mock_find_or_create.return_value = mock_user
         
@@ -215,6 +215,7 @@ class TestOAuthService:
 
         # Mock the created user
         mock_user = Mock()
+        mock_user.id = uuid.uuid4()  # Use proper UUID for the user ID
         mock_user.email = 'newuser@example.com'
         mock_user.google_oauth_sub = 'google123456'
         mock_user.is_confirmed = True
@@ -236,8 +237,13 @@ class TestOAuthService:
         assert mock_user.google_oauth_sub == 'google123456'
         assert mock_user.is_confirmed is True
         
-        # Verify db.add was called to track changes to the user object
-        mock_db.add.assert_called_once_with(mock_user)
+        # Verify db.add was called for both the user object and the activity log
+        assert mock_db.add.call_count == 2
+        # Verify that the user was added to the session
+        calls = mock_db.add.call_args_list
+        # At least one of the calls should be for the user object
+        user_added = any(call[0][0] == mock_user for call in calls)
+        assert user_added, "User object should have been added to the session"
         mock_db.commit.assert_called()
         mock_db.refresh.assert_called()
         # Verify the result has the expected attributes
@@ -254,7 +260,7 @@ class TestOAuthService:
         
         # Mock existing user found by Google sub
         mock_user = Mock()
-        mock_user.id = 1
+        mock_user.id = uuid.uuid4()  # Use proper UUID for the user ID
         mock_user.google_oauth_sub = 'google123456'
         
         # Mock the database query for Google sub to return existing user
