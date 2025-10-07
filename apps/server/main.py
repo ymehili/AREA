@@ -64,39 +64,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: scheduler stopped")
 
 
-# This function is kept for testing compatibility
-async def startup_event() -> None:
-    """Validate database connectivity and start scheduler."""
-    try:
-        logger.info("Startup: verifying database connection")
-        verify_connection()
-        logger.info("Startup: database connection verified")
-        
-        # For backward compatibility with tests, set the database URL on the app instance
-        # The test expects main.app.state.database_url to be set after calling startup_event
-        import sys
-        import os
-        # Only run migrations if we're not in test mode and not in a reloader subprocess
-        # This ensures tests don't run migrations but production does when this function is called
-        if (
-            "pytest" not in sys.modules
-            and "PYTEST_CURRENT_TEST" not in os.environ
-        ):
-            logger.info("Startup (compatibility): running database migrations")
-            run_migrations()
-            logger.info("Startup (compatibility): migrations completed")
-        else:
-            logger.info("Startup (test mode): skipping migrations")
-        
-        app.state.database_url = settings.database_url
 
-        # Start the background scheduler for time-based areas
-        logger.info("Startup: starting scheduler")
-        start_scheduler()
-        logger.info("Startup: scheduler started")
-    except Exception as exc:  # pragma: no cover - defensive logging only
-        logger.error("Startup failure", exc_info=True)
-        raise
 
 
 logger.info("Creating FastAPI application instance")
