@@ -86,7 +86,8 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespon
         user_id=user.id,
         action_type="user_login",
         details="User successfully logged in to their account",
-        service_name="User Account"
+        service_name="User Account",
+        status="success"
     )
     create_user_activity_log(db, activity_log)
 

@@ -74,7 +74,8 @@ def create_user_area(
             user_id=current_user.id,
             action_type="area_created",
             details=f"User created new area: {area.name}",
-            service_name=f"{area.trigger_service} → {area.reaction_service}"
+            service_name=f"{area.trigger_service} → {area.reaction_service}",
+            status="success"
         )
         create_user_activity_log(db, activity_log)
         
@@ -125,7 +126,8 @@ def create_user_area_with_steps(
             user_id=current_user.id,
             action_type="area_created",
             details=f"User created new area: {area.name}",
-            service_name=f"{area.trigger_service} → {area.reaction_service}"
+            service_name=f"{area.trigger_service} → {area.reaction_service}",
+            status="success"
         )
         create_user_activity_log(db, activity_log)
         
@@ -237,7 +239,8 @@ def update_user_area(
             user_id=current_user.id,
             action_type="area_updated",
             details=f"User updated area: {updated.name}",
-            service_name=f"{updated.trigger_service} → {updated.reaction_service}"
+            service_name=f"{updated.trigger_service} → {updated.reaction_service}",
+            status="success"
         )
         create_user_activity_log(db, activity_log)
         
@@ -361,7 +364,8 @@ def delete_user_area(
         user_id=current_user.id,
         action_type="area_deleted",
         details=f"User deleted area: {area.name}",
-        service_name=f"{area.trigger_service} → {area.reaction_service}"
+        service_name=f"{area.trigger_service} → {area.reaction_service}",
+        status="success"
     )
     create_user_activity_log(db, activity_log)
     

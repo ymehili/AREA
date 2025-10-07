@@ -14,6 +14,7 @@ interface UserActivityLog {
   action_type: string;
   service_name: string | null;
   details: string | null;
+  status: "success" | "failed" | "pending";
   created_at: string;
 }
 
@@ -61,7 +62,7 @@ export default function ActivityLogPage() {
           timestamp: item.timestamp,
           action: item.action_type,
           service: item.service_name || "User Account", // Use service_name from backend or default
-          status: item.action_type.toLowerCase().includes('failed') ? "failed" : "success", // Determine status based on action type
+          status: item.status, // Use the explicit status from backend
           details: item.details || "Activity details not available",
         }));
         

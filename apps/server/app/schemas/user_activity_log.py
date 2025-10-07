@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +16,7 @@ class UserActivityLogBase(BaseModel):
     action_type: str = Field(..., max_length=100)
     details: Optional[str] = Field(None, max_length=5000)
     service_name: Optional[str] = Field(None, max_length=100)
+    status: Literal["success", "failed", "pending"] = "success"
 
 
 class UserActivityLogCreate(UserActivityLogBase):
