@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.background import BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,8 @@ from app.models.user import User
 from app.schemas.service_connection import ServiceConnectionRead
 from app.services.oauth_connections import OAuthConnectionService
 from app.services.service_connections import DuplicateServiceConnectionError
+from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 router = APIRouter(tags=["service-connections"])
 logger = logging.getLogger(__name__)
@@ -61,6 +64,7 @@ async def initiate_service_connection(
 @router.get("/callback/{provider}")
 async def handle_service_connection_callback(
     provider: str,
+    background_tasks: BackgroundTasks,
     request: Request,
     code: str = Query(...),
     state: str = Query(...),
@@ -96,6 +100,17 @@ async def handle_service_connection_callback(
         # Handle OAuth callback
         connection = await OAuthConnectionService.handle_oauth_callback(
             provider, code, user_id, db
+        )
+
+        # Schedule service connection activity log using background task
+        # so that if logging fails, the main operation is still successful
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=user_id,
+            action_type="service_connected",
+            details=f"User connected {provider} service",
+            service_name=provider.title(),
+            status="success"
         )
 
         # Clean up session
@@ -147,6 +162,7 @@ def list_user_connections(
 @router.delete("/connections/{connection_id}")
 def disconnect_service(
     connection_id: str,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
@@ -174,6 +190,17 @@ def disconnect_service(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found"
         )
+
+    # Schedule service disconnection activity log using background task
+    # so that if logging fails, the main operation is still successful
+    background_tasks.add_task(
+        log_user_activity_task,
+        user_id=str(current_user.id),
+        action_type="service_disconnected",
+        details=f"User disconnected {connection.service_name} service",
+        service_name=connection.service_name,
+        status="success"
+    )
 
     db.delete(connection)
     db.commit()

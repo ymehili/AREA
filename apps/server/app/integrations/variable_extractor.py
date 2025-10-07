@@ -1,6 +1,9 @@
 """Service-specific variable extraction functions."""
 
+import logging
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 
 def extract_gmail_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -12,6 +15,10 @@ def extract_gmail_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary mapping variable names to their values
     """
+    if not trigger_data:
+        logger.warning("extract_gmail_variables called with empty trigger_data")
+        return {}
+
     variables = {}
     
     # Extract common Gmail variables
@@ -50,6 +57,9 @@ def extract_gmail_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     if 'attachments' in trigger_data:
         variables['gmail.attachments'] = trigger_data['attachments']
     
+    if not variables:
+        logger.info("No Gmail variables extracted from trigger_data", extra={"trigger_data": trigger_data})
+
     return variables
 
 
@@ -62,6 +72,10 @@ def extract_google_drive_variables(trigger_data: Dict[str, Any]) -> Dict[str, An
     Returns:
         Dictionary mapping variable names to their values
     """
+    if not trigger_data:
+        logger.warning("extract_google_drive_variables called with empty trigger_data")
+        return {}
+
     variables = {}
     
     # Extract common Drive variables
@@ -95,6 +109,9 @@ def extract_google_drive_variables(trigger_data: Dict[str, Any]) -> Dict[str, An
     if 'description' in trigger_data:
         variables['drive.description'] = trigger_data['description']
     
+    if not variables:
+        logger.info("No Google Drive variables extracted from trigger_data", extra={"trigger_data": trigger_data})
+
     return variables
 
 
@@ -107,6 +124,10 @@ def extract_github_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary mapping variable names to their values
     """
+    if not trigger_data:
+        logger.warning("extract_github_variables called with empty trigger_data")
+        return {}
+
     variables = {}
     
     # Extract common GitHub variables
@@ -157,4 +178,7 @@ def extract_github_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     if 'ref' in trigger_data:
         variables['github.branch'] = trigger_data['ref'].replace("refs/heads/", "")
     
+    if not variables:
+        logger.info("No GitHub variables extracted from trigger_data", extra={"trigger_data": trigger_data})
+
     return variables

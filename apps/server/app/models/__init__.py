@@ -6,6 +6,7 @@ from .email_verification_token import EmailVerificationToken
 from .execution_log import ExecutionLog
 from .service_connection import ServiceConnection
 from .user import User
+from .user_activity_log import UserActivityLog
 
 __all__ = [
 	"Area",
@@ -14,4 +15,5 @@ __all__ = [
 	"ExecutionLog",
 	"ServiceConnection",
 	"User",
+	"UserActivityLog",
 ]
