@@ -324,8 +324,11 @@ class StepExecutor:
             params = step.config or {}
             
             # Import variable resolver and substitute variables
-            from app.services.variable_resolver import substitute_variables_in_params
-            variables_from_context = self.execution_context.get('trigger', {})
+            from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
+            trigger_data = self.execution_context.get('trigger', {})
+            
+            # Use service-specific extractor if available, otherwise use generic
+            variables_from_context = extract_variables_by_service(trigger_data, step.service)
             params = substitute_variables_in_params(params, variables_from_context)
 
             # Execute handler
@@ -459,12 +462,19 @@ class StepExecutor:
                     "error": step_log["error"],
                 }
 
+            # Import variable resolver and substitute variables
+            from app.services.variable_resolver import extract_variables_by_service
+            trigger_data = self.execution_context.get("trigger", {})
+            
+            # Use service-specific extractor if available, otherwise use generic
+            variables_from_context = extract_variables_by_service(trigger_data, self.area.reaction_service)
+            
             # Execute reaction with params
             reaction_params = self.area.reaction_params or {}
             handler(
                 self.area,
                 reaction_params,
-                self.execution_context.get("trigger", {}),
+                variables_from_context,
             )
 
             step_log["status"] = "success"

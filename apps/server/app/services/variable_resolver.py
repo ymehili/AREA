@@ -3,6 +3,12 @@
 from typing import Dict, Any, List
 import re
 
+from app.integrations.variable_extractor import (
+    extract_gmail_variables,
+    extract_google_drive_variables,
+    extract_github_variables,
+)
+
 
 def extract_variables_from_trigger_data(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     """Extract key-value pairs from trigger event data.
@@ -131,3 +137,28 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
         variables.extend(service_specific[service_id])
     
     return variables
+
+
+def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str) -> Dict[str, Any]:
+    """Extract variables using service-specific extractor based on service type.
+    
+    Args:
+        trigger_data: Dictionary containing trigger event data
+        service_type: Type of service (e.g., 'gmail', 'google_drive', 'github')
+        
+    Returns:
+        Dictionary mapping variable names to their values
+    """
+    # Map service types to their specific extractors
+    service_extractors = {
+        'gmail': extract_gmail_variables,
+        'google_drive': extract_google_drive_variables,
+        'github': extract_github_variables
+    }
+    
+    # Use service-specific extractor if available, otherwise use generic one
+    if service_type in service_extractors:
+        return service_extractors[service_type](trigger_data)
+    else:
+        # Fall back to generic extractor for unknown service types
+        return extract_variables_from_trigger_data(trigger_data)

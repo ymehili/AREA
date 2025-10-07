@@ -4,7 +4,8 @@ import pytest
 from app.services.variable_resolver import (
     extract_variables_from_trigger_data,
     substitute_variables_in_params,
-    get_available_variables_for_service
+    get_available_variables_for_service,
+    extract_variables_by_service
 )
 
 
@@ -144,3 +145,103 @@ def test_get_available_variables_for_service():
     github_vars = get_available_variables_for_service("github", "")
     assert "github.repo" in github_vars
     assert "github.issue_number" in github_vars
+
+
+def test_extract_variables_by_service_gmail():
+    """Test extracting variables using Gmail-specific extractor."""
+    trigger_data = {
+        "id": "12345",
+        "threadId": "thread123",
+        "snippet": "This is a test email",
+        "payload": {
+            "headers": [
+                {"name": "From", "value": "sender@example.com"},
+                {"name": "Subject", "value": "Test Subject"},
+                {"name": "Date", "value": "2023-10-01T12:00:00Z"}
+            ]
+        }
+    }
+    
+    variables = extract_variables_by_service(trigger_data, "gmail")
+    
+    # Check that Gmail-specific variables are present
+    assert "gmail.sender" in variables
+    assert variables["gmail.sender"] == "sender@example.com"
+    assert "gmail.subject" in variables
+    assert variables["gmail.subject"] == "Test Subject"
+    assert "gmail.message_id" in variables
+    assert variables["gmail.message_id"] == "12345"
+
+
+def test_extract_variables_by_service_google_drive():
+    """Test extracting variables using Google Drive-specific extractor."""
+    trigger_data = {
+        "fileId": "drive123",
+        "name": "test_document.docx",
+        "mimeType": "application/vnd.google-apps.document",
+        "owners": [{"emailAddress": "owner@example.com"}],
+        "webViewLink": "https://drive.google.com/file/d/drive123",
+        "createdTime": "2023-10-01T12:00:00Z",
+        "modifiedTime": "2023-10-01T13:00:00Z",
+        "size": "123456"
+    }
+    
+    variables = extract_variables_by_service(trigger_data, "google_drive")
+    
+    # Check that Google Drive-specific variables are present
+    assert "drive.file_id" in variables
+    assert variables["drive.file_id"] == "drive123"
+    assert "drive.file_name" in variables
+    assert variables["drive.file_name"] == "test_document.docx"
+    assert "drive.owner" in variables
+    assert variables["drive.owner"] == "owner@example.com"
+
+
+def test_extract_variables_by_service_github():
+    """Test extracting variables using GitHub-specific extractor."""
+    trigger_data = {
+        "action": "opened",
+        "repository": {
+            "name": "test-repo",
+            "full_name": "user/test-repo",
+            "html_url": "https://github.com/user/test-repo"
+        },
+        "sender": {
+            "login": "testuser",
+            "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+        },
+        "issue": {
+            "number": 1,
+            "title": "Test Issue",
+            "body": "This is a test issue",
+            "user": {"login": "issue_author"}
+        }
+    }
+    
+    variables = extract_variables_by_service(trigger_data, "github")
+    
+    # Check that GitHub-specific variables are present
+    assert "github.repo" in variables
+    assert variables["github.repo"] == "test-repo"
+    assert "github.sender" in variables
+    assert variables["github.sender"] == "testuser"
+    assert "github.issue_number" in variables
+    assert variables["github.issue_number"] == 1
+
+
+def test_extract_variables_by_service_unknown_service():
+    """Test that unknown service falls back to generic extractor."""
+    trigger_data = {
+        "simple": "value",
+        "nested": {
+            "key": "data"
+        }
+    }
+    
+    variables = extract_variables_by_service(trigger_data, "unknown_service")
+    
+    # Should fall back to generic extraction
+    assert "simple" in variables
+    assert variables["simple"] == "value"
+    assert "nested.key" in variables
+    assert variables["nested.key"] == "data"
