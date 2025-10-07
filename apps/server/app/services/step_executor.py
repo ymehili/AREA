@@ -327,12 +327,14 @@ class StepExecutor:
             from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get('trigger', {})
             
-            # Use service-specific extractor if available, otherwise use generic
-            variables_from_context = extract_variables_by_service(trigger_data, step.service)
+            # Use service-specific extractor based on trigger service, not action service
+            # The trigger data should be parsed according to the trigger service type
+            trigger_service = self.area.trigger_service
+            variables_from_context = extract_variables_by_service(trigger_data, trigger_service)
             params = substitute_variables_in_params(params, variables_from_context)
 
-            # Execute handler
-            handler(self.area, params, self.execution_context.get("trigger", {}))
+            # Execute handler - pass the trigger_data as the event parameter
+            handler(self.area, params, trigger_data)
 
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
@@ -463,18 +465,21 @@ class StepExecutor:
                 }
 
             # Import variable resolver and substitute variables
-            from app.services.variable_resolver import extract_variables_by_service
+            from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get("trigger", {})
             
-            # Use service-specific extractor if available, otherwise use generic
-            variables_from_context = extract_variables_by_service(trigger_data, self.area.reaction_service)
+            # Use service-specific extractor based on trigger service, not reaction service
+            variables_from_context = extract_variables_by_service(trigger_data, self.area.trigger_service)
+            
+            # Process reaction params with variable substitution
+            reaction_params = self.area.reaction_params or {}
+            reaction_params = substitute_variables_in_params(reaction_params, variables_from_context)
             
             # Execute reaction with params
-            reaction_params = self.area.reaction_params or {}
             handler(
                 self.area,
                 reaction_params,
-                variables_from_context,
+                trigger_data,  # Pass original trigger data to handler
             )
 
             step_log["status"] = "success"
