@@ -689,6 +689,45 @@ function ConnectionsScreen() {
     void loadServices();
   }, [loadServices]);
 
+  const connectService = async (serviceId: string) => {
+    if (!auth.token) {
+      Alert.alert("Authentication required", "Please log in again.");
+      return;
+    }
+
+    try {
+      const data = await requestJson<{ authorization_url: string }>(
+        `/service-connections/connect/${serviceId}`,
+        { method: "POST" },
+        auth.token,
+      );
+
+      if (!data.authorization_url) {
+        Alert.alert("Connection failed", "Unable to start OAuth flow. Please try again.");
+        return;
+      }
+
+      // Open the OAuth URL in the browser
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.authorization_url,
+        `${process.env.EXPO_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/oauth/callback`
+      );
+
+      if (result.type === 'success') {
+        // The OAuth flow completed successfully
+        Alert.alert("Success", `${serviceId} connected successfully!`);
+        // Reload services to update connection status
+        void loadServices();
+      } else if (result.type === 'dismiss') {
+        // User dismissed the browser without completing OAuth
+        Alert.alert("Connection cancelled", "Service connection was cancelled.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
+      Alert.alert("Connection failed", message);
+    }
+  };
+
   const testConnection = async (serviceId: string, connectionId: string) => {
     if (!auth.token) {
       return;
@@ -817,7 +856,7 @@ function ConnectionsScreen() {
                   ) : (
                     <CustomButton 
                       title="Connect" 
-                      onPress={() => {}} 
+                      onPress={() => connectService(s.id)} 
                       variant="default"
                     />
                   )}
