@@ -22,6 +22,7 @@ from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
 from app.integrations.simple_plugins.scheduler import start_scheduler, stop_scheduler
+from app.integrations.simple_plugins.gmail_scheduler import start_gmail_scheduler, stop_gmail_scheduler
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -48,10 +49,11 @@ async def lifespan(app: FastAPI):
             logger.error("Startup: migration failed", exc_info=True)
             raise migration_exc
 
-        # Start the background scheduler for time-based areas
-        logger.info("Startup: starting scheduler")
+        # Start the background schedulers for time-based and Gmail-based areas
+        logger.info("Startup: starting schedulers")
         start_scheduler()
-        logger.info("Startup: scheduler started")
+        start_gmail_scheduler()
+        logger.info("Startup: schedulers started")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -59,9 +61,10 @@ async def lifespan(app: FastAPI):
     yield  # Application runs here
 
     # Shutdown
-    logger.info("Shutdown: stopping scheduler")
+    logger.info("Shutdown: stopping schedulers")
     stop_scheduler()
-    logger.info("Shutdown: scheduler stopped")
+    stop_gmail_scheduler()
+    logger.info("Shutdown: schedulers stopped")
 
 
 

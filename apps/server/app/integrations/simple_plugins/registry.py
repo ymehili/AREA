@@ -31,6 +31,22 @@ class PluginsRegistry:
         # Delay handler
         from app.integrations.simple_plugins.delay_plugin import delay_handler
         self._handlers[("delay", "wait")] = delay_handler
+        
+        # Gmail handlers
+        from app.integrations.simple_plugins.gmail_plugin import (
+            gmail_new_email_handler,
+            gmail_new_unread_email_handler,
+            gmail_email_starred_handler,
+            gmail_send_email_handler,
+            gmail_mark_as_read_handler,
+            gmail_forward_email_handler
+        )
+        self._handlers[("gmail", "new_email")] = gmail_new_email_handler
+        self._handlers[("gmail", "new_unread_email")] = gmail_new_unread_email_handler
+        self._handlers[("gmail", "email_starred")] = gmail_email_starred_handler
+        self._handlers[("gmail", "send_email")] = gmail_send_email_handler
+        self._handlers[("gmail", "mark_as_read")] = gmail_mark_as_read_handler
+        self._handlers[("gmail", "forward_email")] = gmail_forward_email_handler
 
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
