@@ -55,17 +55,20 @@ export default function WizardPage() {
         return;
       }
 
+      const triggerNodeData = triggerNode.data as NodeData;
+      const firstActionNode = currentNodes.find(node => node.type === 'action');
+      const firstActionData = firstActionNode?.data as NodeData | undefined;
+
       // Convert the flow nodes/edges to the appropriate format for the API
       // The first node should be a trigger, and we'll use it to create the area
-      const castedTriggerNodeData = triggerNode.data as NodeData;
       const areaData = {
         name: areaName,
         description: areaDescription,
         is_active: true,
-        trigger_service: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.serviceId || 'manual' : 'manual',
-        trigger_action: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.actionId || 'trigger' : 'trigger',
-        reaction_service: 'manual',  // We'll update this based on the last node or first action if no other reaction is found
-        reaction_action: 'reaction',
+        trigger_service: isTriggerNode(triggerNodeData) ? triggerNodeData.serviceId || 'manual' : 'manual',
+        trigger_action: isTriggerNode(triggerNodeData) ? triggerNodeData.actionId || 'trigger' : 'trigger',
+        reaction_service: firstActionData && isActionNode(firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
+        reaction_action: firstActionData && isActionNode(firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
         steps: currentNodes.map((node, index) => {
           const nodeData = node.data as NodeData;
           // Find edges connected to this node
@@ -74,6 +77,7 @@ export default function WizardPage() {
           // Prepare the base config with common properties
           let stepConfig: Record<string, unknown> = {
             ...(nodeData.config || {}),
+            clientId: node.id,
             position: node.position,
             targets: targetEdges,
           };
