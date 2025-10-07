@@ -197,7 +197,8 @@ def update_user_profile(
         user_id=user.id,
         action_type="profile_update",
         details=details,
-        service_name="User Account"
+        service_name="User Account",
+        status="success"
     )
     create_user_activity_log(db, activity_log)
 
@@ -226,7 +227,8 @@ def change_user_password(
         user_id=user.id,
         action_type="password_change",
         details="User changed their account password",
-        service_name="User Account"
+        service_name="User Account",
+        status="success"
     )
     create_user_activity_log(db, activity_log)
     
@@ -255,7 +257,8 @@ def link_login_provider(
         user_id=user.id,
         action_type="provider_linked",
         details=f"User linked {provider} OAuth provider",
-        service_name=provider.title()
+        service_name=provider.title(),
+        status="success"
     )
     create_user_activity_log(db, activity_log)
     
@@ -286,7 +289,8 @@ def unlink_login_provider(
         user_id=user.id,
         action_type="provider_unlinked",
         details=f"User unlinked {provider} OAuth provider",
-        service_name=provider.title()
+        service_name=provider.title(),
+        status="success"
     )
     create_user_activity_log(db, activity_log)
     
