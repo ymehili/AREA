@@ -28,7 +28,7 @@ from app.services import (
     issue_confirmation_token,
     send_confirmation_email,
 )
-from app.services.user_activity_logs import create_user_activity_log
+from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
 from app.schemas.user_activity_log import UserActivityLogCreate
 
 
@@ -59,7 +59,11 @@ def register_user(
 
 
 @router.post("/login", response_model=TokenResponse)
-def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
+def login_user(
+    background_tasks: BackgroundTasks,
+    payload: UserLogin, 
+    db: Session = Depends(get_db)
+) -> TokenResponse:
     """Authenticate a user by email/password and return a JWT token."""
 
     user = get_user_by_email(db, payload.email)
@@ -81,15 +85,16 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespon
             detail="Email address must be confirmed before logging in.",
         )
 
-    # Log successful login activity
-    activity_log = UserActivityLogCreate(
-        user_id=user.id,
+    # Schedule login activity log using background task
+    # so that if logging fails, the main operation is still successful
+    background_tasks.add_task(
+        log_user_activity_task,
+        user_id=str(user.id),
         action_type="user_login",
         details="User successfully logged in to their account",
         service_name="User Account",
         status="success"
     )
-    create_user_activity_log(db, activity_log)
 
     token = create_access_token(subject=str(user.id))
     return TokenResponse(access_token=token)
