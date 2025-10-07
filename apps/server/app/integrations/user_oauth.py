@@ -14,6 +14,8 @@ from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 from app.services.users import get_user_by_email, create_user
+from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 
 class OAuthService:
@@ -169,6 +171,24 @@ class OAuthService:
                 db.add(user)  # SQLAlchemy needs to track this change
                 db.commit()
                 db.refresh(user)
+        
+        # Log successful OAuth login activity in a resilient way
+        # Using try-except to ensure the main operation continues even if logging fails
+        try:
+            activity_log = UserActivityLogCreate(
+                user_id=user.id,
+                action_type="user_login",
+                details=f"User successfully logged in via Google OAuth",
+                service_name="Google OAuth",
+                status="success"
+            )
+            create_user_activity_log(db, activity_log)
+        except Exception:
+            # Log the error but don't raise it to prevent breaking the main operation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to log OAuth login activity for user {user.id}", exc_info=True)
+            # In a production setting, this could be added to a message queue for retry
         
         return user
     

@@ -15,6 +15,8 @@ from app.schemas.auth import UserCreate
 from app.schemas.profile import PasswordChangeRequest, UserProfileUpdate
 from app.services.email import send_confirmation_email
 from app.services.email_verification import build_confirmation_link, issue_confirmation_token
+from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 
 class UserEmailAlreadyExistsError(Exception):
@@ -182,6 +184,36 @@ def update_user_profile(
         else:
             sender(user.email, confirmation_link)
 
+    # Schedule profile update activity log using background task
+    # so that if logging fails, the main operation is still successful
+    details = "User updated profile information"
+    if update.full_name is not None and update.email is not None:
+        details = "User updated profile name and email"
+    elif update.full_name is not None:
+        details = "User updated profile name"
+    elif update.email is not None:
+        details = "User updated email"
+    
+    if background_tasks is not None:
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(user.id),
+            action_type="profile_update",
+            details=details,
+            service_name="User Account",
+            status="success"
+        )
+    else:
+        # Fallback to sync logging if no background tasks available
+        activity_log = UserActivityLogCreate(
+            user_id=user.id,
+            action_type="profile_update",
+            details=details,
+            service_name="User Account",
+            status="success"
+        )
+        create_user_activity_log(db, activity_log)
+
     return user
 
 
@@ -201,6 +233,17 @@ def change_user_password(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Log password change activity
+    activity_log = UserActivityLogCreate(
+        user_id=user.id,
+        action_type="password_change",
+        details="User changed their account password",
+        service_name="User Account",
+        status="success"
+    )
+    create_user_activity_log(db, activity_log)
+    
     return user
 
 
@@ -220,6 +263,17 @@ def link_login_provider(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Log login provider link activity
+    activity_log = UserActivityLogCreate(
+        user_id=user.id,
+        action_type="provider_linked",
+        details=f"User linked {provider} OAuth provider",
+        service_name=provider.title(),
+        status="success"
+    )
+    create_user_activity_log(db, activity_log)
+    
     return user
 
 
@@ -241,6 +295,17 @@ def unlink_login_provider(
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Log login provider unlink activity
+    activity_log = UserActivityLogCreate(
+        user_id=user.id,
+        action_type="provider_unlinked",
+        details=f"User unlinked {provider} OAuth provider",
+        service_name=provider.title(),
+        status="success"
+    )
+    create_user_activity_log(db, activity_log)
+    
     return user
 
 def get_paginated_users(
