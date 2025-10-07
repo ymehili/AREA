@@ -17,6 +17,8 @@ from app.models.user import User
 from app.schemas.service_connection import ServiceConnectionRead
 from app.services.oauth_connections import OAuthConnectionService
 from app.services.service_connections import DuplicateServiceConnectionError
+from app.services.user_activity_logs import create_user_activity_log
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 router = APIRouter(tags=["service-connections"])
 logger = logging.getLogger(__name__)
@@ -98,6 +100,15 @@ async def handle_service_connection_callback(
             provider, code, user_id, db
         )
 
+        # Log service connection activity
+        activity_log = UserActivityLogCreate(
+            user_id=uuid.UUID(user_id),
+            action_type="service_connected",
+            details=f"User connected {provider} service",
+            service_name=provider.title()
+        )
+        create_user_activity_log(db, activity_log)
+
         # Clean up session
         request.session.pop(f"oauth_state_{provider}", None)
         request.session.pop("oauth_user_id", None)
@@ -174,6 +185,15 @@ def disconnect_service(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found"
         )
+
+    # Log service disconnection activity
+    activity_log = UserActivityLogCreate(
+        user_id=current_user.id,
+        action_type="service_disconnected",
+        details=f"User disconnected {connection.service_name} service",
+        service_name=connection.service_name
+    )
+    create_user_activity_log(db, activity_log)
 
     db.delete(connection)
     db.commit()

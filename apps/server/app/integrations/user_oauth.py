@@ -14,6 +14,8 @@ from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 from app.services.users import get_user_by_email, create_user
+from app.services.user_activity_logs import create_user_activity_log
+from app.schemas.user_activity_log import UserActivityLogCreate
 
 
 class OAuthService:
@@ -169,6 +171,15 @@ class OAuthService:
                 db.add(user)  # SQLAlchemy needs to track this change
                 db.commit()
                 db.refresh(user)
+        
+        # Log successful OAuth login activity
+        activity_log = UserActivityLogCreate(
+            user_id=user.id,
+            action_type="user_login",
+            details=f"User successfully logged in via Google OAuth",
+            service_name="Google OAuth"
+        )
+        create_user_activity_log(db, activity_log)
         
         return user
     
