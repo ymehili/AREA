@@ -82,7 +82,8 @@ def test_update_user_profile_background_tasks_queue_email(
         background_tasks=background_tasks,
     )
 
-    assert len(background_tasks.tasks) == 1
+    # Now we have 2 background tasks: one for sending confirmation email and one for logging activity
+    assert len(background_tasks.tasks) == 2
     assert not capture_outbound_email
 
     for task in background_tasks.tasks:
