@@ -66,15 +66,15 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   // Get selected node data for configuration
-  const selectedNode = useMemo(() => {
-    return nodes.find(node => node.id === selectedNodeId);
+  const selectedNode = useMemo<Node<NodeData> | undefined>(() => {
+    return nodes.find((node: Node<NodeData>) => node.id === selectedNodeId);
   }, [nodes, selectedNodeId]);
 
   // Function to add a new node
   const addNode = useCallback((type: 'trigger' | 'action' | 'condition' | 'delay') => {
     // For triggers, position them at the start; for others, position them to the right
     const position = { 
-      x: nodes.length > 0 ? Math.max(...nodes.map(n => n.position.x)) + 300 : 100, 
+      x: nodes.length > 0 ? Math.max(...nodes.map((n: Node<NodeData>) => n.position.x)) + 300 : 100, 
       y: 100 
     };
 
@@ -124,8 +124,7 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
       position,
       data: newNodeData,
     };
-
-    setNodes((nds) => nds.concat(newNode));
+    setNodes((nds: Node<NodeData>[]) => nds.concat(newNode));
     setSelectedNodeId(newNodeId);
   }, [nodes, setNodes]);
 
@@ -137,7 +136,7 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
         id: `edge-${Date.now()}`,
         type: 'smoothstep',
       };
-      setEdges((eds) => addEdge(newEdge, eds));
+    setEdges((eds: Edge[]) => addEdge(newEdge, eds));
     },
     [setEdges]
   );
@@ -168,22 +167,24 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
 
   // Update node configuration
   const updateNodeConfig = useCallback((id: string, config: Partial<AreaStepNodeData>) => {
-    setNodes((nds) => 
-      nds.map(node => {
+    setNodes((nds: Node<NodeData>[]) => 
+      nds.map((node: Node<NodeData>) => {
         if (node.id === id) {
           // Create the new data with the updates
-          let newData = { ...node.data, ...config } as NodeData;
+          const newData = { ...node.data, ...config } as NodeData;
           
           // If this is a trigger or action node and the serviceId or actionId has changed,
           // update the label and description based on the service and action
-          if ((isTriggerNode(newData) || isActionNode(newData)) && (config.serviceId || config.actionId)) {
+          const serviceIdValue = 'serviceId' in config ? config.serviceId : undefined;
+          const actionIdValue = 'actionId' in config ? config.actionId : undefined;
+          if ((isTriggerNode(newData) || isActionNode(newData)) && (serviceIdValue || actionIdValue)) {
             // For now, we'll update the label to reflect the selected service and action
             // In a more complete implementation, we would fetch the service catalog to get
             // the proper names for the service and action, but for now we'll just use the IDs
-            if (config.serviceId) {
-              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${config.serviceId}`;
-            } else if (config.actionId) {
-              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${newData.serviceId || 'Unknown'} - ${config.actionId}`;
+            if (serviceIdValue) {
+              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${serviceIdValue}`;
+            } else if (actionIdValue) {
+              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${newData.serviceId || 'Unknown'} - ${actionIdValue}`;
             }
           }
           
@@ -205,9 +206,9 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   // Delete selected node
   const handleDelete = useCallback(() => {
     if (selectedNodeId) {
-      setNodes((nds) => nds.filter(node => node.id !== selectedNodeId));
-      setEdges((eds) => 
-        eds.filter(edge => 
+      setNodes((nds: Node<NodeData>[]) => nds.filter((node: Node<NodeData>) => node.id !== selectedNodeId));
+      setEdges((eds: Edge[]) => 
+        eds.filter((edge: Edge) => 
           edge.source !== selectedNodeId && edge.target !== selectedNodeId
         )
       );
