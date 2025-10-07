@@ -8,6 +8,15 @@ import { useRequireAuth } from "@/hooks/use-auth";
 import { UnauthorizedError } from "@/lib/api";
 import { toast } from "sonner";
 
+interface UserActivityLog {
+  id: string;
+  timestamp: string;
+  action_type: string;
+  service_name: string | null;
+  details: string | null;
+  created_at: string;
+}
+
 type Activity = {
   id: string;
   timestamp: string;
@@ -30,50 +39,33 @@ export default function ActivityLogPage() {
       }
       setLoading(true);
       try {
-        // Mock data for now - in a real implementation, this would come from the API
-        const mockActivities: Activity[] = [
-          {
-            id: "1",
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-            action: "AREA executed",
-            service: "Gmail → Google Drive",
-            status: "success",
-            details: "New email processed, attachment uploaded",
+        // API call to fetch user's activity logs
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/user-activities`, {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
           },
-          {
-            id: "2",
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-            action: "Connection established",
-            service: "Slack",
-            status: "success",
-            details: "Successfully connected to Slack workspace",
-          },
-          {
-            id: "3",
-            timestamp: new Date(Date.now() - 10800000).toISOString(),
-            action: "AREA failed",
-            service: "GitHub → Email",
-            status: "failed",
-            details: "Failed to send email due to authentication error",
-          },
-          {
-            id: "4",
-            timestamp: new Date(Date.now() - 14400000).toISOString(),
-            action: "AREA created",
-            service: "Gmail → Dropbox",
-            status: "success",
-            details: "Created new automation between services",
-          },
-          {
-            id: "5",
-            timestamp: new Date(Date.now() - 21600000).toISOString(),
-            action: "Profile updated",
-            service: "User Account",
-            status: "success",
-            details: "Updated email address and profile details",
-          },
-        ];
-        setActivities(mockActivities);
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new UnauthorizedError();
+          }
+          throw new Error(`Failed to fetch activity logs: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Transform backend data to match frontend Activity type
+        const transformedActivities: Activity[] = data.map((item: UserActivityLog) => ({
+          id: item.id,
+          timestamp: item.timestamp,
+          action: item.action_type,
+          service: item.service_name || "User Account", // Use service_name from backend or default
+          status: item.action_type.toLowerCase().includes('failed') ? "failed" : "success", // Determine status based on action type
+          details: item.details || "Activity details not available",
+        }));
+        
+        setActivities(transformedActivities);
         setError(null);
       } catch (err) {
         if (err instanceof UnauthorizedError) {
