@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode } from './node-types';
+import VariablePicker from '@/components/VariablePicker';
+import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode, isActionNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
@@ -255,6 +256,43 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Action-specific configuration with VariablePicker */}
+                  {isActionNode(nodeConfig) && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <VariablePicker
+                          availableVariables={[
+                            { id: 'trigger.now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
+                            { id: 'trigger.user.id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
+                            { id: 'trigger.area.id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
+                            // Add more based on the service
+                            ...(nodeConfig.serviceId === 'gmail' ? [
+                              { id: 'trigger.gmail.sender', name: 'Email Sender', description: 'The sender of the email', category: 'Gmail', type: 'text' as const },
+                              { id: 'trigger.gmail.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Gmail', type: 'text' as const },
+                              { id: 'trigger.gmail.body', name: 'Email Body', description: 'The body content of the email', category: 'Gmail', type: 'text' as const },
+                            ] : []),
+                            ...(nodeConfig.serviceId === 'github' ? [
+                              { id: 'trigger.github.repo', name: 'Repo Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
+                              { id: 'trigger.github.issue_number', name: 'Issue Number', description: 'The number of the issue', category: 'GitHub', type: 'number' as const },
+                              { id: 'trigger.github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
+                            ] : []),
+                          ]}
+                          onInsertVariable={(variableId) => {
+                            // This should insert the variable into the active input field
+                            // For simplicity, we'll just add it to the configuration
+                            const newConfig = { ...nodeConfig.config };
+                            // We could add more sophisticated insertion logic here
+                            onNodeConfigChange?.(selectedNodeId, { 
+                              ...nodeConfig, 
+                              config: newConfig 
+                            });
+                          }}
+                        />
                       </div>
                     </>
                   )}
