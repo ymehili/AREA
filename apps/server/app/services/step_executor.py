@@ -322,6 +322,11 @@ class StepExecutor:
 
             # Prepare parameters for handler
             params = step.config or {}
+            
+            # Import variable resolver and substitute variables
+            from app.services.variable_resolver import substitute_variables_in_params
+            variables_from_context = self.execution_context.get('trigger', {})
+            params = substitute_variables_in_params(params, variables_from_context)
 
             # Execute handler
             handler(self.area, params, self.execution_context.get("trigger", {}))
