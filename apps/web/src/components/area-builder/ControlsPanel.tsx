@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode } from './node-types';
+import VariablePicker from '@/components/VariablePicker';
+import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode, isActionNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
@@ -22,6 +23,41 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onNodeConfigChange,
   nodeConfig
 }) => {
+  // Refs for tracking currently focused input fields
+  const focusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  
+  // Function to handle input focus
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    focusedInputRef.current = e.target;
+  };
+
+  // Function to insert variable at cursor position in focused input
+  const handleInsertVariable = (variableId: string) => {
+    if (focusedInputRef.current) {
+      const input = focusedInputRef.current;
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+      const currentValue = input.value;
+      const variableTemplate = `{{${variableId}}}`;
+      
+      // Insert the variable template at cursor position
+      const newValue = 
+        currentValue.substring(0, start) + 
+        variableTemplate + 
+        currentValue.substring(end);
+      
+      // Update the input value
+      input.value = newValue;
+      
+      // Set cursor position after the inserted variable
+      const newCursorPosition = start + variableTemplate.length;
+      input.setSelectionRange(newCursorPosition, newCursorPosition);
+      
+      // Trigger change event to update React state
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  };
+
   return (
     <div className="w-64 h-full bg-gray-50 dark:bg-gray-900/20 p-4 flex flex-col gap-4 overflow-y-auto">
       <Card>
@@ -87,6 +123,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       type="text"
                       value={nodeConfig.label || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
+                      onFocus={handleInputFocus}
                     />
                   </div>
                   <div>
@@ -96,6 +133,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       className="w-full p-2 border rounded mt-1 min-h-[60px]"
                       value={nodeConfig.description || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
+                      onFocus={handleInputFocus}
                     />
                   </div>
 
@@ -146,6 +184,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       config: { ...conditionConfig, field: e.target.value }
                                     } as AreaStepNodeData)
                                   }
+                                  onFocus={handleInputFocus}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Use dot notation for nested values</p>
                               </div>
@@ -191,6 +230,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       config: { ...conditionConfig, value: e.target.value }
                                     } as AreaStepNodeData)
                                   }
+                                  onFocus={handleInputFocus}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Numbers will be auto-converted</p>
                               </div>
@@ -209,6 +249,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     config: { ...conditionConfig, expression: e.target.value }
                                   } as AreaStepNodeData)
                                 }
+                                onFocus={handleInputFocus}
                               />
                               <p className="text-xs text-gray-500 mt-1">
                                 Write a Python-like expression that evaluates to True/False
@@ -236,6 +277,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               const newDuration = parseInt(e.target.value, 10) || 1;
                               onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
                             }}
+                            onFocus={handleInputFocus}
                           />
                         </div>
                         <div>
@@ -255,6 +297,34 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Action-specific configuration with VariablePicker */}
+                  {isActionNode(nodeConfig) && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <VariablePicker
+                          availableVariables={[
+                            { id: 'trigger.now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
+                            { id: 'trigger.user.id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
+                            { id: 'trigger.area.id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
+                            // Add more based on the service
+                            ...(nodeConfig.serviceId === 'gmail' ? [
+                              { id: 'trigger.gmail.sender', name: 'Email Sender', description: 'The sender of the email', category: 'Gmail', type: 'text' as const },
+                              { id: 'trigger.gmail.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Gmail', type: 'text' as const },
+                              { id: 'trigger.gmail.body', name: 'Email Body', description: 'The body content of the email', category: 'Gmail', type: 'text' as const },
+                            ] : []),
+                            ...(nodeConfig.serviceId === 'github' ? [
+                              { id: 'trigger.github.repo', name: 'Repo Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
+                              { id: 'trigger.github.issue_number', name: 'Issue Number', description: 'The number of the issue', category: 'GitHub', type: 'number' as const },
+                              { id: 'trigger.github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
+                            ] : []),
+                          ]}
+                          onInsertVariable={handleInsertVariable}
+                        />
                       </div>
                     </>
                   )}

@@ -22,6 +22,7 @@ export interface ActionNodeData extends AreaStepNodeData {
   serviceId: string;
   actionId: string;
   config?: Record<string, unknown>;
+  variables?: Record<string, string>;
 }
 
 export interface ConditionNodeData extends AreaStepNodeData {
