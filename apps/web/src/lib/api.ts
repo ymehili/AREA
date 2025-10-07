@@ -653,6 +653,35 @@ export async function createUserAdmin(
   );
 }
 
+// Service Catalog
+export type ServiceOption = {
+  key: string;
+  name: string;
+  description: string;
+};
+
+export type ServiceCatalogItem = {
+  slug: string;
+  name: string;
+  description: string;
+  actions: ServiceOption[];
+  reactions: ServiceOption[];
+};
+
+export type ServiceCatalogResponse = {
+  services: ServiceCatalogItem[];
+};
+
+export async function getServiceCatalog(token: string): Promise<ServiceCatalogResponse> {
+  return requestJson<ServiceCatalogResponse>(
+    "/services/actions-reactions",
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
 export async function deleteUserAccount(
   token: string,
   userId: string,

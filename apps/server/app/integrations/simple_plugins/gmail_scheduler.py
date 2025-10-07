@@ -104,7 +104,10 @@ async def _check_and_execute_gmail_area(area: Area, db: Session) -> bool:
     # Get user's Gmail connection
     gmail_connection = _fetch_user_gmail_connection(db, str(area.user_id))
     if not gmail_connection:
-        logger.warning(f"No Gmail connection found for user {area.user_id}, Area {area.id}")
+        logger.info(
+            f"No Gmail connection found for user {area.user_id}, Area {area.id}. "
+            f"User needs to connect Gmail service in their profile. Area will skip execution."
+        )
         return False
     
     # Get OAuth provider

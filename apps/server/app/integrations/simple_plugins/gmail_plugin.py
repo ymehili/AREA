@@ -39,7 +39,11 @@ async def gmail_new_email_handler(area: Area, params: dict, event: dict) -> None
     finally:
         db.close()
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token
@@ -123,7 +127,11 @@ async def gmail_new_unread_email_handler(area: Area, params: dict, event: dict) 
     finally:
         db.close()
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token
@@ -195,7 +203,11 @@ async def gmail_email_starred_handler(area: Area, params: dict, event: dict) -> 
         db.close()
     
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token
@@ -273,7 +285,11 @@ async def gmail_send_email_handler(area: Area, params: dict, event: dict) -> Non
         db.close()
     
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token
@@ -347,7 +363,11 @@ async def gmail_mark_as_read_handler(area: Area, params: dict, event: dict) -> N
         db.close()
     
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token
@@ -424,7 +444,11 @@ async def gmail_forward_email_handler(area: Area, params: dict, event: dict) -> 
         db.close()
     
     if not service_connection:
-        logger.error(f"No Gmail connection found for user {area.user_id}")
+        logger.warning(
+            f"No Gmail connection found for user {area.user_id} "
+            f"Area {area.id} will not execute. "
+            f"User needs to connect Gmail service in their profile."
+        )
         return
     
     # Decrypt the access token

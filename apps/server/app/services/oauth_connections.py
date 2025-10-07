@@ -60,17 +60,49 @@ class OAuthConnectionService:
                 service_name=provider_name,
                 access_token=token_set.access_token,
                 refresh_token=token_set.refresh_token,
-                expires_at=None,  # GitHub tokens don't expire
+                expires_at=None,  # Tokens don't expire by default, can be overridden
             )
 
-            oauth_metadata = {
-                "provider": provider_name,
-                "user_info": {
+            # Extract user info differently based on provider
+            if provider_name == "gmail":  # Google provider
+                # Google People API returns a different structure
+                google_id = None
+                name = None
+                email = None
+                
+                # Extract ID
+                if "resourceName" in user_info:
+                    # The ID is typically part of the resourceName or in 'person.own'
+                    google_id = user_info.get("resourceName", "").split("/")[-1] or user_info.get("etag", "")[:10]
+                
+                # Extract name
+                if "names" in user_info and user_info["names"]:
+                    name = user_info["names"][0].get("displayName", "")
+                
+                # Extract email
+                if "emailAddresses" in user_info and user_info["emailAddresses"]:
+                    email = user_info["emailAddresses"][0].get("value", "")
+                
+                # If we couldn't get ID from resourceName, try to get from profile data
+                if not google_id and "etag" in user_info:
+                    google_id = user_info["etag"][:10]  # Use a safe prefix of etag
+                
+                user_info_metadata = {
+                    "id": google_id,
+                    "name": name,
+                    "email": email,
+                }
+            else:  # Default behavior for other providers like GitHub
+                user_info_metadata = {
                     "id": user_info.get("id"),
                     "login": user_info.get("login"),
                     "name": user_info.get("name"),
                     "email": user_info.get("email"),
-                },
+                }
+
+            oauth_metadata = {
+                "provider": provider_name,
+                "user_info": user_info_metadata,
                 "scopes": token_set.scope.split(",") if token_set.scope else [],
                 "token_type": token_set.token_type,
             }

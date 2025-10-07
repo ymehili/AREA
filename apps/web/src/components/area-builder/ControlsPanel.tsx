@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import VariablePicker from '@/components/VariablePicker';
-import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode, isActionNode } from './node-types';
+import TriggerActionSelector from './TriggerActionSelector';
+import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode, isActionNode, isTriggerNode } from './node-types';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
@@ -116,26 +117,48 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
               {/* Configuration fields - dynamic based on node type */}
               {nodeConfig && (
                 <div className="mt-4 space-y-3">
-                  <div>
-                    <Label htmlFor="label">Step Label</Label>
-                    <Input
-                      id="label"
-                      type="text"
-                      value={nodeConfig.label || ''}
-                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
-                      onFocus={handleInputFocus}
+                  {/* Trigger and Action Node Configuration - Service and Action Selection */}
+                  {(isTriggerNode(nodeConfig) || isActionNode(nodeConfig)) && (
+                    <TriggerActionSelector
+                      nodeType={nodeConfig.type as 'trigger' | 'action'}
+                      onServiceSelect={(serviceId) => {
+                        onNodeConfigChange(selectedNodeId, { ...nodeConfig, serviceId, actionId: '' });
+                      }}
+                      onActionSelect={(actionId) => {
+                        onNodeConfigChange(selectedNodeId, { ...nodeConfig, actionId });
+                      }}
+                      selectedServiceId={nodeConfig.serviceId}
+                      selectedActionId={nodeConfig.actionId}
+                      label={nodeConfig.type === 'trigger' ? 'Trigger Configuration' : 'Action Configuration'}
+                      description={nodeConfig.type === 'trigger' ? 'Select the service and trigger event' : 'Select the service and action to perform'}
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <textarea
-                      id="description"
-                      className="w-full p-2 border rounded mt-1 min-h-[60px]"
-                      value={nodeConfig.description || ''}
-                      onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
-                      onFocus={handleInputFocus}
-                    />
-                  </div>
+                  )}
+
+                  {/* Skip Step Label and Description for Trigger/Action nodes - they will be auto-populated */}
+                  {!isTriggerNode(nodeConfig) && !isActionNode(nodeConfig) && (
+                    <>
+                      <div>
+                        <Label htmlFor="label">Step Label</Label>
+                        <Input
+                          id="label"
+                          type="text"
+                          value={nodeConfig.label || ''}
+                          onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, label: e.target.value })}
+                          onFocus={handleInputFocus}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description">Description</Label>
+                        <textarea
+                          id="description"
+                          className="w-full p-2 border rounded mt-1 min-h-[60px]"
+                          value={nodeConfig.description || ''}
+                          onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
+                          onFocus={handleInputFocus}
+                        />
+                      </div>
+                    </>
+                  )}
 
                   {/* Condition-specific fields */}
                   {nodeConfig.type === 'condition' && (() => {

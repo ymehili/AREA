@@ -112,7 +112,31 @@ class GoogleOAuth2Provider(OAuth2Provider):
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
                 response.raise_for_status()
-                return response.json()
+                user_data = response.json()
+                
+                # Transform Google's user data to match expected format (like GitHub)
+                # Extract id, name, and email from Google's response structure
+                google_id = user_data.get("resourceName", "").split("/")[-1] if user_data.get("resourceName") else None
+                name = ""
+                email = ""
+                
+                # Extract name
+                if user_data.get("names"):
+                    name = user_data["names"][0].get("displayName", "")
+                
+                # Extract email
+                if user_data.get("emailAddresses"):
+                    email = user_data["emailAddresses"][0].get("value", "")
+                
+                # Return a structure that matches what the system expects
+                return {
+                    "id": google_id,
+                    "name": name,
+                    "email": email,
+                    "login": name if name else google_id,  # Use name as login if available
+                    # Also return the original Google response for completeness
+                    "original_google_response": user_data
+                }
             except httpx.HTTPError as e:
                 raise OAuth2ValidationError(f"Failed to get user info: {str(e)}")
 

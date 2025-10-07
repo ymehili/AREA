@@ -26,7 +26,9 @@ import {
   TriggerNodeData, 
   ActionNodeData, 
   ConditionNodeData, 
-  DelayNodeData
+  DelayNodeData,
+  isTriggerNode,
+  isActionNode
 } from './node-types';
 
 // Define custom node types
@@ -167,19 +169,35 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   // Update node configuration
   const updateNodeConfig = useCallback((id: string, config: Partial<AreaStepNodeData>) => {
     setNodes((nds) => 
-      nds.map(node => 
-        node.id === id 
-          ? { 
-              ...node, 
-              data: { 
-                ...node.data, 
-                ...config,
-                // Ensure the type field is preserved (in case config accidentally overwrites it)
-                type: node.data.type 
-              } as NodeData 
-            } 
-          : node
-      )
+      nds.map(node => {
+        if (node.id === id) {
+          // Create the new data with the updates
+          let newData = { ...node.data, ...config } as NodeData;
+          
+          // If this is a trigger or action node and the serviceId or actionId has changed,
+          // update the label and description based on the service and action
+          if ((isTriggerNode(newData) || isActionNode(newData)) && (config.serviceId || config.actionId)) {
+            // For now, we'll update the label to reflect the selected service and action
+            // In a more complete implementation, we would fetch the service catalog to get
+            // the proper names for the service and action, but for now we'll just use the IDs
+            if (config.serviceId) {
+              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${config.serviceId}`;
+            } else if (config.actionId) {
+              newData.label = `${newData.type === 'trigger' ? 'Trigger' : 'Action'}: ${newData.serviceId || 'Unknown'} - ${config.actionId}`;
+            }
+          }
+          
+          return { 
+            ...node, 
+            data: { 
+              ...newData,
+              // Ensure the type field is preserved (in case config accidentally overwrites it)
+              type: node.data.type 
+            } as NodeData 
+          };
+        }
+        return node;
+      })
     );
   }, [setNodes]);
 
