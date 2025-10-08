@@ -282,23 +282,21 @@ function LoginScreen() {
   const handleGoogleSignIn = useCallback(async () => {
     try {
       const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL;
       
       if (!apiUrl) {
         throw new Error('EXPO_PUBLIC_API_URL environment variable is not defined');
       }
       
-      if (!frontendUrl) {
-        throw new Error('EXPO_PUBLIC_FRONTEND_URL environment variable is not defined');
-      }
+      // Use the custom URL scheme defined in app.json
+      const redirectUrl = 'areamobile://oauth/callback';
       
       console.log('Starting OAuth flow...');
-      console.log('OAuth URL:', `${apiUrl}/api/v1/oauth/google`);
-      console.log('Return URL:', `${frontendUrl}/oauth/callback`);
+      console.log('OAuth URL:', `${apiUrl}/oauth/google`);
+      console.log('Redirect URL:', redirectUrl);
       
       const result = await WebBrowser.openAuthSessionAsync(
-        `${apiUrl}/api/v1/oauth/google`,
-        `${frontendUrl}/oauth/callback`
+        `${apiUrl}/oauth/google`,
+        redirectUrl
       );
 
       console.log('OAuth result:', result);
