@@ -19,6 +19,7 @@ import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navig
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 
 // Import custom UI components
 import CustomButton from './src/components/ui/Button';
@@ -281,23 +282,21 @@ function LoginScreen() {
   const handleGoogleSignIn = useCallback(async () => {
     try {
       const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      const frontendUrl = process.env.EXPO_PUBLIC_FRONTEND_URL;
       
       if (!apiUrl) {
         throw new Error('EXPO_PUBLIC_API_URL environment variable is not defined');
       }
       
-      if (!frontendUrl) {
-        throw new Error('EXPO_PUBLIC_FRONTEND_URL environment variable is not defined');
-      }
+      // Use the custom URL scheme defined in app.json
+      const redirectUrl = 'areamobile://oauth/callback';
       
       console.log('Starting OAuth flow...');
-      console.log('OAuth URL:', `${apiUrl}/api/v1/oauth/google`);
-      console.log('Return URL:', `${frontendUrl}/oauth/callback`);
+      console.log('OAuth URL:', `${apiUrl}/oauth/google`);
+      console.log('Redirect URL:', redirectUrl);
       
       const result = await WebBrowser.openAuthSessionAsync(
-        `${apiUrl}/api/v1/oauth/google`,
-        `${frontendUrl}/oauth/callback`
+        `${apiUrl}/oauth/google`,
+        redirectUrl
       );
 
       console.log('OAuth result:', result);
@@ -494,7 +493,6 @@ function DashboardScreen() {
   if (loading && areas.length === 0) { // Only show full loading screen if no areas exist yet
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Dashboard</Text>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -540,8 +538,8 @@ function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
-        <Text style={styles.h1}>Dashboard</Text>
+      <Text style={styles.h1}>Dashboard</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
         <CustomButton
           title="+ New"
           onPress={() => navigation.navigate("AdvancedAreaBuilder") }
@@ -689,6 +687,45 @@ function ConnectionsScreen() {
     void loadServices();
   }, [loadServices]);
 
+  const connectService = async (serviceId: string) => {
+    if (!auth.token) {
+      Alert.alert("Authentication required", "Please log in again.");
+      return;
+    }
+
+    try {
+      const data = await requestJson<{ authorization_url: string }>(
+        `/service-connections/connect/${serviceId}`,
+        { method: "POST" },
+        auth.token,
+      );
+
+      if (!data.authorization_url) {
+        Alert.alert("Connection failed", "Unable to start OAuth flow. Please try again.");
+        return;
+      }
+
+      // Open the OAuth URL in the browser
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.authorization_url,
+        `${process.env.EXPO_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/oauth/callback`
+      );
+
+      if (result.type === 'success') {
+        // The OAuth flow completed successfully
+        Alert.alert("Success", `${serviceId} connected successfully!`);
+        // Reload services to update connection status
+        void loadServices();
+      } else if (result.type === 'dismiss') {
+        // User dismissed the browser without completing OAuth
+        Alert.alert("Connection cancelled", "Service connection was cancelled.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
+      Alert.alert("Connection failed", message);
+    }
+  };
+
   const testConnection = async (serviceId: string, connectionId: string) => {
     if (!auth.token) {
       return;
@@ -755,7 +792,7 @@ function ConnectionsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Service Connection Hub</Text>
+        <Text style={styles.h1}>Service Connections</Text>
         <Card style={{ margin: 16 }}>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: 12 }} />
@@ -767,7 +804,7 @@ function ConnectionsScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.h1}>Service Connection Hub</Text>
+      <Text style={styles.h1}>Service Connections</Text>
       <ScrollView 
         style={{ flex: 1, padding: 16 }}
         refreshControl={
@@ -817,7 +854,7 @@ function ConnectionsScreen() {
                   ) : (
                     <CustomButton 
                       title="Connect" 
-                      onPress={() => {}} 
+                      onPress={() => connectService(s.id)} 
                       variant="default"
                     />
                   )}
@@ -1500,7 +1537,43 @@ const Tabs = createBottomTabNavigator();
 
 function TabsNavigator() {
   return (
-    <Tabs.Navigator>
+    <Tabs.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
+
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'History') {
+            iconName = focused ? 'time' : 'time-outline';
+          } else if (route.name === 'Connections') {
+            iconName = focused ? 'link' : 'link-outline';
+          } else if (route.name === 'Wizard') {
+            iconName = focused ? 'add-circle' : 'add-circle-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          } else {
+            iconName = 'help-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.mutedForeground,
+        tabBarStyle: {
+          backgroundColor: Colors.backgroundLight,
+          borderTopColor: Colors.border,
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: FontFamilies.body,
+        },
+      })}
+    >
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
       <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
@@ -1594,7 +1667,9 @@ const styles = StyleSheet.create({
   h1: { 
     ...TextStyles.h2,
     color: Colors.textDark,
-    marginBottom: 12,
+    marginTop: 24,
+    marginBottom: 16,
+    marginHorizontal: 16,
     fontFamily: FontFamilies.heading
   },
   h2: { 
