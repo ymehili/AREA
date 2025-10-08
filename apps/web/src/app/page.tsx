@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Input, PasswordInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OAuthButton } from "@/components/ui/oauth-button";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, headingClasses } from "@/lib/utils";
 
@@ -91,9 +92,8 @@ export default function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password" className="text-foreground">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="login-password"
-                      type="password"
                       autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -113,13 +113,20 @@ export default function AuthPage() {
                     <span className="px-2 bg-background text-foreground">Or continue with</span>
                   </div>
                 </div>
-                <Button 
-                  type="button" 
-                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
-                  onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
-                >
-                  Sign in with Google
-                </Button>
+                <div className="space-y-3">
+                  <OAuthButton
+                    provider="google"
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
+                  />
+                  <OAuthButton
+                    provider="github"
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/service-connections/connect/github`}
+                  />
+                  <OAuthButton
+                    provider="microsoft"
+                    onClick={() => toast.info("Microsoft OAuth coming soon!")}
+                  />
+                </div>
               </form>
             </TabsContent>
             <TabsContent value="register">
@@ -139,9 +146,8 @@ export default function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-password" className="text-foreground">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="register-password"
-                      type="password"
                       autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}

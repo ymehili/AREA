@@ -69,10 +69,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "monospace"],
         heading: ["var(--font-dela-gothic-one)", "sans-serif"],
         body: ["var(--font-inter)", "sans-serif"],
+        mono: ["var(--font-roboto-mono)", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
