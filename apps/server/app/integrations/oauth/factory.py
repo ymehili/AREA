@@ -48,6 +48,10 @@ class OAuth2ProviderFactory:
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/github",
             )
         elif provider_name == "gmail":
+            # Gmail API scopes - minimized to principle of least privilege:
+            # - userinfo.email/profile: Get user identity for account linking
+            # - gmail.modify: Read messages and modify labels (includes read, list, modify)
+            # - gmail.send: Send emails on behalf of user
             return OAuth2Config(
                 client_id=settings.google_client_id,
                 client_secret=settings.google_client_secret,
@@ -58,7 +62,6 @@ class OAuth2ProviderFactory:
                     "https://www.googleapis.com/auth/userinfo.profile",
                     "https://www.googleapis.com/auth/gmail.modify",
                     "https://www.googleapis.com/auth/gmail.send",
-                    "https://www.googleapis.com/auth/gmail.settings.sharing",
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/gmail",
             )
