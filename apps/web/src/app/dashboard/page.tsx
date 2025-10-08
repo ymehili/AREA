@@ -7,6 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn, headingClasses } from "@/lib/utils";
 import { UnauthorizedError, requestJson, deleteArea as apiDeleteArea } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
@@ -117,10 +124,44 @@ export default function DashboardPage() {
       <AppShell>
         <div className="flex items-center justify-between mb-6">
           <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
-          <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>Create AREA</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => (window.location.href = "/wizard/simple")}>
+                Simple Wizard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => (window.location.href = "/wizard")}>
+                Advanced Builder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="p-6">
+              <CardHeader className="p-0 pb-4">
+                <div className="flex flex-row items-center justify-between">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="space-y-2 mb-6">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <Skeleton className="h-6 w-12" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </AppShell>
     );
@@ -131,7 +172,19 @@ export default function DashboardPage() {
       <AppShell>
         <div className="flex items-center justify-between mb-6">
           <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
-          <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>Create AREA</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => (window.location.href = "/wizard/simple")}>
+                Simple Wizard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => (window.location.href = "/wizard")}>
+                Advanced Builder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="text-destructive text-center">
@@ -150,7 +203,19 @@ export default function DashboardPage() {
     <AppShell>
       <div className="flex items-center justify-between mb-6">
         <h1 className={cn(headingClasses(1), "text-foreground")}>Dashboard</h1>
-        <Button onClick={() => (window.location.href = "/wizard")}>Create AREA</Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>Create AREA</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => (window.location.href = "/wizard/simple")}>
+              Simple Wizard
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => (window.location.href = "/wizard")}>
+              Advanced Builder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {areas.length === 0 ? (
         <Card className="p-6">
@@ -158,8 +223,15 @@ export default function DashboardPage() {
             <CardTitle className={cn(headingClasses(3), "text-foreground")}>Get started</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <p className="text-sm text-muted-foreground mb-6">You have no AREAs yet.</p>
-            <Button onClick={() => (window.location.href = "/wizard")}>Create your first AREA</Button>
+            <p className="text-sm text-muted-foreground mb-6">You have no AREAs yet. Create your first automation:</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button onClick={() => (window.location.href = "/wizard/simple")} className="flex-1">
+                Simple Wizard
+              </Button>
+              <Button onClick={() => (window.location.href = "/wizard")} variant="outline" className="flex-1">
+                Advanced Builder
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

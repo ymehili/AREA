@@ -23,9 +23,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Import custom UI components
 import CustomButton from './src/components/ui/Button';
-import Input from './src/components/ui/Input';
+import Input, { PasswordInput } from './src/components/ui/Input';
 import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
+import OAuthButton from './src/components/ui/OAuthButton';
 
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
@@ -368,10 +369,9 @@ function LoginScreen() {
           </View>
           <View style={styles.formGroup}>
             <Text style={{ ...TextStyles.small, color: Colors.textDark, marginBottom: 4 }}>Password</Text>
-            <Input
+            <PasswordInput
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               placeholder="Enter your password"
             />
           </View>
@@ -385,11 +385,27 @@ function LoginScreen() {
             />
           </View>
           <View style={{ height: 16 }} />
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, textAlign: 'center', marginBottom: 12 }}>
+            Or continue with
+          </Text>
           <View style={styles.buttonContainer}>
-            <CustomButton
-              title="Sign in with Google"
+            <OAuthButton
+              provider="google"
               onPress={handleGoogleSignIn}
-              variant="outline"
+            />
+          </View>
+          <View style={{ height: 8 }} />
+          <View style={styles.buttonContainer}>
+            <OAuthButton
+              provider="github"
+              onPress={() => Alert.alert('GitHub OAuth', 'GitHub sign-in coming soon!')}
+            />
+          </View>
+          <View style={{ height: 8 }} />
+          <View style={styles.buttonContainer}>
+            <OAuthButton
+              provider="microsoft"
+              onPress={() => Alert.alert('Microsoft OAuth', 'Microsoft sign-in coming soon!')}
             />
           </View>
         </Card>
