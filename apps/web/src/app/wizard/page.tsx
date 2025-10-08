@@ -67,8 +67,10 @@ export default function WizardPage() {
         is_active: true,
         trigger_service: isTriggerNode(triggerNodeData) ? triggerNodeData.serviceId || 'manual' : 'manual',
         trigger_action: isTriggerNode(triggerNodeData) ? triggerNodeData.actionId || 'trigger' : 'trigger',
+        trigger_params: isTriggerNode(triggerNodeData) && triggerNodeData.params ? triggerNodeData.params : undefined,
         reaction_service: firstActionData && isActionNode(firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
         reaction_action: firstActionData && isActionNode(firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
+        reaction_params: firstActionData && isActionNode(firstActionData) && firstActionData.params ? firstActionData.params : undefined,
         steps: currentNodes.map((node, index) => {
           const nodeData = node.data as NodeData;
           // Find edges connected to this node
@@ -77,11 +79,13 @@ export default function WizardPage() {
           // Prepare the base config with common properties
           let stepConfig: Record<string, unknown> = {
             ...(nodeData.config || {}),
+            // Include params in config so they're available during execution
+            ...(('params' in nodeData && nodeData.params) ? nodeData.params : {}),
             clientId: node.id,
             position: node.position,
             targets: targetEdges,
           };
-          
+
           // Add delay-specific configuration if this is a delay node
           if (node.type === 'delay' && 'duration' in nodeData && 'unit' in nodeData) {
             stepConfig = {

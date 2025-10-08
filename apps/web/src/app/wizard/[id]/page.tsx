@@ -68,6 +68,10 @@ export default function EditAreaPage() {
               nodeData = delayData;
             } else {
               // For other node types, use generic data
+              // Extract params from config (params were saved merged into config)
+              const config = step.config || {};
+              const { clientId, position, targets, ...params } = config;
+
               nodeData = {
                 label: `${step.step_type}: ${step.service || 'custom'}/${step.action || 'action'}`,
                 description: '',
@@ -75,6 +79,7 @@ export default function EditAreaPage() {
                 type: step.step_type as 'trigger' | 'action' | 'condition',
                 serviceId: step.service || '',
                 actionId: step.action || '',
+                params: params as Record<string, unknown>,
               } as NodeData;
             }
             
@@ -146,12 +151,17 @@ export default function EditAreaPage() {
 
       // Prepare update payload
       const castedTriggerNodeData = triggerNode.data as NodeData;
+      const firstActionNode = currentNodes.find(node => node.type === 'action');
+      const firstActionData = firstActionNode?.data as NodeData | undefined;
+
       const updatePayload = {
         name: areaName,
-        trigger_service: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.serviceId || 'manual' : 'manual',
-        trigger_action: castedTriggerNodeData.type === 'trigger' ? castedTriggerNodeData.actionId || 'trigger' : 'trigger',
-        reaction_service: 'manual',
-        reaction_action: 'reaction',
+        trigger_service: castedTriggerNodeData.type === 'trigger' && 'serviceId' in castedTriggerNodeData ? castedTriggerNodeData.serviceId || 'manual' : 'manual',
+        trigger_action: castedTriggerNodeData.type === 'trigger' && 'actionId' in castedTriggerNodeData ? castedTriggerNodeData.actionId || 'trigger' : 'trigger',
+        trigger_params: castedTriggerNodeData.type === 'trigger' && ('params' in castedTriggerNodeData) && castedTriggerNodeData.params ? castedTriggerNodeData.params : undefined,
+        reaction_service: firstActionData && ('serviceId' in firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
+        reaction_action: firstActionData && ('actionId' in firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
+        reaction_params: firstActionData && ('params' in firstActionData) && firstActionData.params ? firstActionData.params : undefined,
       };
 
       // Update the area metadata
@@ -167,6 +177,8 @@ export default function EditAreaPage() {
         // Prepare the config to save, including delay-specific properties if it's a delay node
         let configToSave: Record<string, unknown> = {
           ...(nodeData.config || {}),
+          // Include params in config so they're available during execution
+          ...(('params' in nodeData && nodeData.params) ? nodeData.params : {}),
           clientId: node.id,
           position: node.position,
           targets: targetEdges,

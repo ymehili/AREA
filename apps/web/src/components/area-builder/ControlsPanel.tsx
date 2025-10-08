@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import VariablePicker from '@/components/VariablePicker';
-import { AreaStepNodeData, NodeData, ConditionNodeData, isDelayNode, isActionNode } from './node-types';
+import { AreaStepNodeData, NodeData, ConditionNodeData, TriggerNodeData, ActionNodeData, isDelayNode, isActionNode, isTriggerNode } from './node-types';
+import { requestJson } from '@/lib/api';
+import { useRequireAuth } from '@/hooks/use-auth';
 
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
@@ -17,15 +19,69 @@ interface ControlsPanelProps {
   nodeConfig?: Partial<NodeData>;
 }
 
+// Type for service catalog
+type ServiceCatalog = {
+  slug: string;
+  name: string;
+  description: string;
+  actions: { key: string; name: string; description: string }[];
+  reactions: { key: string; name: string; description: string }[];
+};
+
+// Response type for service catalog
+type ServiceCatalogResponse = {
+  services: ServiceCatalog[];
+};
+
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onAddNode,
   selectedNodeId,
   onNodeConfigChange,
   nodeConfig
 }) => {
+  // Auth hook to get token
+  const auth = useRequireAuth();
+
   // Refs for tracking currently focused input fields
   const focusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-  
+
+  // State for available services
+  const [services, setServices] = useState<ServiceCatalog[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [connectedServices, setConnectedServices] = useState<string[]>([]);
+
+  // Fetch services and user connections on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!auth.token) return;
+
+      setLoadingServices(true);
+      try {
+        // Fetch both services catalog and user connections
+        const [catalogData, connectionsData] = await Promise.all([
+          requestJson<ServiceCatalogResponse>(
+            '/services/actions-reactions',
+            { method: 'GET' },
+            auth.token
+          ),
+          requestJson<{ connected_services: string[] }>(
+            '/services/user-connections',
+            { method: 'GET' },
+            auth.token
+          )
+        ]);
+
+        setServices(catalogData.services || []);
+        setConnectedServices(connectionsData.connected_services || []);
+      } catch (error) {
+        console.error('Failed to fetch services:', error);
+      } finally {
+        setLoadingServices(false);
+      }
+    };
+    fetchData();
+  }, [auth.token]);
+
   // Function to handle input focus
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     focusedInputRef.current = e.target;
@@ -136,6 +192,112 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       onFocus={handleInputFocus}
                     />
                   </div>
+
+                  {/* Trigger-specific configuration */}
+                  {isTriggerNode(nodeConfig) && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="triggerService">Service</Label>
+                          <Select
+                            value={nodeConfig.serviceId || ''}
+                            onValueChange={(value) => {
+                              // Reset actionId when service changes
+                              onNodeConfigChange(selectedNodeId, {
+                                ...nodeConfig,
+                                serviceId: value,
+                                actionId: '',
+                                label: services.find(s => s.slug === value)?.name || nodeConfig.label
+                              } as TriggerNodeData);
+                            }}
+                            disabled={loadingServices}
+                          >
+                            <SelectTrigger id="triggerService">
+                              <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {services.map((service) => (
+                                <SelectItem key={service.slug} value={service.slug}>
+                                  {service.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">Choose the service that will trigger this automation</p>
+                        </div>
+
+                        {nodeConfig.serviceId && (
+                          <>
+                            {/* Built-in services do not require connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <p className="text-sm text-yellow-800">
+                                  ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
+                                  <a href="/connections" className="underline font-medium">Go to Connections</a>
+                                </p>
+                              </div>
+                            )}
+                            <div>
+                              <Label htmlFor="triggerAction">Trigger Event</Label>
+                              <Select
+                                value={nodeConfig.actionId || ''}
+                                onValueChange={(value) => {
+                                  const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
+                                  const selectedAction = selectedService?.actions.find(a => a.key === value);
+                                  onNodeConfigChange(selectedNodeId, {
+                                    ...nodeConfig,
+                                    actionId: value,
+                                    label: selectedAction?.name || nodeConfig.label,
+                                    description: selectedAction?.description || nodeConfig.description,
+                                    params: {}
+                                  } as TriggerNodeData);
+                                }}
+                              >
+                                <SelectTrigger id="triggerAction">
+                                  <SelectValue placeholder="Select a trigger event" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {services
+                                    .find((s) => s.slug === nodeConfig.serviceId)
+                                    ?.actions.map((action) => (
+                                      <SelectItem key={action.key} value={action.key}>
+                                        {action.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {services.find(s => s.slug === nodeConfig.serviceId)?.actions.find(a => a.key === nodeConfig.actionId)?.description || 'Select the event that will trigger this automation'}
+                              </p>
+                            </div>
+
+                            {/* Trigger params: Gmail new_email_from_sender requires sender_email */}
+                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'new_email_from_sender' && (
+                              <div>
+                                <Label htmlFor="gmail_sender_email">Sender Email</Label>
+                                <Input
+                                  id="gmail_sender_email"
+                                  type="email"
+                                  placeholder="name@example.com"
+                                  value={(nodeConfig as TriggerNodeData).params?.sender_email as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, sender_email: e.target.value }
+                                    } as TriggerNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Only trigger for emails from this sender.</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   {/* Condition-specific fields */}
                   {nodeConfig.type === 'condition' && (() => {
@@ -306,25 +468,236 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                     <>
                       <Separator className="my-3" />
                       <div className="space-y-3">
-                        <VariablePicker
-                          availableVariables={[
-                            { id: 'trigger.now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
-                            { id: 'trigger.user.id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
-                            { id: 'trigger.area.id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
-                            // Add more based on the service
-                            ...(nodeConfig.serviceId === 'gmail' ? [
-                              { id: 'trigger.gmail.sender', name: 'Email Sender', description: 'The sender of the email', category: 'Gmail', type: 'text' as const },
-                              { id: 'trigger.gmail.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Gmail', type: 'text' as const },
-                              { id: 'trigger.gmail.body', name: 'Email Body', description: 'The body content of the email', category: 'Gmail', type: 'text' as const },
-                            ] : []),
-                            ...(nodeConfig.serviceId === 'github' ? [
-                              { id: 'trigger.github.repo', name: 'Repo Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
-                              { id: 'trigger.github.issue_number', name: 'Issue Number', description: 'The number of the issue', category: 'GitHub', type: 'number' as const },
-                              { id: 'trigger.github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
-                            ] : []),
-                          ]}
-                          onInsertVariable={handleInsertVariable}
-                        />
+                        <div>
+                          <Label htmlFor="actionService">Service</Label>
+                          <Select
+                            value={nodeConfig.serviceId || ''}
+                            onValueChange={(value) => {
+                              // Reset actionId when service changes
+                              onNodeConfigChange(selectedNodeId, {
+                                ...nodeConfig,
+                                serviceId: value,
+                                actionId: '',
+                                label: services.find(s => s.slug === value)?.name || nodeConfig.label
+                              } as AreaStepNodeData);
+                            }}
+                            disabled={loadingServices}
+                          >
+                            <SelectTrigger id="actionService">
+                              <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {services.map((service) => (
+                                <SelectItem key={service.slug} value={service.slug}>
+                                  {service.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-1">Choose the service to perform an action</p>
+                        </div>
+
+                        {nodeConfig.serviceId && (
+                          <>
+                            {/* Built-in services do not require connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <p className="text-sm text-yellow-800">
+                                  ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
+                                  <a href="/connections" className="underline font-medium">Go to Connections</a>
+                                </p>
+                              </div>
+                            )}
+                            <div>
+                              <Label htmlFor="actionReaction">Action</Label>
+                              <Select
+                                value={nodeConfig.actionId || ''}
+                                onValueChange={(value) => {
+                                  const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
+                                  const selectedReaction = selectedService?.reactions.find(r => r.key === value);
+                                  onNodeConfigChange(selectedNodeId, {
+                                    ...nodeConfig,
+                                    actionId: value,
+                                    label: selectedReaction?.name || nodeConfig.label,
+                                    description: selectedReaction?.description || nodeConfig.description,
+                                    params: {}
+                                  } as AreaStepNodeData);
+                                }}
+                              >
+                                <SelectTrigger id="actionReaction">
+                                  <SelectValue placeholder="Select an action" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {services
+                                    .find((s) => s.slug === nodeConfig.serviceId)
+                                    ?.reactions.map((reaction) => (
+                                      <SelectItem key={reaction.key} value={reaction.key}>
+                                        {reaction.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {services.find(s => s.slug === nodeConfig.serviceId)?.reactions.find(r => r.key === nodeConfig.actionId)?.description || 'Select the action to perform'}
+                              </p>
+                            </div>
+
+                            {/* Action params: Debug log message */}
+                            {nodeConfig.serviceId === 'debug' && nodeConfig.actionId === 'log' && (
+                              <div>
+                                <Label htmlFor="debugMessage">Log Message</Label>
+                                <textarea
+                                  id="debugMessage"
+                                  className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
+                                  placeholder="e.g., Email from {{gmail.sender}}: {{gmail.subject}}"
+                                  value={(nodeConfig as ActionNodeData).params?.message as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange?.(selectedNodeId!, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, message: e.target.value }
+                                    } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">{`Use variables like {{gmail.subject}}, {{gmail.sender}}, etc.`}</p>
+                              </div>
+                            )}
+
+                            {/* Action params: Gmail send_email */}
+                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'send_email' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="gmail_to">To</Label>
+                                  <Input
+                                    id="gmail_to"
+                                    type="text"
+                                    placeholder="recipient@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.to as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, to: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="gmail_subject">Subject</Label>
+                                  <Input
+                                    id="gmail_subject"
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={(nodeConfig as ActionNodeData).params?.subject as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, subject: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="gmail_body">Body</Label>
+                                  <textarea
+                                    id="gmail_body"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Message body (supports variables like {{gmail.snippet}})"
+                                    value={(nodeConfig as ActionNodeData).params?.body as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Gmail mark_as_read needs message_id */}
+                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'mark_as_read' && (
+                              <div>
+                                <Label htmlFor="gmail_message_id">Message ID</Label>
+                                <Input
+                                  id="gmail_message_id"
+                                  type="text"
+                                  placeholder="{{gmail.message_id}}"
+                                  value={(nodeConfig as ActionNodeData).params?.message_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, message_id: e.target.value } } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Provide a message ID or use a variable from the trigger.</p>
+                              </div>
+                            )}
+
+                            {/* Action params: Gmail forward_email needs message_id, to, comment (optional) */}
+                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'forward_email' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="gmail_fwd_message_id">Message ID</Label>
+                                  <Input
+                                    id="gmail_fwd_message_id"
+                                    type="text"
+                                    placeholder="{{gmail.message_id}}"
+                                    value={(nodeConfig as ActionNodeData).params?.message_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, message_id: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="gmail_fwd_to">Forward To</Label>
+                                  <Input
+                                    id="gmail_fwd_to"
+                                    type="text"
+                                    placeholder="recipient@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.to as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, to: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="gmail_fwd_comment">Comment (optional)</Label>
+                                  <textarea
+                                    id="gmail_fwd_comment"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="Add a note before the forwarded content"
+                                    value={(nodeConfig as ActionNodeData).params?.comment as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, comment: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            <VariablePicker
+                              availableVariables={[
+                                { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
+                                { id: 'user_id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
+                                { id: 'area_id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
+                                // Add more based on the service
+                                ...(nodeConfig.serviceId === 'gmail' ? [
+                                  { id: 'gmail.sender', name: 'Email Sender', description: 'The sender of the email', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.body', name: 'Email Body', description: 'The body content of the email', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.message_id', name: 'Message ID', description: 'The Gmail message ID', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.thread_id', name: 'Thread ID', description: 'The Gmail thread ID', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.snippet', name: 'Snippet', description: 'A short preview of the email', category: 'Gmail', type: 'text' as const },
+                                ] : []),
+                              ]}
+                              onInsertVariable={handleInsertVariable}
+                            />
+                          </>
+                        )}
                       </div>
                     </>
                   )}
