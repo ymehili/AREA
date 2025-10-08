@@ -139,7 +139,7 @@ export default function WizardPage() {
                 type="text"
                 value={areaName}
                 onChange={(e) => setAreaName(e.target.value)}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-[box-shadow] duration-150"
                 placeholder="Enter area name"
               />
             </div>
@@ -148,7 +148,7 @@ export default function WizardPage() {
               <textarea
                 value={areaDescription}
                 onChange={(e) => setAreaDescription(e.target.value)}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-[box-shadow] duration-150"
                 placeholder="Enter area description"
               />
             </div>
