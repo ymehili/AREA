@@ -19,6 +19,7 @@ import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navig
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as WebBrowser from 'expo-web-browser';
+import { Ionicons } from '@expo/vector-icons';
 
 // Import custom UI components
 import CustomButton from './src/components/ui/Button';
@@ -494,7 +495,6 @@ function DashboardScreen() {
   if (loading && areas.length === 0) { // Only show full loading screen if no areas exist yet
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Dashboard</Text>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
@@ -540,8 +540,8 @@ function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
-        <Text style={styles.h1}>Dashboard</Text>
+      <Text style={styles.h1}>Dashboard</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
         <CustomButton
           title="+ New"
           onPress={() => navigation.navigate("AdvancedAreaBuilder") }
@@ -794,7 +794,7 @@ function ConnectionsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Service Connection Hub</Text>
+        <Text style={styles.h1}>Service Connections</Text>
         <Card style={{ margin: 16 }}>
           <Text style={styles.errorText}>{error}</Text>
           <View style={{ height: 12 }} />
@@ -806,7 +806,7 @@ function ConnectionsScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.h1}>Service Connection Hub</Text>
+      <Text style={styles.h1}>Service Connections</Text>
       <ScrollView 
         style={{ flex: 1, padding: 16 }}
         refreshControl={
@@ -1539,7 +1539,43 @@ const Tabs = createBottomTabNavigator();
 
 function TabsNavigator() {
   return (
-    <Tabs.Navigator>
+    <Tabs.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof Ionicons.glyphMap;
+
+          if (route.name === 'Dashboard') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'History') {
+            iconName = focused ? 'time' : 'time-outline';
+          } else if (route.name === 'Connections') {
+            iconName = focused ? 'link' : 'link-outline';
+          } else if (route.name === 'Wizard') {
+            iconName = focused ? 'add-circle' : 'add-circle-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          } else {
+            iconName = 'help-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.mutedForeground,
+        tabBarStyle: {
+          backgroundColor: Colors.backgroundLight,
+          borderTopColor: Colors.border,
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: FontFamilies.body,
+        },
+      })}
+    >
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
       <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
@@ -1633,7 +1669,9 @@ const styles = StyleSheet.create({
   h1: { 
     ...TextStyles.h2,
     color: Colors.textDark,
-    marginBottom: 12,
+    marginTop: 24,
+    marginBottom: 16,
+    marginHorizontal: 16,
     fontFamily: FontFamilies.heading
   },
   h2: { 
