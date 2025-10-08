@@ -97,7 +97,7 @@ def resolve_variables(template: str, variables: Dict[str, Any]) -> str:
     if not isinstance(template, str):
         return template  # type: ignore[return-value]
 
-    pattern = r"\{\{(\w+(?:\.\w+)*)\}\}"
+    pattern = r"\{\{\s*(\w+(?:\.\w+)*)\s*\}\}"
 
     def replace(match: re.Match[str]) -> str:
         key = match.group(1)
