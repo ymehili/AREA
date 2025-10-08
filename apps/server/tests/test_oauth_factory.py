@@ -18,6 +18,8 @@ class TestOAuth2ProviderFactory:
         with patch('app.integrations.oauth.factory.settings') as mock_settings:
             mock_settings.github_client_id = ""
             mock_settings.github_client_secret = ""
+            mock_settings.google_client_id = ""
+            mock_settings.google_client_secret = ""
 
             providers = OAuth2ProviderFactory.get_supported_providers()
             assert providers == []
