@@ -27,10 +27,20 @@ class PluginsRegistry:
         # Time trigger doesn't need a handler (scheduler handles it)
         # Debug reaction handler
         self._handlers[("debug", "log")] = self._debug_log_handler
-        
+
         # Delay handler
         from app.integrations.simple_plugins.delay_plugin import delay_handler
         self._handlers[("delay", "wait")] = delay_handler
+
+        # Gmail handlers
+        from app.integrations.simple_plugins.gmail_plugin import (
+            send_email_handler,
+            mark_as_read_handler,
+            forward_email_handler,
+        )
+        self._handlers[("gmail", "send_email")] = send_email_handler
+        self._handlers[("gmail", "mark_as_read")] = mark_as_read_handler
+        self._handlers[("gmail", "forward_email")] = forward_email_handler
 
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
@@ -39,21 +49,24 @@ class PluginsRegistry:
         Args:
             area: The Area being executed
             params: reaction_params containing optional 'message' template
-            event: Event data with 'now', 'area_id', 'user_id', 'tick'
+            event: Event data with 'now', 'area_id', 'user_id', plus trigger-specific data
         """
+        from app.services.variable_resolver import resolve_variables
+
         # Get message template from params or use default
         message_template = params.get("message", "Area triggered at {{ now }}")
 
-        # Simple template replacement
-        message = message_template.replace("{{ now }}", event.get("now", ""))
-        message = message.replace("{{ area.name }}", area.name)
+        # Use the variable resolver to replace all variables
+        message = resolve_variables(message_template, event)
 
-        # Log with structured context
+        # Log with structured context including all event data
+        event_summary = {k: v for k, v in event.items() if k in ['now', 'gmail.sender', 'gmail.subject', 'gmail.snippet']}
+
         logger.info(
             f"area_run area_id={str(area.id)} user_id={str(area.user_id)} "
             f"trigger={area.trigger_service}.{area.trigger_action} "
             f"reaction={area.reaction_service}.{area.reaction_action} "
-            f"now={event.get('now')} message=\"{message}\""
+            f"now={event.get('now')} message=\"{message}\" event_data={event_summary}"
         )
 
     def get_reaction_handler(
