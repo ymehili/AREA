@@ -20,6 +20,11 @@ from app.services.service_connections import (
 )
 from app.schemas.service_connection import ServiceConnectionUpdate
 from app.core.config import settings
+from app.integrations.simple_plugins.exceptions import (
+    GmailAuthError,
+    GmailAPIError,
+    GmailConnectionError,
+)
 
 if TYPE_CHECKING:
     from app.models.area import Area
@@ -49,7 +54,7 @@ def _get_gmail_service(area: Area, db=None):
         # Get service connection for Gmail
         connection = get_service_connection_by_user_and_service(db, area.user_id, "gmail")
         if not connection:
-            raise Exception("Gmail service connection not found. Please connect your Gmail account.")
+            raise GmailConnectionError("Gmail service connection not found. Please connect your Gmail account.")
 
         # Create credentials from stored tokens
         from app.core.encryption import decrypt_token
@@ -80,8 +85,17 @@ def _get_gmail_service(area: Area, db=None):
                     ),
                 )
             except Exception as refresh_err:
-                logger.error(f"Failed to refresh Gmail token: {refresh_err}")
-                raise
+                logger.error(
+                    "Failed to refresh Gmail token",
+                    extra={
+                        "user_id": str(area.user_id),
+                        "area_id": str(area.id),
+                        "error": str(refresh_err),
+                    },
+                    exc_info=True,
+                )
+                # Preserve the expected error message for tests and callers
+                raise GmailAuthError("Failed to refresh Gmail token") from refresh_err
 
         # Build Gmail service
         service = build('gmail', 'v1', credentials=creds)
@@ -170,16 +184,18 @@ def send_email_handler(area: Area, params: dict, event: dict) -> None:
             "Gmail API error sending email",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True
         )
-        raise Exception(f"Failed to send email: {e}")
+        raise GmailAPIError(f"Failed to send email: {e}") from e
     except Exception as e:
         logger.error(
             "Error sending email",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True
@@ -243,16 +259,18 @@ def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
             "Gmail API error marking email as read",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True
         )
-        raise Exception(f"Failed to mark email as read: {e}")
+        raise GmailAPIError(f"Failed to mark email as read: {e}") from e
     except Exception as e:
         logger.error(
             "Error marking email as read",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True
@@ -376,16 +394,18 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
             "Gmail API error forwarding email",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True
         )
-        raise Exception(f"Failed to forward email: {e}")
+        raise GmailAPIError(f"Failed to forward email: {e}") from e
     except Exception as e:
         logger.error(
             "Error forwarding email",
             extra={
                 "area_id": str(area.id),
+                "user_id": str(area.user_id),
                 "error": str(e),
             },
             exc_info=True

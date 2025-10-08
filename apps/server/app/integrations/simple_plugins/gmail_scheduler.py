@@ -200,13 +200,13 @@ async def gmail_scheduler_task() -> None:
 
     while True:
         try:
-            await asyncio.sleep(15)  # Poll every 15 seconds
+            # Poll at configurable interval (default: 60 seconds)
+            await asyncio.sleep(settings.gmail_poll_interval_seconds)
 
             now = datetime.now(timezone.utc)
-            db = SessionLocal()
 
-            try:
-                # Fetch all enabled Gmail areas
+            # Fetch all enabled Gmail areas using a scoped session
+            with SessionLocal() as db:
                 areas = await asyncio.to_thread(_fetch_due_gmail_areas, db)
 
                 logger.info(
@@ -217,14 +217,17 @@ async def gmail_scheduler_task() -> None:
                     },
                 )
 
-                for area in areas:
-                    area_id_str = str(area.id)
+            # Process each area with its own scoped session
+            for area in areas:
+                area_id_str = str(area.id)
 
-                    # Initialize last seen messages set for this area
-                    if area_id_str not in _last_seen_messages:
-                        _last_seen_messages[area_id_str] = set()
+                # Initialize last seen messages set for this area
+                if area_id_str not in _last_seen_messages:
+                    _last_seen_messages[area_id_str] = set()
 
-                    try:
+                try:
+                    # Use scoped session for this area's processing
+                    with SessionLocal() as db:
                         # Get Gmail service for user
                         service = await asyncio.to_thread(_get_gmail_service, area.user_id, db)
                         if not service:
@@ -288,18 +291,15 @@ async def gmail_scheduler_task() -> None:
                             # Mark as seen
                             _last_seen_messages[area_id_str].add(message['id'])
 
-                    except Exception as e:
-                        logger.error(
-                            "Error processing Gmail area",
-                            extra={
-                                "area_id": area_id_str,
-                                "error": str(e),
-                            },
-                            exc_info=True,
-                        )
-
-            finally:
-                db.close()
+                except Exception as e:
+                    logger.error(
+                        "Error processing Gmail area",
+                        extra={
+                            "area_id": area_id_str,
+                            "error": str(e),
+                        },
+                        exc_info=True,
+                    )
 
         except asyncio.CancelledError:
             logger.info("Gmail scheduler task cancelled, shutting down gracefully")
@@ -355,6 +355,9 @@ async def _process_gmail_trigger(db: Session, area: Area, message: dict, now: da
         message: Gmail message data
         now: Current timestamp
     """
+    # Re-attach the Area instance to the current session so lazy-loaded
+    # relationships (like `steps`) can be accessed during execution.
+    area = db.merge(area)
     area_id_str = str(area.id)
     execution_log = None
 
@@ -469,6 +472,16 @@ def stop_gmail_scheduler() -> None:
         logger.info("Gmail scheduler task stopped")
 
 
+def is_gmail_scheduler_running() -> bool:
+    """Check if the Gmail scheduler task is running.
+
+    Returns:
+        True if scheduler is running and not done/cancelled, False otherwise
+    """
+    global _gmail_scheduler_task
+    return _gmail_scheduler_task is not None and not _gmail_scheduler_task.done()
+
+
 def clear_gmail_seen_state() -> None:
     """Clear the in-memory seen messages state (useful for testing)."""
     global _last_seen_messages
@@ -478,6 +491,7 @@ def clear_gmail_seen_state() -> None:
 __all__ = [
     "gmail_scheduler_task",
     "start_gmail_scheduler",
+    "is_gmail_scheduler_running",
     "stop_gmail_scheduler",
     "clear_gmail_seen_state",
 ]

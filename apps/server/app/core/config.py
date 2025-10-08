@@ -105,6 +105,13 @@ class Settings(BaseSettings):
         alias="GITHUB_CLIENT_SECRET",
     )
 
+    # Gmail Scheduler Configuration
+    gmail_poll_interval_seconds: int = Field(
+        default=15,
+        alias="GMAIL_POLL_INTERVAL_SECONDS",
+        description="Gmail polling interval in seconds (default: 15). Lower values increase API usage.",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
