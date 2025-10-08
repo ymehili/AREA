@@ -313,7 +313,6 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
-        <Text style={styles.title}>{areaId ? 'Edit' : 'Create'} AREA</Text>
         <Text style={styles.subtitle}>{areaId ? 'Modify your' : 'Create'} multi-step automation</Text>
 
         <Card style={styles.detailsCard}>
@@ -463,7 +462,9 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: Colors.mutedForeground,
+    marginTop: 24,
     marginBottom: 16,
+    marginHorizontal: 16,
     fontFamily: FontFamilies.body,
   },
   detailsCard: {
