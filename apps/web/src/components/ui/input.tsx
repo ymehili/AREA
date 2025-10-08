@@ -18,11 +18,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   )
 }
 
-interface PasswordInputProps extends Omit<React.ComponentProps<"input">, "type"> {
-  // No auto-hide delay - just simple toggle
-}
-
-function PasswordInput({ className, ...props }: PasswordInputProps) {
+function PasswordInput({ className, ...props }: Omit<React.ComponentProps<"input">, "type">) {
   const [showPassword, setShowPassword] = React.useState(false);
 
   return (
