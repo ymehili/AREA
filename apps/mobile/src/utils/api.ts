@@ -11,6 +11,16 @@ export type ExecutionLog = {
   created_at: string;
 };
 
+export type UserActivityLog = {
+  id: string;
+  timestamp: string;
+  action_type: string;
+  service_name: string | null;
+  details: string | null;
+  status: "success" | "failed" | "pending";
+  created_at: string;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -121,4 +131,14 @@ async function getExecutionLogsForUser(token: string): Promise<ExecutionLog[]> {
   );
 }
 
-export { requestJson, getExecutionLogsForUser, resolveApiBaseUrl };
+async function getUserActivities(token: string): Promise<UserActivityLog[]> {
+  return requestJson<UserActivityLog[]>(
+    "/user-activities",
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+export { requestJson, getExecutionLogsForUser, getUserActivities, resolveApiBaseUrl };

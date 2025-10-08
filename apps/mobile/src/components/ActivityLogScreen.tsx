@@ -10,7 +10,7 @@ import {
   Modal,
 } from "react-native";
 import { useAuth } from "./../contexts/AuthContext";
-import { ExecutionLog, getExecutionLogsForUser as apiGetExecutionLogsForUser } from "../utils/api";
+import { UserActivityLog, getUserActivities as apiGetUserActivities } from "../utils/api";
 import { Colors } from "../constants/colors";
 import { TextStyles } from "../constants/typography";
 import CustomButton from "./ui/Button";
@@ -47,19 +47,17 @@ export default function ActivityLogScreen() {
     }
     
     try {
-      // In a real implementation, this would call an actual activity logs endpoint
-      // For now, since the API might not have a specific activity logs endpoint,
-      // we'll fetch execution logs which represent user activities
-      const executionLogs = await apiGetExecutionLogsForUser(auth.token);
+      // Fetch user activity logs from the proper endpoint
+      const userActivities = await apiGetUserActivities(auth.token);
       
-      // Transform execution logs to activity format
-      const transformedActivities: Activity[] = executionLogs.map((log: any) => ({
+      // Transform user activity logs to activity format
+      const transformedActivities: Activity[] = userActivities.map((log: UserActivityLog) => ({
         id: log.id,
         timestamp: log.timestamp,
-        action: log.status === "success" ? "AREA executed" : "AREA execution failed",
-        service: `Area: ${log.area_id.substring(0, 8)}...`, // Show the area ID as the service
-        status: log.status === "success" ? "success" : "failed",
-        details: log.output || log.error_message || "AREA execution completed",
+        action: log.action_type,
+        service: log.service_name || "User Account", // Use service_name from backend or default
+        status: log.status === "pending" ? "processing" : log.status, // Map "pending" to "processing"
+        details: log.details || "Activity details not available",
       }));
       
       setActivities(transformedActivities);
