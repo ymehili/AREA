@@ -282,12 +282,14 @@ const styles = {
   h1: { 
     ...TextStyles.h2,
     color: Colors.textDark,
-    marginBottom: 12,
+    marginTop: 24,
+    marginBottom: 16,
+    marginHorizontal: 16,
   },
   modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
