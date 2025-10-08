@@ -194,17 +194,25 @@ class OAuthService:
     
     @staticmethod
     def generate_redirect_url(access_token: str, user_agent: str) -> str:
-        """Generate appropriate redirect URL based on client type."""
+        """Generate appropriate redirect URL based on client type (user agent detection)."""
         user_agent_lower = user_agent.lower()
-        
-        # Check if the mobile redirect URL uses a custom scheme (like areamobile://)
-        # If it does, it's a mobile app and should take precedence
-        parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
-        is_custom_scheme = parsed_mobile_url.scheme not in ['http', 'https']
-        
-        # For mobile apps, use query parameter
-        # Detect mobile either by user agent OR by custom URL scheme configuration
-        if is_custom_scheme or "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower:
+
+        # Detect if this is a mobile app based ONLY on user agent
+        # Common mobile user agent indicators
+        is_mobile = (
+            "mobile" in user_agent_lower or
+            "android" in user_agent_lower or
+            "iphone" in user_agent_lower or
+            "ipad" in user_agent_lower or
+            "ipod" in user_agent_lower or
+            # React Native / Expo user agent patterns
+            "expo" in user_agent_lower or
+            "reactnative" in user_agent_lower
+        )
+
+        # For mobile apps, redirect to mobile URL (may be custom scheme or http/https)
+        if is_mobile:
+            parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
             mobile_path = parsed_mobile_url.path
 
             if not mobile_path or mobile_path == "/":
@@ -220,12 +228,13 @@ class OAuthService:
                 )
             )
 
-            print("Mobile detected" if not is_custom_scheme else "Custom URL scheme detected (mobile app)")
+            print(f"Mobile app detected (User-Agent: {user_agent})")
             print(f"Redirecting to {mobile_redirect_url}")
             return mobile_redirect_url
-        
+
         # For web apps, use URL hash
-        print("Web app detected")
+        print(f"Web app detected (User-Agent: {user_agent})")
+        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
         return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
 
 
