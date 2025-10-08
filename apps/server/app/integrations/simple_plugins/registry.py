@@ -56,8 +56,16 @@ class PluginsRegistry:
         # Get message template from params or use default
         message_template = params.get("message", "Area triggered at {{ now }}")
 
+        # Add area data to event for variable resolution
+        event_with_area = {
+            **event,
+            "area.name": area.name,
+            "area.id": str(area.id),
+            "area.user_id": str(area.user_id),
+        }
+
         # Use the variable resolver to replace all variables
-        message = resolve_variables(message_template, event)
+        message = resolve_variables(message_template, event_with_area)
 
         # Log with structured context including all event data
         event_summary = {k: v for k, v in event.items() if k in ['now', 'gmail.sender', 'gmail.subject', 'gmail.snippet']}
