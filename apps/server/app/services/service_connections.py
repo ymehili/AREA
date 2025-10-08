@@ -46,6 +46,13 @@ def get_service_connection_by_user_and_service(db: Session, user_id: str, servic
     return result.scalar_one_or_none()
 
 
+def get_user_service_connections(db: Session, user_id: str) -> list[ServiceConnection]:
+    """Fetch all service connections for a user."""
+    statement = select(ServiceConnection).where(ServiceConnection.user_id == user_id)
+    result = db.execute(statement)
+    return list(result.scalars().all())
+
+
 def create_service_connection(
     db: Session,
     service_connection_in: ServiceConnectionCreate,
@@ -123,6 +130,7 @@ __all__ = [
     "create_service_connection",
     "get_service_connection_by_id",
     "get_service_connection_by_user_and_service",
+    "get_user_service_connections",
     "update_service_connection",
     "delete_service_connection",
 ]

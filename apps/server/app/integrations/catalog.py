@@ -77,6 +77,16 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                 description="Triggers when a new email arrives in the inbox.",
             ),
             AutomationOption(
+                key="new_email_from_sender",
+                name="New Email from Sender",
+                description="Triggers when a new email arrives from a specific sender.",
+            ),
+            AutomationOption(
+                key="new_unread_email",
+                name="New Unread Email",
+                description="Triggers when a new unread email arrives in the inbox.",
+            ),
+            AutomationOption(
                 key="email_starred",
                 name="Email Starred",
                 description="Triggers when a message is starred by the user.",
@@ -89,9 +99,14 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                 description="Send an email message to one or more recipients.",
             ),
             AutomationOption(
-                key="create_label",
-                name="Create Label",
-                description="Create a new label inside the Gmail account.",
+                key="mark_as_read",
+                name="Mark as Read",
+                description="Mark a specific email message as read.",
+            ),
+            AutomationOption(
+                key="forward_email",
+                name="Forward Email",
+                description="Forward an email message to another recipient.",
             ),
         ),
     ),

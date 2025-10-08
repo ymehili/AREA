@@ -132,6 +132,20 @@ class StepExecutor:
             log.get("status") == "failed" for log in self.execution_log
         )
         status = "failed" if has_errors else "success"
+        
+        # Log area execution summary
+        logger.info(
+            "Area execution completed",
+            extra={
+                "area_id": str(self.area.id),
+                "area_name": self.area.name,
+                "user_id": str(self.area.user_id),
+                "status": status,
+                "steps_executed": len(self.execution_log),
+                "steps_failed": len([log for log in self.execution_log if log.get("status") == "failed"]),
+                "execution_log": self.execution_log,
+            },
+        )
 
         return {
             "status": status,
@@ -175,6 +189,17 @@ class StepExecutor:
                 step_log["status"] = "success"
                 step_log["output"] = "Trigger activated"
                 self.execution_log.append(step_log)
+                
+                logger.info(
+                    "Trigger step executed successfully",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": step_id,
+                        "step_type": step.step_type,
+                        "service": step.service,
+                        "action": step.action,
+                    },
+                )
 
                 # Follow connections to next steps
                 self._follow_step_connections(step)
@@ -200,7 +225,11 @@ class StepExecutor:
                 self.execution_log.append(step_log)
                 logger.warning(
                     "Delay step not yet implemented, skipping",
-                    extra={"step_id": step_id},
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": step_id,
+                        "step_type": step.step_type,
+                    },
                 )
                 # Continue to next steps
                 self._follow_step_connections(step)
@@ -210,6 +239,14 @@ class StepExecutor:
                 step_log["status"] = "failed"
                 step_log["error"] = f"Unknown step type: {step.step_type}"
                 self.execution_log.append(step_log)
+                logger.error(
+                    "Unknown step type encountered",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": step_id,
+                        "step_type": step.step_type,
+                    },
+                )
                 return False
 
         except Exception as e:
@@ -334,10 +371,22 @@ class StepExecutor:
             params = substitute_variables_in_params(params, variables_from_context)
 
             # Execute handler - pass the trigger_data as the event parameter
+            logger.info(
+                "Executing action handler",
+                extra={
+                    "area_id": str(self.area.id),
+                    "step_id": str(step.id),
+                    "service": step.service,
+                    "action": step.action,
+                    "params": params,
+                },
+            )
+            
             handler(self.area, params, trigger_data)
 
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
+            step_log["params_used"] = params
             self.execution_log.append(step_log)
 
             logger.info(
@@ -347,6 +396,7 @@ class StepExecutor:
                     "step_id": str(step.id),
                     "service": step.service,
                     "action": step.action,
+                    "params": params,
                 },
             )
             return True

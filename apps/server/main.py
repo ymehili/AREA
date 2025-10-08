@@ -22,6 +22,7 @@ from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
 from app.integrations.simple_plugins.scheduler import start_scheduler, stop_scheduler
+from app.integrations.simple_plugins.gmail_scheduler import start_gmail_scheduler, stop_gmail_scheduler
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -52,6 +53,11 @@ async def lifespan(app: FastAPI):
         logger.info("Startup: starting scheduler")
         start_scheduler()
         logger.info("Startup: scheduler started")
+
+        # Start the Gmail polling scheduler
+        logger.info("Startup: starting Gmail scheduler")
+        start_gmail_scheduler()
+        logger.info("Startup: Gmail scheduler started")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -62,6 +68,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping scheduler")
     stop_scheduler()
     logger.info("Shutdown: scheduler stopped")
+
+    logger.info("Shutdown: stopping Gmail scheduler")
+    stop_gmail_scheduler()
+    logger.info("Shutdown: Gmail scheduler stopped")
 
 
 
