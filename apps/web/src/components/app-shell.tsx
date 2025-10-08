@@ -207,7 +207,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </nav>
         )}
         
-        <main>{children}</main>
+        <main key={pathname} className="page-transition-enter">{children}</main>
       </div>
     </div>
   );
