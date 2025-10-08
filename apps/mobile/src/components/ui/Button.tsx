@@ -98,9 +98,9 @@ const getTextStyles = (variant: ButtonVariant, disabled: boolean): TextStyle => 
 const getButtonSizeStyles = (size: 'default' | 'sm' | 'lg'): ViewStyle => {
   if (size === 'sm') {
     return {
-      paddingVertical: 8,
+      paddingVertical: 10,
       paddingHorizontal: 12,
-      minHeight: 40,
+      minHeight: 44, // Accessibility: minimum 44x44px touch target
     };
   } else if (size === 'lg') {
     return {

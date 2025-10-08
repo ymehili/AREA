@@ -6,6 +6,7 @@ import AppShell from "@/components/app-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { UnauthorizedError, requestJson } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { cn, headingClasses } from "@/lib/utils";
@@ -252,8 +253,20 @@ export default function ConnectionsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-4">
+              <CardHeader className="p-0 mb-4">
+                <div className="flex flex-row items-center justify-between space-y-0">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-5 w-24 rounded-full" />
+                </div>
+              </CardHeader>
+              <CardContent className="flex gap-2 justify-end">
+                <Skeleton className="h-9 w-20" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : error ? (
         <div className="flex justify-center items-center h-64">
