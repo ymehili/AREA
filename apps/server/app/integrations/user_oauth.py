@@ -197,14 +197,12 @@ class OAuthService:
         """Generate appropriate redirect URL based on client type."""
         user_agent_lower = user_agent.lower()
         
-        # Check if the mobile redirect URL uses a custom scheme (like areamobile://)
-        # If it does, it's a mobile app and should take precedence
-        parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
-        is_custom_scheme = parsed_mobile_url.scheme not in ['http', 'https']
+        # Detect mobile by user agent only
+        is_mobile = "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower
         
-        # For mobile apps, use query parameter
-        # Detect mobile either by user agent OR by custom URL scheme configuration
-        if is_custom_scheme or "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower:
+        if is_mobile:
+            # For mobile apps, use the mobile redirect URL with query parameter
+            parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
             mobile_path = parsed_mobile_url.path
 
             if not mobile_path or mobile_path == "/":
@@ -220,7 +218,7 @@ class OAuthService:
                 )
             )
 
-            print("Mobile detected" if not is_custom_scheme else "Custom URL scheme detected (mobile app)")
+            print("Mobile app detected (user agent)")
             print(f"Redirecting to {mobile_redirect_url}")
             return mobile_redirect_url
         
