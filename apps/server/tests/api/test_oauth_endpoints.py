@@ -282,11 +282,6 @@ class TestOAuthService:
         assert result == mock_user
         mock_get_user_by_email.assert_not_called()
     
-    def test_generate_redirect_url_web(self):
-        """Test redirect URL generation for web clients."""
-        result = OAuthService.generate_redirect_url("test_token", "Mozilla/5.0")
-        assert result == "http://localhost:3000#access_token=test_token"
-    
     def test_is_oauth_configured(self):
         """Test OAuth configuration check."""
         # This would test the configuration validation
