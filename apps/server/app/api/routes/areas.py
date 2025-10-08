@@ -271,6 +271,7 @@ def update_user_area(
 def update_user_area_with_steps(
     area_id: str,
     area_with_steps: AreaCreateWithSteps,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> AreaResponse:
@@ -316,6 +317,18 @@ def update_user_area_with_steps(
             processed_steps,
             user_id=str(current_user.id),
         )
+        
+        # Schedule area update activity log using background task
+        # so that if logging fails, the main operation is still successful
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
+            action_type="area_updated",
+            details=f"User updated area: {area.name}",
+            service_name=f"{area.trigger_service} → {area.reaction_service}",
+            status="success"
+        )
+        
         # Load the steps for the response
         steps = get_steps_by_area(db, str(uuid_area_id))
         area_dict = {

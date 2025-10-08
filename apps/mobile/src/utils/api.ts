@@ -11,6 +11,16 @@ export type ExecutionLog = {
   created_at: string;
 };
 
+export type UserActivityLog = {
+  id: string;
+  timestamp: string;
+  action_type: string;
+  service_name: string | null;
+  details: string | null;
+  status: "success" | "failed" | "pending";
+  created_at: string;
+};
+
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -50,6 +60,10 @@ async function requestJson<T>(
 ): Promise<T> {
   const API_BASE_URL = resolveApiBaseUrl();
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  console.log('Making API request to:', url);
+  console.log('Method:', options.method || 'GET');
+  console.log('Body:', options.body);
+  
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -62,7 +76,9 @@ async function requestJson<T>(
   let response: Response;
   try {
     response = await fetch(url, { ...options, headers });
+    console.log('Response status:', response.status);
   } catch (networkError) {
+    console.log('Network error:', networkError);
     // Normalize network-level failures
     const message =
       networkError instanceof Error
@@ -74,18 +90,35 @@ async function requestJson<T>(
     throw new ApiError(401, "Unauthorized");
   }
   if (!response.ok) {
-    throw new ApiError(response.status, await parseError(response));
+    const errorMessage = await parseError(response);
+    console.log('API error:', response.status, errorMessage);
+    throw new ApiError(response.status, errorMessage);
   }
   return (await response.json()) as T;
 }
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
+  console.log('EXPO_PUBLIC_API_URL:', explicit);
   if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
-    return explicit.replace(/\/$/, "");
+    const url = explicit.replace(/\/$/, "");
+    console.log('Using explicit API URL:', url);
+    return url;
   }
-  // For this separate file we default to localhost
-  return "http://localhost:8080/api/v1";
+  // Platform-specific defaults
+  // Note: We need to import Platform from react-native at the top of the file
+  const Platform = require('react-native').Platform;
+  // Emulators
+  if (Platform.OS === "android") {
+    // Android emulator maps host loopback to 10.0.2.2
+    const url = "http://10.0.2.2:8080/api/v1";
+    console.log('Using Android default API URL:', url);
+    return url;
+  }
+  // iOS Simulator usually reaches host via localhost
+  const url = "http://localhost:8080/api/v1";
+  console.log('Using iOS default API URL:', url);
+  return url;
 }
 
 async function getExecutionLogsForUser(token: string): Promise<ExecutionLog[]> {
@@ -98,4 +131,14 @@ async function getExecutionLogsForUser(token: string): Promise<ExecutionLog[]> {
   );
 }
 
-export { requestJson, getExecutionLogsForUser, resolveApiBaseUrl };
+async function getUserActivities(token: string): Promise<UserActivityLog[]> {
+  return requestJson<UserActivityLog[]>(
+    "/user-activities",
+    {
+      method: "GET",
+    },
+    token,
+  );
+}
+
+export { requestJson, getExecutionLogsForUser, getUserActivities, resolveApiBaseUrl };

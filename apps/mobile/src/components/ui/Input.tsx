@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...TextStyles.small,
-    color: Colors.text,
+    color: Colors.textDark,
     marginBottom: 8,
   },
   input: {
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     backgroundColor: 'transparent',
-    color: Colors.text,
+    color: Colors.textDark,
   },
   inputError: {
     borderColor: Colors.error,
