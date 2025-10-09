@@ -194,14 +194,24 @@ class OAuthService:
     
     @staticmethod
     def generate_redirect_url(access_token: str, user_agent: str) -> str:
-        """Generate appropriate redirect URL based on client type."""
+        """Generate appropriate redirect URL based on client type (user agent detection)."""
         user_agent_lower = user_agent.lower()
-        
-        # Detect mobile by user agent only
-        is_mobile = "mobile" in user_agent_lower or "android" in user_agent_lower or "iphone" in user_agent_lower
-        
+
+        # Detect if this is a mobile app based ONLY on user agent
+        # Common mobile user agent indicators
+        is_mobile = (
+            "mobile" in user_agent_lower or
+            "android" in user_agent_lower or
+            "iphone" in user_agent_lower or
+            "ipad" in user_agent_lower or
+            "ipod" in user_agent_lower or
+            # React Native / Expo user agent patterns
+            "expo" in user_agent_lower or
+            "reactnative" in user_agent_lower
+        )
+
+        # For mobile apps, redirect to mobile URL (may be custom scheme or http/https)
         if is_mobile:
-            # For mobile apps, use the mobile redirect URL with query parameter
             parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
             mobile_path = parsed_mobile_url.path
 
@@ -218,12 +228,13 @@ class OAuthService:
                 )
             )
 
-            print("Mobile app detected (user agent)")
+            print(f"Mobile app detected (User-Agent: {user_agent})")
             print(f"Redirecting to {mobile_redirect_url}")
             return mobile_redirect_url
-        
+
         # For web apps, use URL hash
-        print("Web app detected")
+        print(f"Web app detected (User-Agent: {user_agent})")
+        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
         return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
 
 

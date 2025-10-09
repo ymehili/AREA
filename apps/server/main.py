@@ -22,6 +22,11 @@ from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
 from app.integrations.simple_plugins.scheduler import start_scheduler, stop_scheduler
+from app.integrations.simple_plugins.gmail_scheduler import (
+    start_gmail_scheduler,
+    stop_gmail_scheduler,
+    is_gmail_scheduler_running,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -52,6 +57,19 @@ async def lifespan(app: FastAPI):
         logger.info("Startup: starting scheduler")
         start_scheduler()
         logger.info("Startup: scheduler started")
+
+        # Start the Gmail polling scheduler (non-blocking)
+        logger.info("Startup: starting Gmail scheduler")
+        start_gmail_scheduler()
+        # Do not hard-fail app startup if Gmail scheduler validation is inconclusive
+        try:
+            await asyncio.sleep(0.1)
+            if not is_gmail_scheduler_running():
+                logger.warning("Startup: Gmail scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Gmail scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Gmail scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -62,6 +80,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping scheduler")
     stop_scheduler()
     logger.info("Shutdown: scheduler stopped")
+
+    logger.info("Shutdown: stopping Gmail scheduler")
+    stop_gmail_scheduler()
+    logger.info("Shutdown: Gmail scheduler stopped")
 
 
 

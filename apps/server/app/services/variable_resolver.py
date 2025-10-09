@@ -81,6 +81,33 @@ def substitute_variables_in_params(params: Dict[str, Any], variables: Dict[str, 
     return _substitute_recursive(result)
 
 
+def resolve_variables(template: str, variables: Dict[str, Any]) -> str:
+    """Substitute {{var}} placeholders inside a string template using provided variables.
+
+    Supports dotted paths like {{gmail.subject}}. If a variable is missing,
+    it is left unchanged in the template.
+
+    Args:
+        template: The string containing placeholders.
+        variables: Mapping of variable names to values.
+
+    Returns:
+        The template with placeholders replaced.
+    """
+    if not isinstance(template, str):
+        return template  # type: ignore[return-value]
+
+    pattern = r"\{\{\s*(\w+(?:\.\w+)*)\s*\}\}"
+
+    def replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key in variables:
+            value = variables[key]
+            return str(value)
+        return match.group(0)
+
+    return re.sub(pattern, replace, template)
+
 def get_available_variables_for_service(service_id: str, action_id: str) -> List[str]:
     """Get list of variables available for a service/action.
     
@@ -149,6 +176,20 @@ def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str
     Returns:
         Dictionary mapping variable names to their values
     """
+    # If trigger_data already contains namespaced variables (e.g., "gmail.subject"),
+    # pass them through directly. This happens when the trigger populated flat variables.
+    if any(isinstance(k, str) and '.' in k for k in trigger_data.keys()):
+        # Only include primitive or JSON-serializable values
+        result: Dict[str, Any] = {}
+        for k, v in trigger_data.items():
+            if isinstance(k, str) and '.' in k:
+                result[k] = v
+        # Also pass common fields if present
+        for k in ("now", "timestamp", "area_id", "user_id"):
+            if k in trigger_data:
+                result[k] = trigger_data[k]
+        return result
+
     # Map service types to their specific extractors
     service_extractors = {
         'gmail': extract_gmail_variables,
