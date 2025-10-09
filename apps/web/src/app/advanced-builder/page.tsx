@@ -43,20 +43,20 @@ const AdvancedBuilderPage = () => {
 
       // Convert the flow nodes/edges to the appropriate format for the API
       // The first node should be a trigger, and we'll use it to create the area
+      const triggerNodeData = triggerNode.data as NodeData;
+      const firstActionNode = currentNodes.find(node => node.type === 'action');
+      const firstActionData = firstActionNode?.data as NodeData | undefined;
+
       const areaData = {
         name: areaName,
         description: areaDescription,
         is_active: true,
-        trigger_service: (() => {
-          const data = triggerNode.data as NodeData;
-          return isTriggerNode(data) ? data.serviceId || 'manual' : 'manual';
-        })(),
-        trigger_action: (() => {
-          const data = triggerNode.data as NodeData;
-          return isTriggerNode(data) ? data.actionId || 'trigger' : 'trigger';
-        })(),
-        reaction_service: 'manual',  // We'll update this based on the last node or first action if no other reaction is found
-        reaction_action: 'reaction',
+        trigger_service: isTriggerNode(triggerNodeData) ? triggerNodeData.serviceId || 'manual' : 'manual',
+        trigger_action: isTriggerNode(triggerNodeData) ? triggerNodeData.actionId || 'trigger' : 'trigger',
+        trigger_params: isTriggerNode(triggerNodeData) && triggerNodeData.params ? triggerNodeData.params : undefined,
+        reaction_service: firstActionData && isActionNode(firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
+        reaction_action: firstActionData && isActionNode(firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
+        reaction_params: firstActionData && isActionNode(firstActionData) && firstActionData.params ? firstActionData.params : undefined,
         steps: currentNodes.map((node, index) => {
           const nodeData = node.data as NodeData;
           // Find edges connected to this node
@@ -68,6 +68,8 @@ const AdvancedBuilderPage = () => {
             action: (isTriggerNode(nodeData) || isActionNode(nodeData)) ? nodeData.actionId : null,
             config: {
               ...(nodeData.config || {}),
+              // Include params in config so they're available during execution
+              ...(('params' in nodeData && nodeData.params) ? nodeData.params : {}),
               clientId: node.id,
               position: node.position,
               targets: targetEdges,
