@@ -118,8 +118,24 @@ def verify_connection_tracker(monkeypatch: pytest.MonkeyPatch) -> Generator[dict
     def fake_run_migrations() -> None:
         tracker["migrations"] += 1
 
+    def fake_start_scheduler() -> None:
+        pass
+
+    def fake_stop_scheduler() -> None:
+        pass
+
+    def fake_start_gmail_scheduler() -> None:
+        pass
+
+    def fake_stop_gmail_scheduler() -> None:
+        pass
+
     monkeypatch.setattr(main, "verify_connection", fake_verify_connection)
     monkeypatch.setattr(main, "run_migrations", fake_run_migrations)
+    monkeypatch.setattr(main, "start_scheduler", fake_start_scheduler)
+    monkeypatch.setattr(main, "stop_scheduler", fake_stop_scheduler)
+    monkeypatch.setattr(main, "start_gmail_scheduler", fake_start_gmail_scheduler)
+    monkeypatch.setattr(main, "stop_gmail_scheduler", fake_stop_gmail_scheduler)
     yield tracker
 
 
