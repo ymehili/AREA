@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import AppShell from "@/components/app-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
@@ -70,6 +69,7 @@ export default function EditAreaPage() {
               // For other node types, use generic data
               // Extract params from config (params were saved merged into config)
               const config = step.config || {};
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
               const { clientId, position, targets, ...params } = config;
 
               nodeData = {

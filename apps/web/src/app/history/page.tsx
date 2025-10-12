@@ -122,6 +122,7 @@ export default function HistoryPage() {
   };
 
   // Extract weather data from step_details if available
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getWeatherData = (log: ExecutionLog | null) => {
     if (!log || !log.step_details) return null;
     
@@ -131,7 +132,7 @@ export default function HistoryPage() {
         : log.step_details;
       
       const executionLog = stepDetails.execution_log || [];
-      const weatherStep = executionLog.find((step: any) => 
+      const weatherStep = executionLog.find((step: { service?: string; status?: string }) => 
         step.service === 'weather' && step.status === 'success'
       );
       
@@ -140,7 +141,7 @@ export default function HistoryPage() {
       // Extract weather data from the event context (stored in backend logs)
       // This will be populated once we update the backend to include it
       return weatherStep.weather_data || null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };
@@ -415,7 +416,7 @@ export default function HistoryPage() {
                         : selectedLog.step_details;
                       
                       const executionLog = stepDetails.execution_log || [];
-                      const weatherStep = executionLog.find((step: any) => 
+                      const weatherStep = executionLog.find((step: { service?: string; status?: string; weather_data?: unknown; params_used?: { location?: string; lat?: number; lon?: number }; action?: string }) => 
                         step.service === 'weather' && step.status === 'success'
                       );
                       
@@ -510,7 +511,7 @@ export default function HistoryPage() {
                           </CardContent>
                         </Card>
                       );
-                    } catch (e) {
+                    } catch {
                       return null;
                     }
                   })()}
