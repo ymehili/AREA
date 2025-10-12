@@ -249,12 +249,15 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 onValueChange={(value) => {
                                   const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
                                   const selectedAction = selectedService?.actions.find(a => a.key === value);
+                                  console.log('[ControlsPanel] Changing trigger from', nodeConfig.actionId, 'to', value);
+                                  console.log('[ControlsPanel] Clearing params, old params:', nodeConfig.params);
                                   onNodeConfigChange(selectedNodeId, {
                                     ...nodeConfig,
                                     actionId: value,
                                     label: selectedAction?.name || nodeConfig.label,
                                     description: selectedAction?.description || nodeConfig.description,
-                                    params: {}
+                                    params: {}, // Clear all params when changing trigger
+                                    config: {} // Also clear config to remove any trigger-specific config
                                   } as TriggerNodeData);
                                 }}
                               >
@@ -519,13 +522,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 onValueChange={(value) => {
                                   const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
                                   const selectedReaction = selectedService?.reactions.find(r => r.key === value);
+                                  console.log('[ControlsPanel] Changing action from', nodeConfig.actionId, 'to', value);
+                                  console.log('[ControlsPanel] Clearing params, old params:', nodeConfig.params);
                                   onNodeConfigChange(selectedNodeId, {
                                     ...nodeConfig,
                                     actionId: value,
                                     label: selectedReaction?.name || nodeConfig.label,
                                     description: selectedReaction?.description || nodeConfig.description,
-                                    params: {}
-                                  } as AreaStepNodeData);
+                                    params: {}, // Clear all params when changing action
+                                    config: {} // Also clear config to remove any action-specific config
+                                  } as ActionNodeData);
                                 }}
                               >
                                 <SelectTrigger id="actionReaction">
@@ -695,10 +701,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     value={(nodeConfig as ActionNodeData).params?.location as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { 
-                                        ...nodeConfig, 
-                                        params: { ...currentParams, location: e.target.value, lat: undefined, lon: undefined } 
-                                      } as ActionNodeData);
+                                      const value = e.target.value;
+                                      // Only clear lat/lon if a non-empty location is entered
+                                      if (value && value.trim()) {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value, lat: undefined, lon: undefined } 
+                                        } as ActionNodeData);
+                                      } else {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value } 
+                                        } as ActionNodeData);
+                                      }
                                     }}
                                     onFocus={handleInputFocus}
                                   />
@@ -715,10 +730,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       value={(nodeConfig as ActionNodeData).params?.lat as number || ''}
                                       onChange={(e) => {
                                         const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                        onNodeConfigChange(selectedNodeId, { 
-                                          ...nodeConfig, 
-                                          params: { ...currentParams, lat: parseFloat(e.target.value), location: undefined } 
-                                        } as ActionNodeData);
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid latitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value } 
+                                          } as ActionNodeData);
+                                        }
                                       }}
                                       onFocus={handleInputFocus}
                                     />
@@ -733,10 +757,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       value={(nodeConfig as ActionNodeData).params?.lon as number || ''}
                                       onChange={(e) => {
                                         const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                        onNodeConfigChange(selectedNodeId, { 
-                                          ...nodeConfig, 
-                                          params: { ...currentParams, lon: parseFloat(e.target.value), location: undefined } 
-                                        } as ActionNodeData);
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid longitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value } 
+                                          } as ActionNodeData);
+                                        }
                                       }}
                                       onFocus={handleInputFocus}
                                     />
@@ -780,10 +813,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     value={(nodeConfig as ActionNodeData).params?.location as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { 
-                                        ...nodeConfig, 
-                                        params: { ...currentParams, location: e.target.value, lat: undefined, lon: undefined } 
-                                      } as ActionNodeData);
+                                      const value = e.target.value;
+                                      // Only clear lat/lon if a non-empty location is entered
+                                      if (value && value.trim()) {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value, lat: undefined, lon: undefined } 
+                                        } as ActionNodeData);
+                                      } else {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value } 
+                                        } as ActionNodeData);
+                                      }
                                     }}
                                     onFocus={handleInputFocus}
                                   />
@@ -800,10 +842,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       value={(nodeConfig as ActionNodeData).params?.lat as number || ''}
                                       onChange={(e) => {
                                         const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                        onNodeConfigChange(selectedNodeId, { 
-                                          ...nodeConfig, 
-                                          params: { ...currentParams, lat: parseFloat(e.target.value), location: undefined } 
-                                        } as ActionNodeData);
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid latitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value } 
+                                          } as ActionNodeData);
+                                        }
                                       }}
                                       onFocus={handleInputFocus}
                                     />
@@ -818,10 +869,19 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                       value={(nodeConfig as ActionNodeData).params?.lon as number || ''}
                                       onChange={(e) => {
                                         const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                        onNodeConfigChange(selectedNodeId, { 
-                                          ...nodeConfig, 
-                                          params: { ...currentParams, lon: parseFloat(e.target.value), location: undefined } 
-                                        } as ActionNodeData);
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid longitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value } 
+                                          } as ActionNodeData);
+                                        }
                                       }}
                                       onFocus={handleInputFocus}
                                     />
