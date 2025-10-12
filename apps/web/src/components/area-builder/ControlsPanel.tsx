@@ -115,43 +115,47 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   };
 
   return (
-    <div className="w-64 h-full bg-gray-50 dark:bg-gray-900/20 p-4 flex flex-col gap-4 overflow-y-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Add Step</CardTitle>
+    <div className="w-80 h-full bg-card border-l overflow-y-auto px-3 py-4 flex flex-col gap-3">
+      <Card className="border-0 shadow-none">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-base font-semibold">Add Step</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2">
+        <CardContent className="flex flex-col gap-2 px-0 pb-0">
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('trigger')}
           >
-            <Badge variant="outline" className="mr-2 bg-blue-100 text-blue-800">Trigger</Badge>
-            Add Event
+            <Badge variant="outline" className="mr-2 bg-blue-100 text-blue-800 text-xs">Trigger</Badge>
+            <span className="text-sm">Add Event</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('action')}
           >
-            <Badge variant="outline" className="mr-2 bg-green-100 text-green-800">Action</Badge>
-            Add Action
+            <Badge variant="outline" className="mr-2 bg-green-100 text-green-800 text-xs">Action</Badge>
+            <span className="text-sm">Add Action</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('condition')}
           >
-            <Badge variant="outline" className="mr-2 bg-yellow-100 text-yellow-800">Condition</Badge>
-            Add If
+            <Badge variant="outline" className="mr-2 bg-yellow-100 text-yellow-800 text-xs">Condition</Badge>
+            <span className="text-sm">Add If</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('delay')}
           >
-            <Badge variant="outline" className="mr-2 bg-purple-100 text-purple-800">Delay</Badge>
-            Add Delay
+            <Badge variant="outline" className="mr-2 bg-purple-100 text-purple-800 text-xs">Delay</Badge>
+            <span className="text-sm">Add Delay</span>
           </Button>
         </CardContent>
       </Card>
@@ -159,11 +163,11 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       {selectedNodeId && onNodeConfigChange && (
         <>
           <Separator />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Configure Step</CardTitle>
+          <Card className="border-0 shadow-none">
+            <CardHeader className="px-0">
+              <CardTitle className="text-base font-semibold">Configure Step</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-0 pb-0">
               {/* Configuration UI based on the selected node type */}
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {nodeConfig ? 'Configuration options for selected node' : 'Select a node to configure'}
