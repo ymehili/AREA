@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
 import { NodeData, isTriggerNode, isActionNode } from '@/components/area-builder/node-types';
-import { createAreaWithSteps } from '@/lib/api';
+import { createAreaWithSteps, UnauthorizedError } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { cn, headingClasses } from '@/lib/utils';
 
@@ -31,18 +31,33 @@ export default function WizardPage() {
 
 
 
+  // Helper function to remove undefined values from an object
+  const cleanParams = (params: Record<string, unknown> | undefined): Record<string, unknown> | undefined => {
+    if (!params) return undefined;
+    const cleaned: Record<string, unknown> = {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      if (value !== undefined && value !== null && !(typeof value === 'number' && isNaN(value))) {
+        cleaned[key] = value;
+      }
+    });
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+
   const handleSave = async () => {
     if (!areaName) {
       toast.error('Please enter an area name');
       return;
     }
 
-    try {
-      // Get the token from the stored session
-      if (!auth.token) {
-        throw new Error('User not authenticated');
-      }
+    // Check if user is authenticated
+    if (!auth.token) {
+      toast.error('You must be logged in to create an area');
+      router.push('/');
+      return;
+    }
 
+    try {
       // Get the current nodes and edges directly from the flow ref to ensure we have the latest
       const currentNodes = areaFlowRef.current?.getCurrentNodes() || nodes;
       const currentEdges = areaFlowRef.current?.getCurrentEdges() || edges;
@@ -66,20 +81,23 @@ export default function WizardPage() {
         is_active: true,
         trigger_service: isTriggerNode(triggerNodeData) ? triggerNodeData.serviceId || 'manual' : 'manual',
         trigger_action: isTriggerNode(triggerNodeData) ? triggerNodeData.actionId || 'trigger' : 'trigger',
-        trigger_params: isTriggerNode(triggerNodeData) && triggerNodeData.params ? triggerNodeData.params : undefined,
+        trigger_params: isTriggerNode(triggerNodeData) ? cleanParams(triggerNodeData.params) : undefined,
         reaction_service: firstActionData && isActionNode(firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
         reaction_action: firstActionData && isActionNode(firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
-        reaction_params: firstActionData && isActionNode(firstActionData) && firstActionData.params ? firstActionData.params : undefined,
+        reaction_params: firstActionData && isActionNode(firstActionData) ? cleanParams(firstActionData.params) : undefined,
         steps: currentNodes.map((node, index) => {
           const nodeData = node.data as NodeData;
           // Find edges connected to this node
           const targetEdges = currentEdges.filter(edge => edge.source === node.id).map(edge => edge.target);
           
+          // Get clean params without undefined/null/NaN values
+          const params = ('params' in nodeData && nodeData.params) ? cleanParams(nodeData.params as Record<string, unknown>) : undefined;
+          
           // Prepare the base config with common properties
           let stepConfig: Record<string, unknown> = {
             ...(nodeData.config || {}),
             // Include params in config so they're available during execution
-            ...(('params' in nodeData && nodeData.params) ? nodeData.params : {}),
+            ...(params || {}),
             clientId: node.id,
             position: node.position,
             targets: targetEdges,
@@ -112,6 +130,14 @@ export default function WizardPage() {
       toast.success('Area created successfully!');
       router.push('/dashboard');
     } catch (error) {
+      // Handle authentication errors specifically
+      if (error instanceof UnauthorizedError) {
+        toast.error('Your session has expired. Please log in again.');
+        auth.logout();
+        router.push('/');
+        return;
+      }
+      
       // Show specific error message from the API
       if (error instanceof Error) {
         toast.error(error.message);

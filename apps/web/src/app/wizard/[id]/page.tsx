@@ -27,6 +27,19 @@ export default function EditAreaPage() {
   const [initialEdges, setInitialEdges] = useState<Edge[]>([]);
   const areaFlowRef = useRef<AreaFlowHandles>(null);
 
+  // Helper function to remove undefined values from an object
+  const cleanParams = (params: Record<string, unknown> | undefined): Record<string, unknown> | undefined => {
+    if (!params) return undefined;
+    const cleaned: Record<string, unknown> = {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      if (value !== undefined && value !== null && !(typeof value === 'number' && isNaN(value))) {
+        cleaned[key] = value;
+      }
+    });
+    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  };
+
   useEffect(() => {
     const loadArea = async () => {
       if (!auth.token || !areaId) {
@@ -158,10 +171,10 @@ export default function EditAreaPage() {
         name: areaName,
         trigger_service: castedTriggerNodeData.type === 'trigger' && 'serviceId' in castedTriggerNodeData ? castedTriggerNodeData.serviceId || 'manual' : 'manual',
         trigger_action: castedTriggerNodeData.type === 'trigger' && 'actionId' in castedTriggerNodeData ? castedTriggerNodeData.actionId || 'trigger' : 'trigger',
-        trigger_params: castedTriggerNodeData.type === 'trigger' && ('params' in castedTriggerNodeData) && castedTriggerNodeData.params ? castedTriggerNodeData.params : undefined,
+        trigger_params: castedTriggerNodeData.type === 'trigger' && ('params' in castedTriggerNodeData) ? cleanParams(castedTriggerNodeData.params as Record<string, unknown>) : undefined,
         reaction_service: firstActionData && ('serviceId' in firstActionData) ? firstActionData.serviceId || 'manual' : 'manual',
         reaction_action: firstActionData && ('actionId' in firstActionData) ? firstActionData.actionId || 'reaction' : 'reaction',
-        reaction_params: firstActionData && ('params' in firstActionData) && firstActionData.params ? firstActionData.params : undefined,
+        reaction_params: firstActionData && ('params' in firstActionData) ? cleanParams(firstActionData.params as Record<string, unknown>) : undefined,
       };
 
       // Update the area metadata
@@ -174,11 +187,14 @@ export default function EditAreaPage() {
         const nodeData = node.data as NodeData;
         const targetEdges = currentEdges.filter(edge => edge.source === node.id).map(edge => edge.target);
 
+        // Get clean params without undefined/null/NaN values
+        const params = ('params' in nodeData && nodeData.params) ? cleanParams(nodeData.params as Record<string, unknown>) : undefined;
+
         // Prepare the config to save, including delay-specific properties if it's a delay node
         let configToSave: Record<string, unknown> = {
           ...(nodeData.config || {}),
           // Include params in config so they're available during execution
-          ...(('params' in nodeData && nodeData.params) ? nodeData.params : {}),
+          ...(params || {}),
           clientId: node.id,
           position: node.position,
           targets: targetEdges,
@@ -194,10 +210,23 @@ export default function EditAreaPage() {
           };
         }
 
-        // Update step with new position and targets
-        await updateAreaStep(auth.token, node.id, {
+        // Build update payload - include service and action for trigger/action nodes
+        const updatePayload: {
+          config: Record<string, unknown>;
+          service?: string | null;
+          action?: string | null;
+        } = {
           config: configToSave,
-        });
+        };
+
+        // Add service and action if this is a trigger or action node
+        if ('serviceId' in nodeData && 'actionId' in nodeData) {
+          updatePayload.service = nodeData.serviceId;
+          updatePayload.action = nodeData.actionId;
+        }
+
+        // Update step with new configuration, service, and action
+        await updateAreaStep(auth.token, node.id, updatePayload);
       });
 
       await Promise.all(updateStepPromises);
