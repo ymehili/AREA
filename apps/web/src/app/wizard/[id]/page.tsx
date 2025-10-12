@@ -222,76 +222,115 @@ export default function EditAreaPage() {
 
   return (
     <AppShell>
-      <div className="container mx-auto py-8">
-        <div className="mb-8">
-          <h1 className={cn(headingClasses(1), "text-foreground")}>Edit AREA</h1>
-          <p className="text-muted-foreground mt-2">
-            Modify your automation flow
-          </p>
+      <div className="h-[calc(100vh-4rem)]">
+        {/* Header */}
+        <div className="border-b bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className={cn(headingClasses(2), "text-foreground")}>Edit AREA</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Modify your automation flow
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/dashboard')}
+              >
+                Cancel
+              </Button>
+              {hasSelectedNode && (
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                >
+                  Delete Selected
+                </Button>
+              )}
+              <Button
+                variant="default"
+                onClick={handleSave}
+              >
+                Update AREA
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Area Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Area Name *</label>
-              <input
-                type="text"
-                value={areaName}
-                onChange={(e) => setAreaName(e.target.value)}
-                className="w-full p-2 border rounded"
-                placeholder="Enter area name"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Description</label>
-              <textarea
-                value={areaDescription}
-                onChange={(e) => setAreaDescription(e.target.value)}
-                className="w-full p-2 border rounded"
-                placeholder="Enter area description"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Main content area with sidebar */}
+        <div className="flex h-[calc(100%-80px)]">
+          {/* Left sidebar for area details */}
+          <div className="w-80 border-r bg-card overflow-y-auto">
+            <div className="p-6 space-y-4">
+              <div>
+                <h3 className="font-semibold text-sm mb-4 text-foreground">Area Details</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium mb-2 text-foreground">
+                      Area Name <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={areaName}
+                      onChange={(e) => setAreaName(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-[box-shadow] duration-150 bg-background"
+                      placeholder="My Automation"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium mb-2 text-foreground">Description</label>
+                    <textarea
+                      value={areaDescription}
+                      onChange={(e) => setAreaDescription(e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-input rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-[box-shadow] duration-150 bg-background resize-none"
+                      placeholder="Describe what this automation does..."
+                    />
+                  </div>
+                </div>
+              </div>
 
-        <Card className="h-[600px] mb-6">
-          <CardHeader>
-            <CardTitle>Automation Flow</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 h-[calc(100%-60px)]">
+              <div className="pt-4 border-t">
+                <h3 className="font-semibold text-xs mb-3 text-muted-foreground uppercase tracking-wide">
+                  Instructions
+                </h3>
+                <ul className="space-y-2 text-xs text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">1.</span>
+                    <span>Use the toolbar on the right to add nodes</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">2.</span>
+                    <span>Modify existing nodes or add new ones</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">3.</span>
+                    <span>Connect nodes by dragging from handles</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">4.</span>
+                    <span>Click nodes to configure their settings</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-primary mt-0.5">5.</span>
+                    <span>Update when your changes are complete</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Main flow editor - full height */}
+          <div className="flex-1 bg-muted/30">
             <AreaFlow
               ref={areaFlowRef}
               initialNodes={initialNodes}
               initialEdges={initialEdges}
               onNodeSelect={(nodeId) => setHasSelectedNode(!!nodeId)}
             />
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end gap-4">
-          <Button
-            variant="default"
-            onClick={handleSave}
-          >
-            Update AREA
-          </Button>
-          {hasSelectedNode && (
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-            >
-              Delete Selected
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => router.push('/dashboard')}
-          >
-            Cancel
-          </Button>
+          </div>
         </div>
       </div>
     </AppShell>
