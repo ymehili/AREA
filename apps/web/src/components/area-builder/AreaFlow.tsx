@@ -219,12 +219,6 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   return (
     <div className="flex h-full w-full">
       <ReactFlowProvider>
-        <ControlsPanel 
-          onAddNode={addNode}
-          selectedNodeId={selectedNodeId || undefined}
-          onNodeConfigChange={updateNodeConfig}
-          nodeConfig={selectedNode?.data}
-        />
         <div className="flex-1 h-full relative">
           <ReactFlow
             nodes={nodes}
@@ -265,6 +259,12 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
             <Background gap={12} size={1} />
           </ReactFlow>
         </div>
+        <ControlsPanel 
+          onAddNode={addNode}
+          selectedNodeId={selectedNodeId || undefined}
+          onNodeConfigChange={updateNodeConfig}
+          nodeConfig={selectedNode?.data}
+        />
       </ReactFlowProvider>
     </div>
   );
