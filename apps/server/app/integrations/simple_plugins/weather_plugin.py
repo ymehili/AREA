@@ -370,6 +370,16 @@ def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
         # Store full forecast data (useful for advanced workflows)
         event["weather.forecast_data"] = forecast_data
         
+        # Store weather data for display in execution logs (similar to current weather)
+        # This will be picked up by step_executor.py and included in the step log
+        event["weather_data"] = {
+            "type": "forecast",
+            "location": location_str,
+            "units": units,
+            "forecast_count": num_forecasts,
+            "forecast_data": forecast_data,
+        }
+        
     except ValueError as e:
         logger.error(
             "Invalid parameters for get_forecast",
