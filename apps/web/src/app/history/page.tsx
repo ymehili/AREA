@@ -420,9 +420,8 @@ export default function HistoryPage() {
                         step.service === 'weather' && step.status === 'success'
                       );
                       
-                      if (!weatherStep || !weatherStep.weather_data) return null;
+                      if (!weatherStep) return null;
                       
-                      const weatherData = weatherStep.weather_data;
                       const location = weatherStep.params_used?.location || 
                         (weatherStep.params_used?.lat && weatherStep.params_used?.lon 
                           ? `${weatherStep.params_used.lat}, ${weatherStep.params_used.lon}` 
@@ -439,78 +438,203 @@ export default function HistoryPage() {
                         return '🌤️';
                       };
                       
-                      const unitSymbol = weatherData.units === 'imperial' ? '°F' : weatherData.units === 'standard' ? 'K' : '°C';
-                      const speedUnit = weatherData.units === 'imperial' ? 'mph' : 'm/s';
+                      // Check if it's current weather or forecast
+                      const isCurrentWeather = weatherStep.action === 'get_current_weather';
+                      const isForecast = weatherStep.action === 'get_forecast';
                       
-                      return (
-                        <Card className="border-2 border-blue-200 dark:border-blue-800">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2">
-                              🌤️ Weather Information
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {/* Header with main weather info */}
-                            <div className="flex items-center justify-between bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg p-4">
-                              <div className="flex items-center gap-4">
-                                <span className="text-5xl">{getWeatherEmoji(weatherData.condition)}</span>
-                                <div>
-                                  <p className="font-bold text-3xl">
-                                    {weatherData.temperature}{unitSymbol}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground capitalize font-medium">
-                                    {weatherData.description}
+                      // Current Weather Display
+                      if (isCurrentWeather && weatherStep.weather_data) {
+                        const weatherData = weatherStep.weather_data;
+                        const unitSymbol = weatherData.units === 'imperial' ? '°F' : weatherData.units === 'standard' ? 'K' : '°C';
+                        const speedUnit = weatherData.units === 'imperial' ? 'mph' : 'm/s';
+                        
+                        return (
+                          <Card className="border-2 border-blue-200 dark:border-blue-800">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                🌤️ Current Weather Information
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Header with main weather info */}
+                              <div className="flex items-center justify-between bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg p-4">
+                                <div className="flex items-center gap-4">
+                                  <span className="text-5xl">{getWeatherEmoji(weatherData.condition)}</span>
+                                  <div>
+                                    <p className="font-bold text-3xl">
+                                      {weatherData.temperature}{unitSymbol}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground capitalize font-medium">
+                                      {weatherData.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold">📍 {location}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Current Weather
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-sm font-semibold">📍 {location}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {weatherStep.action === 'get_current_weather' ? 'Current Weather' : '5-Day Forecast'}
-                                </p>
+                              
+                              {/* Weather Details Grid */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Feels Like</p>
+                                  <p className="text-lg font-semibold">
+                                    {weatherData.feels_like}{unitSymbol}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Humidity</p>
+                                  <p className="text-lg font-semibold">
+                                    💧 {weatherData.humidity}%
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Wind Speed</p>
+                                  <p className="text-lg font-semibold">
+                                    💨 {weatherData.wind_speed} {speedUnit}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Pressure</p>
+                                  <p className="text-lg font-semibold">
+                                    🌡️ {weatherData.pressure} hPa
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                            
-                            {/* Weather Details Grid */}
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="bg-muted/50 border rounded-lg p-3">
-                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Feels Like</p>
-                                <p className="text-lg font-semibold">
-                                  {weatherData.feels_like}{unitSymbol}
-                                </p>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Data Retrieved Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenWeatherMap API
+                                </span>
                               </div>
-                              <div className="bg-muted/50 border rounded-lg p-3">
-                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Humidity</p>
-                                <p className="text-lg font-semibold">
-                                  💧 {weatherData.humidity}%
-                                </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      // Weather Forecast Display
+                      if (isForecast && weatherStep.weather_data) {
+                        const weatherData = weatherStep.weather_data;
+                        
+                        // Check if this is forecast type data
+                        if (weatherData.type !== 'forecast' || !weatherData.forecast_data) return null;
+                        
+                        const forecastData = weatherData.forecast_data;
+                        const forecasts = forecastData.list || [];
+                        const city = forecastData.city || {};
+                        const units = weatherData.units || 'metric';
+                        const unitSymbol = units === 'imperial' ? '°F' : units === 'standard' ? 'K' : '°C';
+                        const speedUnit = units === 'imperial' ? 'mph' : 'm/s';
+                        
+                        return (
+                          <Card className="border-2 border-purple-200 dark:border-purple-800">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                📅 Weather Forecast
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Header */}
+                              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg p-4">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-semibold">📍 {city.name || location}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      5-Day Forecast ({forecasts.length} entries)
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">Country</p>
+                                    <p className="text-sm font-semibold">{city.country || 'N/A'}</p>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="bg-muted/50 border rounded-lg p-3">
-                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Wind Speed</p>
-                                <p className="text-lg font-semibold">
-                                  💨 {weatherData.wind_speed} {speedUnit}
-                                </p>
+                              
+                              {/* Forecast Entries */}
+                              <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {forecasts.slice(0, 10).map((forecast: any, index: number) => {
+                                  const temp = forecast.main?.temp;
+                                  const feelsLike = forecast.main?.feels_like;
+                                  const condition = forecast.weather?.[0]?.main || 'Unknown';
+                                  const description = forecast.weather?.[0]?.description || '';
+                                  const humidity = forecast.main?.humidity;
+                                  const windSpeed = forecast.wind?.speed;
+                                  const dateTime = forecast.dt_txt;
+                                  const pop = forecast.pop ? Math.round(forecast.pop * 100) : 0; // Probability of precipitation
+                                  
+                                  return (
+                                    <div key={index} className="bg-muted/30 border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 flex-1">
+                                          <span className="text-3xl">{getWeatherEmoji(condition)}</span>
+                                          <div className="flex-1">
+                                            <div className="flex items-baseline gap-2">
+                                              <p className="font-bold text-xl">
+                                                {temp}{unitSymbol}
+                                              </p>
+                                              <p className="text-xs text-muted-foreground">
+                                                Feels {feelsLike}{unitSymbol}
+                                              </p>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                                              {description}
+                                            </p>
+                                            <p className="text-xs font-medium text-foreground mt-1">
+                                              🕐 {dateTime}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex flex-col gap-1.5 text-right">
+                                          <div className="text-xs">
+                                            <span className="text-muted-foreground">💧 </span>
+                                            <span className="font-medium">{humidity}%</span>
+                                          </div>
+                                          <div className="text-xs">
+                                            <span className="text-muted-foreground">💨 </span>
+                                            <span className="font-medium">{windSpeed} {speedUnit}</span>
+                                          </div>
+                                          {pop > 0 && (
+                                            <div className="text-xs">
+                                              <span className="text-muted-foreground">🌧️ </span>
+                                              <span className="font-medium">{pop}%</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <div className="bg-muted/50 border rounded-lg p-3">
-                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Pressure</p>
-                                <p className="text-lg font-semibold">
-                                  🌡️ {weatherData.pressure} hPa
+                              
+                              {forecasts.length > 10 && (
+                                <p className="text-xs text-center text-muted-foreground pt-2 border-t">
+                                  Showing first 10 of {forecasts.length} forecast entries
                                 </p>
+                              )}
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Forecast Retrieved Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenWeatherMap API
+                                </span>
                               </div>
-                            </div>
-                            
-                            {/* Status Badge */}
-                            <div className="flex items-center justify-between pt-3 border-t">
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
-                                ✓ Data Retrieved Successfully
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                via OpenWeatherMap API
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      return null;
                     } catch {
                       return null;
                     }
