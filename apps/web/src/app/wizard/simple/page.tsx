@@ -309,7 +309,7 @@ export default function SimpleWizardPage() {
           
           <div className="flex gap-2">
             <Button
-              variant="destructive"
+              variant="outline"
               onClick={() => router.push('/dashboard')}
               disabled={submitting}
             >
