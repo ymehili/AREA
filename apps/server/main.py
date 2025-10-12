@@ -113,6 +113,12 @@ async def root():
     return {"message": "Server is running"}
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
 @app.get("/about.json")
 async def about(request: Request):
     return {
