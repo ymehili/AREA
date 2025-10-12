@@ -112,8 +112,18 @@ export default function WizardPage() {
       toast.success('Area created successfully!');
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error creating area:', error);
-      toast.error('Failed to create area. Please try again.');
+      // Show specific error message from the API
+      if (error instanceof Error) {
+        toast.error(error.message);
+        
+        // Only log unexpected errors to console
+        if (!error.message.includes('already exists')) {
+          console.error('Unexpected error creating area:', error);
+        }
+      } else {
+        console.error('Error creating area:', error);
+        toast.error('Failed to create area. Please try again.');
+      }
     }
   };
 
