@@ -16,7 +16,6 @@ import {
   Github,
   MessageSquare,
   Calendar,
-  Database,
   Brain,
   BookOpen,
   Rss,
