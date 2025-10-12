@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
 import { NodeData, isTriggerNode, isActionNode } from '@/components/area-builder/node-types';
@@ -141,18 +142,17 @@ const AdvancedBuilderPage = () => {
       </Card>
 
       <div className="mt-6 flex justify-end space-x-4">
-        <button
+        <Button
+          variant="destructive"
           onClick={() => router.push('/dashboard')}
-          className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleSave}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
           Save AREA
-        </button>
+        </Button>
       </div>
     </div>
   );

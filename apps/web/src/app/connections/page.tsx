@@ -305,7 +305,7 @@ export default function ConnectionsPage() {
                     )}
                     <Button
                       className="cursor-pointer"
-                      variant="outline"
+                      variant="destructive"
                       onClick={() => s.connection_id && disconnectService(s.id, s.connection_id)}
                     >
                       Disconnect
