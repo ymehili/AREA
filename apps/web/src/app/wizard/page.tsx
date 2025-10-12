@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import AppShell from "@/components/app-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AreaFlow, { type AreaFlowHandles } from '@/components/area-builder/AreaFlow';
 import { Node, Edge } from 'reactflow';
