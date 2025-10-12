@@ -105,9 +105,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       // Update the input value
       input.value = newValue;
       
-      // Set cursor position after the inserted variable
-      const newCursorPosition = start + variableTemplate.length;
-      input.setSelectionRange(newCursorPosition, newCursorPosition);
+      // Set cursor position after the inserted variable (only for text inputs)
+      // Note: setSelectionRange() doesn't work on number inputs
+      const inputElement = input as HTMLInputElement;
+      if (inputElement.type !== 'number') {
+        const newCursorPosition = start + variableTemplate.length;
+        input.setSelectionRange(newCursorPosition, newCursorPosition);
+      }
       
       // Trigger change event to update React state
       input.dispatchEvent(new Event('input', { bubbles: true }));
