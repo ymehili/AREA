@@ -80,7 +80,7 @@ export default function HistoryPage() {
     switch (lowerStatus) {
       case "success":
         return {
-          color: "bg-success border-success text-white",
+          color: "bg-green-500 border-green-600 text-white",
           icon: CheckCircle,
           label: "Success",
           bg: "bg-green-500",
@@ -94,24 +94,24 @@ export default function HistoryPage() {
         };
       case "running":
         return {
-          color: "bg-warning border-warning text-foreground",
+          color: "bg-blue-500 border-blue-600 text-white",
           icon: PlayCircle,
           label: "Running",
-          bg: "bg-yellow-500",
+          bg: "bg-blue-500",
         };
       case "pending":
         return {
-          color: "bg-muted border-muted-foreground text-foreground",
+          color: "bg-yellow-500 border-yellow-600 text-white",
           icon: Clock,
           label: "Pending",
-          bg: "bg-gray-500",
+          bg: "bg-yellow-500",
         };
       default:
         return {
-          color: "bg-secondary border-border text-foreground",
+          color: "bg-gray-500 border-gray-600 text-white",
           icon: AlertCircle,
           label: status.charAt(0).toUpperCase() + status.slice(1),
-          bg: "bg-gray-300",
+          bg: "bg-gray-500",
         };
     }
   };
@@ -119,6 +119,30 @@ export default function HistoryPage() {
   const handleLogClick = (log: ExecutionLog) => {
     setSelectedLog(log);
     setIsDialogOpen(true);
+  };
+
+  // Extract weather data from step_details if available
+  const getWeatherData = (log: ExecutionLog | null) => {
+    if (!log || !log.step_details) return null;
+    
+    try {
+      const stepDetails = typeof log.step_details === 'string' 
+        ? JSON.parse(log.step_details) 
+        : log.step_details;
+      
+      const executionLog = stepDetails.execution_log || [];
+      const weatherStep = executionLog.find((step: any) => 
+        step.service === 'weather' && step.status === 'success'
+      );
+      
+      if (!weatherStep) return null;
+      
+      // Extract weather data from the event context (stored in backend logs)
+      // This will be populated once we update the backend to include it
+      return weatherStep.weather_data || null;
+    } catch (e) {
+      return null;
+    }
   };
 
   if (loading) {
@@ -228,7 +252,7 @@ export default function HistoryPage() {
                       History of your AREA executions
                     </CardDescription>
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-xs text-white bg-primary">
                     {executionLogs.length}{" "}
                     {executionLogs.length === 1 ? "log" : "logs"}
                   </Badge>
@@ -313,7 +337,7 @@ export default function HistoryPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
+                    <h3 className="text-sm font-medium text-foreground">
                       Execution ID
                     </h3>
                     <p className="text-sm font-mono bg-muted rounded px-2 py-1 break-all">
@@ -322,7 +346,7 @@ export default function HistoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
+                    <h3 className="text-sm font-medium text-foreground">
                       Area ID
                     </h3>
                     <p className="text-sm font-mono bg-muted rounded px-2 py-1 break-all">
@@ -331,7 +355,7 @@ export default function HistoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
+                    <h3 className="text-sm font-medium text-foreground">
                       Status
                     </h3>
                     <div className="flex items-center gap-2">
@@ -344,7 +368,7 @@ export default function HistoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground">
+                    <h3 className="text-sm font-medium text-foreground">
                       Timestamp
                     </h3>
                     <p className="text-sm">
@@ -355,7 +379,7 @@ export default function HistoryPage() {
 
                 {selectedLog.step_details && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-primary"></div>
                       Step Details
                     </h3>
@@ -367,9 +391,120 @@ export default function HistoryPage() {
                   </div>
                 )}
 
+                {/* Weather Data Display */}
+                {selectedLog.step_details && (() => {
+                  try {
+                    const stepDetails = typeof selectedLog.step_details === 'string' 
+                      ? JSON.parse(selectedLog.step_details) 
+                      : selectedLog.step_details;
+                    
+                    const executionLog = stepDetails.execution_log || [];
+                    const weatherStep = executionLog.find((step: any) => 
+                      step.service === 'weather' && step.status === 'success'
+                    );
+                    
+                    if (!weatherStep || !weatherStep.weather_data) return null;
+                    
+                    const weatherData = weatherStep.weather_data;
+                    const location = weatherStep.params_used?.location || 
+                      (weatherStep.params_used?.lat && weatherStep.params_used?.lon 
+                        ? `${weatherStep.params_used.lat}, ${weatherStep.params_used.lon}` 
+                        : 'Unknown');
+                    
+                    const getWeatherEmoji = (condition: string) => {
+                      const cond = condition?.toLowerCase() || '';
+                      if (cond.includes('clear')) return '☀️';
+                      if (cond.includes('cloud')) return '☁️';
+                      if (cond.includes('rain')) return '🌧️';
+                      if (cond.includes('snow')) return '❄️';
+                      if (cond.includes('storm') || cond.includes('thunder')) return '⛈️';
+                      if (cond.includes('mist') || cond.includes('fog')) return '🌫️';
+                      return '🌤️';
+                    };
+                    
+                    const unitSymbol = weatherData.units === 'imperial' ? '°F' : weatherData.units === 'standard' ? 'K' : '°C';
+                    const speedUnit = weatherData.units === 'imperial' ? 'mph' : 'm/s';
+                    
+                    return (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                          Weather Information
+                        </h3>
+                        <Card className="border-blue-200 dark:border-blue-800">
+                          <CardContent className="p-4">
+                            <div className="space-y-4">
+                              {/* Header */}
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-4xl">{getWeatherEmoji(weatherData.condition)}</span>
+                                  <div>
+                                    <p className="font-semibold text-xl">
+                                      {weatherData.temperature}{unitSymbol}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground capitalize">
+                                      {weatherData.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-medium">📍 {location}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {weatherStep.action === 'get_current_weather' ? 'Current Weather' : '5-Day Forecast'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Weather Details Grid */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-muted/50 rounded-md p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">Feels Like</p>
+                                  <p className="text-sm font-medium">
+                                    {weatherData.feels_like}{unitSymbol}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 rounded-md p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">Humidity</p>
+                                  <p className="text-sm font-medium">
+                                    💧 {weatherData.humidity}%
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 rounded-md p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">Wind Speed</p>
+                                  <p className="text-sm font-medium">
+                                    💨 {weatherData.wind_speed} {speedUnit}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 rounded-md p-3">
+                                  <p className="text-xs text-muted-foreground mb-1">Pressure</p>
+                                  <p className="text-sm font-medium">
+                                    🌡️ {weatherData.pressure} hPa
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center gap-2 pt-2 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  ✓ Data Retrieved Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenWeatherMap API
+                                </span>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
+
                 {selectedLog.output && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-green-500"></div>
                       Output
                     </h3>
@@ -381,7 +516,7 @@ export default function HistoryPage() {
 
                 {selectedLog.error_message && (
                   <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-red-500"></div>
                       Error Message
                     </h3>
