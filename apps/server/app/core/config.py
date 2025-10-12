@@ -112,6 +112,13 @@ class Settings(BaseSettings):
         description="Gmail polling interval in seconds (default: 15). Lower values increase API usage.",
     )
 
+    # OpenWeatherMap API Configuration
+    openweathermap_api_key: str = Field(
+        default="",
+        alias="OPENWEATHERMAP_API_KEY",
+        description="API key for OpenWeatherMap API (get free key at https://openweathermap.org/api)",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

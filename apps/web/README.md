@@ -1,4 +1,16 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Action-Reaction Web Application
+
+This is the Next.js 15 web frontend for the Action-Reaction automation platform. It follows the UI/UX specifications defined in `/docs/ui-ux-specs.md`.
+
+## Features
+
+- **Landing Page**: Modern, marketing-focused landing page with hero section, features showcase, and service integrations
+- **Authentication**: Email/password and OAuth2 authentication (Google, GitHub)
+- **Dashboard**: Main area management interface
+- **Wizard**: Step-by-step automation creation flow
+- **Service Connections**: OAuth2 service connection management
+- **Execution History**: View logs of automation runs
+- **Profile Management**: User account settings and activity logs
 
 ## Getting Started
 
@@ -14,11 +26,37 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the landing page.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages & Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/` - Landing page (public, marketing-focused)
+- `/auth` - Login/Registration page
+- `/dashboard` - Main dashboard (requires authentication)
+- `/wizard` - AREA creation wizard (requires authentication)
+- `/connections` - Service connection management (requires authentication)
+- `/history` - Execution logs (requires authentication)
+- `/profile` - User profile and settings (requires authentication)
+
+## Design System
+
+This project implements the Action-Reaction design system:
+
+### Typography
+- **Headings**: Dela Gothic One (ALL CAPS with letter-spacing)
+- **Body**: Inter
+- **Monospace**: Roboto Mono
+
+### Color Palette
+- **Primary**: `#0052FF` (Main brand blue)
+- **Accent**: `#FF4700` (High-visibility accent)
+- **Secondary Accent**: `#00E0FF` (Code/tags highlight)
+- **Success**: `#00C853`
+- **Warning**: `#FFAB00`
+- **Error**: `#D50000`
+
+### Components
+Built with Radix UI primitives and styled with Tailwind CSS for accessibility and consistency.
 
 ## Learn More
 

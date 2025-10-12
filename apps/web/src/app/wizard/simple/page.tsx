@@ -116,7 +116,13 @@ export default function SimpleWizardPage() {
       router.push('/dashboard');
     } catch (error) {
       console.error('Error creating area:', error);
-      toast.error("Failed to create AREA. Please try again.");
+      
+      // Show specific error message from the API
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to create AREA. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -309,7 +315,7 @@ export default function SimpleWizardPage() {
           
           <div className="flex gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => router.push('/dashboard')}
               disabled={submitting}
             >

@@ -58,8 +58,8 @@
   --secondary-foreground: #0042CC; /* Blue secondary text */
   --muted: #A8BFFF; /* Light blue muted */
   --muted-foreground: #3375FF; /* Blue muted text */
-  --accent: #FF4700; /* Accent - kept as orange */
-  --accent-foreground: #FFFFFF; /* White text on accent */
+  --accent: #E8F0FF; /* Accent - light blue for hover states */
+  --accent-foreground: #0042CC; /* Blue text on accent */
   --destructive: #D50000; /* Error - kept as red */
   --destructive-foreground: #FFFFFF;
   --border: #3375FF; /* Blue border */
@@ -70,16 +70,16 @@
   --warning: #FFAB00; /* Warning - kept as yellow */
   --warning-foreground: #000000;
   --chart-1: #0052FF;
-  --chart-2: #FF4700;
+  --chart-2: #00C853;
   --chart-3: #00E0FF;
   --chart-4: #A8BFFF;
-  --chart-5: #00C853;
+  --chart-5: #3375FF;
   --sidebar: #FFFFFF; /* White sidebar background */
   --sidebar-foreground: #0042CC; /* Blue sidebar text */
   --sidebar-primary: #0052FF; /* Blue sidebar primary */
   --sidebar-primary-foreground: #FFFFFF; /* White sidebar primary text */
-  --sidebar-accent: #FF4700; /* Orange sidebar accent */
-  --sidebar-accent-foreground: #FFFFFF; /* White sidebar accent text */
+  --sidebar-accent: #E8F0FF; /* Light blue sidebar accent (hover state) */
+  --sidebar-accent-foreground: #0042CC; /* Blue sidebar accent text */
   --sidebar-border: #3375FF; /* Blue sidebar border */
   --sidebar-ring: #0052FF; /* Blue sidebar ring */
 }
@@ -97,7 +97,7 @@
   --secondary-foreground: #FFFFFF; /* White secondary text in dark mode */
   --muted: #3375FF; /* Blue-muted in dark mode */
   --muted-foreground: #A8BFFF; /* Light blue-muted text in dark mode */
-  --accent: #FF4700; /* Orange accent */
+  --accent: #1a4d99; /* Accent - darker blue for hover states in dark mode */
   --accent-foreground: #FFFFFF; /* White accent text in dark mode */
   --destructive: #D50000; /* Red error */
   --destructive-foreground: #FFFFFF;
@@ -109,15 +109,15 @@
   --warning: #FFAB00; /* Yellow warning */
   --warning-foreground: #000000;
   --chart-1: #0052FF;
-  --chart-2: #FF4700;
+  --chart-2: #00C853;
   --chart-3: #00E0FF;
   --chart-4: #A8BFFF;
-  --chart-5: #00C853;
+  --chart-5: #3375FF;
   --sidebar: #0042CC; /* Blue sidebar background in dark mode */
   --sidebar-foreground: #FFFFFF; /* White sidebar text in dark mode */
   --sidebar-primary: #0052FF; /* Blue sidebar primary in dark mode */
   --sidebar-primary-foreground: #FFFFFF; /* White sidebar primary text in dark mode */
-  --sidebar-accent: #FF4700; /* Orange sidebar accent in dark mode */
+  --sidebar-accent: #1a4d99; /* Darker blue sidebar accent (hover state) in dark mode */
   --sidebar-accent-foreground: #FFFFFF; /* White sidebar accent text in dark mode */
   --sidebar-border: #3375FF; /* Blue sidebar border in dark mode */
   --sidebar-ring: #0052FF; /* Blue sidebar ring in dark mode */

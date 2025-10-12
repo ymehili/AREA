@@ -124,13 +124,13 @@ export default function LandingPage() {
             <div className="flex items-center gap-4">
               <Button 
                 variant="ghost" 
-                onClick={() => router.push("/auth?mode=login")}
+                onClick={() => router.push("/?mode=login")}
                 className="hidden sm:inline-flex"
               >
                 Sign In
               </Button>
               <Button 
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/")}
                 className="group"
               >
                 Get Started
@@ -173,7 +173,7 @@ export default function LandingPage() {
               <Button 
                 size="lg" 
                 className="text-lg px-8 py-6 group"
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/")}
               >
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -182,7 +182,7 @@ export default function LandingPage() {
                 variant="outline" 
                 size="lg" 
                 className="text-lg px-8 py-6"
-                onClick={() => router.push("/auth?mode=login")}
+                onClick={() => router.push("/")}
               >
                 Sign In
               </Button>
@@ -335,7 +335,7 @@ export default function LandingPage() {
               <Button 
                 size="lg" 
                 className="text-lg px-8 py-6 group"
-                onClick={() => router.push("/auth")}
+                onClick={() => router.push("/")}
               >
                 Start Free Today
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
