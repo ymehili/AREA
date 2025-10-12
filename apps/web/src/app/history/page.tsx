@@ -322,10 +322,10 @@ export default function HistoryPage() {
 
         {/* Detailed View Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <PlayCircle className="h-5 w-5" />
+          <DialogContent className="!max-w-[95vw] !w-[95vw] max-h-[95vh] h-[95vh] overflow-hidden flex flex-col p-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <PlayCircle className="h-6 w-6" />
                 Execution Details
               </DialogTitle>
               <DialogDescription>
@@ -334,197 +334,206 @@ export default function HistoryPage() {
             </DialogHeader>
 
             {selectedLog && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Execution ID
-                    </h3>
-                    <p className="text-sm font-mono bg-muted rounded px-2 py-1 break-all">
-                      {selectedLog.id}
-                    </p>
-                  </div>
+              <div className="flex flex-row gap-6 overflow-y-auto flex-1 px-6 pb-6 pt-4 min-h-0">
+                {/* Left Column - Metadata */}
+                <div className="w-96 flex-shrink-0 space-y-4 self-start">
+                  <Card className="border-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">Execution Info</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Execution ID
+                        </h3>
+                        <p className="text-xs font-mono bg-muted rounded px-2 py-1.5 break-all">
+                          {selectedLog.id}
+                        </p>
+                      </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Area ID
-                    </h3>
-                    <p className="text-sm font-mono bg-muted rounded px-2 py-1 break-all">
-                      {selectedLog.area_id}
-                    </p>
-                  </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Area ID
+                        </h3>
+                        <p className="text-xs font-mono bg-muted rounded px-2 py-1.5 break-all">
+                          {selectedLog.area_id}
+                        </p>
+                      </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Status
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        className={`${getStatusConfig(selectedLog.status).color} capitalize`}
-                      >
-                        {getStatusConfig(selectedLog.status).label}
-                      </Badge>
-                    </div>
-                  </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Status
+                        </h3>
+                        <Badge
+                          className={`${getStatusConfig(selectedLog.status).color} capitalize w-fit`}
+                        >
+                          {getStatusConfig(selectedLog.status).label}
+                        </Badge>
+                      </div>
 
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                      Timestamp
-                    </h3>
-                    <p className="text-sm">
-                      {new Date(selectedLog.timestamp).toLocaleString()}
-                    </p>
-                  </div>
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Timestamp
+                        </h3>
+                        <p className="text-sm">
+                          {new Date(selectedLog.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+
+                      {selectedLog.output && (
+                        <div className="space-y-1.5 pt-3 border-t">
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                            Summary
+                          </h3>
+                          <div className="bg-muted rounded-md px-3 py-2 text-xs">
+                            {selectedLog.output}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedLog.error_message && (
+                        <div className="space-y-1.5 pt-3 border-t">
+                          <h3 className="text-xs font-medium text-destructive uppercase tracking-wide">
+                            Error
+                          </h3>
+                          <div className="bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2 text-xs text-destructive">
+                            {selectedLog.error_message}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
 
-                {selectedLog.step_details && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary"></div>
-                      Step Details
-                    </h3>
-                    <div className="bg-muted rounded-md p-4 overflow-x-auto text-sm">
-                      <pre className="whitespace-pre-wrap break-words">
-                        {JSON.stringify(selectedLog.step_details, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-
-                {/* Weather Data Display */}
-                {selectedLog.step_details && (() => {
-                  try {
-                    const stepDetails = typeof selectedLog.step_details === 'string' 
-                      ? JSON.parse(selectedLog.step_details) 
-                      : selectedLog.step_details;
-                    
-                    const executionLog = stepDetails.execution_log || [];
-                    const weatherStep = executionLog.find((step: any) => 
-                      step.service === 'weather' && step.status === 'success'
-                    );
-                    
-                    if (!weatherStep || !weatherStep.weather_data) return null;
-                    
-                    const weatherData = weatherStep.weather_data;
-                    const location = weatherStep.params_used?.location || 
-                      (weatherStep.params_used?.lat && weatherStep.params_used?.lon 
-                        ? `${weatherStep.params_used.lat}, ${weatherStep.params_used.lon}` 
-                        : 'Unknown');
-                    
-                    const getWeatherEmoji = (condition: string) => {
-                      const cond = condition?.toLowerCase() || '';
-                      if (cond.includes('clear')) return '☀️';
-                      if (cond.includes('cloud')) return '☁️';
-                      if (cond.includes('rain')) return '🌧️';
-                      if (cond.includes('snow')) return '❄️';
-                      if (cond.includes('storm') || cond.includes('thunder')) return '⛈️';
-                      if (cond.includes('mist') || cond.includes('fog')) return '🌫️';
-                      return '🌤️';
-                    };
-                    
-                    const unitSymbol = weatherData.units === 'imperial' ? '°F' : weatherData.units === 'standard' ? 'K' : '°C';
-                    const speedUnit = weatherData.units === 'imperial' ? 'mph' : 'm/s';
-                    
-                    return (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                          Weather Information
-                        </h3>
-                        <Card className="border-blue-200 dark:border-blue-800">
-                          <CardContent className="p-4">
-                            <div className="space-y-4">
-                              {/* Header */}
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-4xl">{getWeatherEmoji(weatherData.condition)}</span>
-                                  <div>
-                                    <p className="font-semibold text-xl">
-                                      {weatherData.temperature}{unitSymbol}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground capitalize">
-                                      {weatherData.description}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-medium">📍 {location}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {weatherStep.action === 'get_current_weather' ? 'Current Weather' : '5-Day Forecast'}
+                {/* Right Column - Detailed Data */}
+                <div className="flex-1 space-y-4 min-w-0">
+                  {/* Weather Data Display */}
+                  {selectedLog.step_details && (() => {
+                    try {
+                      const stepDetails = typeof selectedLog.step_details === 'string' 
+                        ? JSON.parse(selectedLog.step_details) 
+                        : selectedLog.step_details;
+                      
+                      const executionLog = stepDetails.execution_log || [];
+                      const weatherStep = executionLog.find((step: any) => 
+                        step.service === 'weather' && step.status === 'success'
+                      );
+                      
+                      if (!weatherStep || !weatherStep.weather_data) return null;
+                      
+                      const weatherData = weatherStep.weather_data;
+                      const location = weatherStep.params_used?.location || 
+                        (weatherStep.params_used?.lat && weatherStep.params_used?.lon 
+                          ? `${weatherStep.params_used.lat}, ${weatherStep.params_used.lon}` 
+                          : 'Unknown');
+                      
+                      const getWeatherEmoji = (condition: string) => {
+                        const cond = condition?.toLowerCase() || '';
+                        if (cond.includes('clear')) return '☀️';
+                        if (cond.includes('cloud')) return '☁️';
+                        if (cond.includes('rain')) return '🌧️';
+                        if (cond.includes('snow')) return '❄️';
+                        if (cond.includes('storm') || cond.includes('thunder')) return '⛈️';
+                        if (cond.includes('mist') || cond.includes('fog')) return '🌫️';
+                        return '🌤️';
+                      };
+                      
+                      const unitSymbol = weatherData.units === 'imperial' ? '°F' : weatherData.units === 'standard' ? 'K' : '°C';
+                      const speedUnit = weatherData.units === 'imperial' ? 'mph' : 'm/s';
+                      
+                      return (
+                        <Card className="border-2 border-blue-200 dark:border-blue-800">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              🌤️ Weather Information
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {/* Header with main weather info */}
+                            <div className="flex items-center justify-between bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg p-4">
+                              <div className="flex items-center gap-4">
+                                <span className="text-5xl">{getWeatherEmoji(weatherData.condition)}</span>
+                                <div>
+                                  <p className="font-bold text-3xl">
+                                    {weatherData.temperature}{unitSymbol}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground capitalize font-medium">
+                                    {weatherData.description}
                                   </p>
                                 </div>
                               </div>
-                              
-                              {/* Weather Details Grid */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <div className="bg-muted/50 rounded-md p-3">
-                                  <p className="text-xs text-muted-foreground mb-1">Feels Like</p>
-                                  <p className="text-sm font-medium">
-                                    {weatherData.feels_like}{unitSymbol}
-                                  </p>
-                                </div>
-                                <div className="bg-muted/50 rounded-md p-3">
-                                  <p className="text-xs text-muted-foreground mb-1">Humidity</p>
-                                  <p className="text-sm font-medium">
-                                    💧 {weatherData.humidity}%
-                                  </p>
-                                </div>
-                                <div className="bg-muted/50 rounded-md p-3">
-                                  <p className="text-xs text-muted-foreground mb-1">Wind Speed</p>
-                                  <p className="text-sm font-medium">
-                                    💨 {weatherData.wind_speed} {speedUnit}
-                                  </p>
-                                </div>
-                                <div className="bg-muted/50 rounded-md p-3">
-                                  <p className="text-xs text-muted-foreground mb-1">Pressure</p>
-                                  <p className="text-sm font-medium">
-                                    🌡️ {weatherData.pressure} hPa
-                                  </p>
-                                </div>
+                              <div className="text-right">
+                                <p className="text-sm font-semibold">📍 {location}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {weatherStep.action === 'get_current_weather' ? 'Current Weather' : '5-Day Forecast'}
+                                </p>
                               </div>
-                              
-                              {/* Status Badge */}
-                              <div className="flex items-center gap-2 pt-2 border-t">
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                  ✓ Data Retrieved Successfully
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  via OpenWeatherMap API
-                                </span>
+                            </div>
+                            
+                            {/* Weather Details Grid */}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-muted/50 border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Feels Like</p>
+                                <p className="text-lg font-semibold">
+                                  {weatherData.feels_like}{unitSymbol}
+                                </p>
                               </div>
+                              <div className="bg-muted/50 border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Humidity</p>
+                                <p className="text-lg font-semibold">
+                                  💧 {weatherData.humidity}%
+                                </p>
+                              </div>
+                              <div className="bg-muted/50 border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Wind Speed</p>
+                                <p className="text-lg font-semibold">
+                                  💨 {weatherData.wind_speed} {speedUnit}
+                                </p>
+                              </div>
+                              <div className="bg-muted/50 border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Pressure</p>
+                                <p className="text-lg font-semibold">
+                                  🌡️ {weatherData.pressure} hPa
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Status Badge */}
+                            <div className="flex items-center justify-between pt-3 border-t">
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                ✓ Data Retrieved Successfully
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                via OpenWeatherMap API
+                              </span>
                             </div>
                           </CardContent>
                         </Card>
-                      </div>
-                    );
-                  } catch (e) {
-                    return null;
-                  }
-                })()}
+                      );
+                    } catch (e) {
+                      return null;
+                    }
+                  })()}
 
-                {selectedLog.output && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                      Output
-                    </h3>
-                    <div className="bg-muted rounded-md p-4 whitespace-pre-wrap break-words text-sm">
-                      {selectedLog.output}
-                    </div>
-                  </div>
-                )}
-
-                {selectedLog.error_message && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                      Error Message
-                    </h3>
-                    <div className="bg-destructive/10 border border-destructive/30 rounded-md p-4 whitespace-pre-wrap break-words text-sm text-destructive">
-                      {selectedLog.error_message}
-                    </div>
-                  </div>
-                )}
+                  {/* Step Details */}
+                  {selectedLog.step_details && (
+                    <Card className="border-2">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-primary"></div>
+                          Step Execution Log
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-muted rounded-lg p-4 overflow-x-auto">
+                          <pre className="text-xs whitespace-pre-wrap break-words font-mono">
+                            {JSON.stringify(selectedLog.step_details, null, 2)}
+                          </pre>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               </div>
             )}
           </DialogContent>
