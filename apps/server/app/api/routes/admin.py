@@ -41,8 +41,8 @@ def get_all_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     search: str = Query(None),
-    sort_field: str = Query("created_at", regex="^(id|email|created_at|is_confirmed)$"),
-    sort_direction: str = Query("desc", regex="^(asc|desc)$"),
+    sort_field: str = Query("created_at", pattern="^(id|email|created_at|is_confirmed)$"),
+    sort_direction: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin_user),
 ):
