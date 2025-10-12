@@ -287,7 +287,7 @@ export default function EditAreaPage() {
             </Button>
           )}
           <Button
-            variant="destructive"
+            variant="outline"
             onClick={() => router.push('/dashboard')}
           >
             Cancel

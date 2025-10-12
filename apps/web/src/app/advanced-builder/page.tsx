@@ -143,7 +143,7 @@ const AdvancedBuilderPage = () => {
 
       <div className="mt-6 flex justify-end space-x-4">
         <Button
-          variant="destructive"
+          variant="outline"
           onClick={() => router.push('/dashboard')}
         >
           Cancel
