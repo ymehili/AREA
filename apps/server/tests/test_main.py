@@ -212,6 +212,9 @@ class TestMainApplication:
         mock_app.state = Mock()
         
         with patch("main.verify_connection") as mock_verify, \
+             patch("main.run_migrations") as mock_migrations, \
+             patch("main.start_scheduler") as mock_start_scheduler, \
+             patch("main.start_gmail_scheduler") as mock_start_gmail_scheduler, \
              patch("main.logger") as mock_logger:
             
             mock_verify.side_effect = Exception("Startup failed")

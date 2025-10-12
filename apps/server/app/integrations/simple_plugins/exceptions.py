@@ -27,4 +27,30 @@ class GmailConnectionError(GmailError):
     pass
 
 
-__all__ = ["GmailError", "GmailAuthError", "GmailAPIError", "GmailConnectionError"]
+class WeatherError(Exception):
+    """Base exception for Weather operations."""
+
+    pass
+
+
+class WeatherAPIError(WeatherError):
+    """Weather API request failed."""
+
+    pass
+
+
+class WeatherConfigError(WeatherError):
+    """Weather configuration invalid or missing."""
+
+    pass
+
+
+__all__ = [
+    "GmailError",
+    "GmailAuthError",
+    "GmailAPIError",
+    "GmailConnectionError",
+    "WeatherError",
+    "WeatherAPIError",
+    "WeatherConfigError",
+]

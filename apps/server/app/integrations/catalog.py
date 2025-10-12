@@ -246,6 +246,35 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="weather",
+        name="Weather",
+        description="Get current weather data and forecasts for any location worldwide.",
+        actions=(
+            AutomationOption(
+                key="temperature_threshold",
+                name="Temperature Threshold",
+                description="Triggers when temperature reaches a specified threshold (above/below).",
+            ),
+            AutomationOption(
+                key="weather_condition",
+                name="Weather Condition",
+                description="Triggers when specific weather condition occurs (rain, snow, clear, etc.).",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="get_current_weather",
+                name="Get Current Weather",
+                description="Fetch current weather data for a specified location (city name or coordinates).",
+            ),
+            AutomationOption(
+                key="get_forecast",
+                name="Get Weather Forecast",
+                description="Retrieve weather forecast for the next 5 days for a location.",
+            ),
+        ),
+    ),
 )
 
 

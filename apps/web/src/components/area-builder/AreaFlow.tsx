@@ -12,6 +12,7 @@ import ReactFlow, {
   NodeTypes,
   ConnectionLineType,
   OnSelectionChangeFunc,
+  Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -62,6 +63,13 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // Default viewport - zoomed out for better overview
+  const defaultViewport: Viewport = {
+    x: 0,
+    y: 0,
+    zoom: 0.75, // 75% zoom - gives better overview
+  };
 
   // Get selected node data for configuration
   const selectedNode = useMemo(() => {
@@ -211,12 +219,6 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
   return (
     <div className="flex h-full w-full">
       <ReactFlowProvider>
-        <ControlsPanel 
-          onAddNode={addNode}
-          selectedNodeId={selectedNodeId || undefined}
-          onNodeConfigChange={updateNodeConfig}
-          nodeConfig={selectedNode?.data}
-        />
         <div className="flex-1 h-full relative">
           <ReactFlow
             nodes={nodes}
@@ -239,17 +241,30 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
             }}
             nodeTypes={nodeTypes}
             connectionLineType={ConnectionLineType.SmoothStep}
-            fitView
+            defaultViewport={defaultViewport}
+            fitViewOptions={{
+              padding: 0.2,
+              maxZoom: 1,
+              minZoom: 0.5,
+            }}
             elementsSelectable={true}
             onSelectionChange={onSelectionChange}
             nodesDraggable={true}
             nodesConnectable={true}
             selectNodesOnDrag={false}
+            minZoom={0.1}
+            maxZoom={2}
           >
             <Controls />
             <Background gap={12} size={1} />
           </ReactFlow>
         </div>
+        <ControlsPanel 
+          onAddNode={addNode}
+          selectedNodeId={selectedNodeId || undefined}
+          onNodeConfigChange={updateNodeConfig}
+          nodeConfig={selectedNode?.data}
+        />
       </ReactFlowProvider>
     </div>
   );
