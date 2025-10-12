@@ -382,11 +382,29 @@ class StepExecutor:
                 },
             )
             
+            # Execute handler - it may modify trigger_data (e.g., weather adds weather_data)
             handler(self.area, params, trigger_data)
 
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
             step_log["params_used"] = params
+            
+            # If this is a weather action, include weather data in the log
+            # Check after handler execution as the handler adds this data
+            if step.service == "weather":
+                logger.info(
+                    "Weather action executed, checking for weather_data",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": str(step.id),
+                        "trigger_data_keys": list(trigger_data.keys()),
+                        "has_weather_data": "weather_data" in trigger_data,
+                    }
+                )
+                if "weather_data" in trigger_data:
+                    step_log["weather_data"] = trigger_data["weather_data"]
+                    logger.info("Weather data added to step log", extra={"weather_data": trigger_data["weather_data"]})
+            
             self.execution_log.append(step_log)
 
             logger.info(

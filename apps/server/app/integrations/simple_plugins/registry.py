@@ -42,6 +42,14 @@ class PluginsRegistry:
         self._handlers[("gmail", "mark_as_read")] = mark_as_read_handler
         self._handlers[("gmail", "forward_email")] = forward_email_handler
 
+        # Weather handlers
+        from app.integrations.simple_plugins.weather_plugin import (
+            get_current_weather_handler,
+            get_forecast_handler,
+        )
+        self._handlers[("weather", "get_current_weather")] = get_current_weather_handler
+        self._handlers[("weather", "get_forecast")] = get_forecast_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.
