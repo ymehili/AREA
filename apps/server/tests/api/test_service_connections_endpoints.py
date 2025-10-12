@@ -236,6 +236,104 @@ class TestServiceConnectionsEndpoints:
         response = client.get(f"/api/v1/service-connections/test/github/{fake_id}")
         assert response.status_code == 401
 
+    def test_test_openai_api_key_connection_success(self, client: SyncASGITestClient, auth_token: str, db_session: Session) -> None:
+        """Test successful OpenAI API key connection test."""
+        # Get user ID from token
+        from jose import jwt
+        from app.core.config import settings
+        import uuid
+
+        payload = jwt.decode(auth_token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = uuid.UUID(payload["sub"])
+
+        # Create a test API key connection
+        connection = ServiceConnection(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            service_name="openai",
+            encrypted_access_token="encrypted_api_key",
+            oauth_metadata={"connection_type": "api_key"}  # Mark as API key connection
+        )
+        db_session.add(connection)
+        db_session.commit()
+
+        # Mock the httpx client and its get method
+        with patch('app.api.routes.service_connections.httpx.AsyncClient') as mock_httpx_client_class:
+            # Create a mock client instance
+            mock_client_instance = AsyncMock()
+            mock_httpx_client_class.return_value.__aenter__.return_value = mock_client_instance
+            
+            # Mock the response
+            mock_response = AsyncMock()
+            mock_response.status_code = 200
+            mock_client_instance.get.return_value = mock_response
+
+            # Mock the token decryption
+            with patch('app.api.routes.service_connections.decrypt_token') as mock_decrypt:
+                mock_decrypt.return_value = "sk-test-api-key"
+
+                response = client.get(
+                    f"/api/v1/service-connections/test/openai/{connection.id}",
+                    headers={"Authorization": f"Bearer {auth_token}"}
+                )
+
+                # Verify that the API key was tested properly
+                mock_client_instance.get.assert_called_once_with(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": "Bearer sk-test-api-key"},
+                    timeout=10.0
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+                assert data["success"] is True
+                assert data["provider"] == "openai"
+                assert data["test_result"] == {"token_valid": True}
+
+    def test_test_openai_api_key_connection_invalid_key(self, client: SyncASGITestClient, auth_token: str, db_session: Session) -> None:
+        """Test OpenAI API key connection test with invalid key."""
+        # Get user ID from token
+        from jose import jwt
+        from app.core.config import settings
+        import uuid
+
+        payload = jwt.decode(auth_token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = uuid.UUID(payload["sub"])
+
+        # Create a test API key connection
+        connection = ServiceConnection(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            service_name="openai",
+            encrypted_access_token="encrypted_api_key",
+            oauth_metadata={"connection_type": "api_key"}  # Mark as API key connection
+        )
+        db_session.add(connection)
+        db_session.commit()
+
+        # Mock the httpx client and its get method with 401 response
+        with patch('app.api.routes.service_connections.httpx.AsyncClient') as mock_httpx_client_class:
+            # Create a mock client instance
+            mock_client_instance = AsyncMock()
+            mock_httpx_client_class.return_value.__aenter__.return_value = mock_client_instance
+            
+            # Mock the response with 401 error
+            mock_response = AsyncMock()
+            mock_response.status_code = 401
+            mock_client_instance.get.return_value = mock_response
+
+            # Mock the token decryption
+            with patch('app.api.routes.service_connections.decrypt_token') as mock_decrypt:
+                mock_decrypt.return_value = "sk-invalid-api-key"
+
+                response = client.get(
+                    f"/api/v1/service-connections/test/openai/{connection.id}",
+                    headers={"Authorization": f"Bearer {auth_token}"}
+                )
+
+                assert response.status_code == 400
+                assert "Authentication failed" in response.json()["detail"]
+
 
 class TestServiceConnectionsIntegration:
     """Integration tests for service connections."""
