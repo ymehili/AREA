@@ -168,10 +168,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </Button>
             <Button 
               size="sm" 
-              variant="ghost" 
+              variant="destructive" 
               onClick={handleLogout} 
-              disabled={auth.loading} 
-              className="text-foreground border-border hover:bg-accent"
+              disabled={auth.loading}
               aria-label="Logout"
             >
               Logout
