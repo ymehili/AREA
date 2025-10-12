@@ -88,7 +88,13 @@ const AdvancedBuilderPage = () => {
       router.push('/dashboard');
     } catch (error) {
       console.error('Error creating area:', error);
-      toast.error('Failed to create area. Please try again.');
+      
+      // Show specific error message from the API
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Failed to create area. Please try again.');
+      }
     }
   };
 
