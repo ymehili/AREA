@@ -185,7 +185,7 @@ def main():
         print("\nGet a free API key at: https://openweathermap.org/api")
         sys.exit(1)
     
-    print(f"\n🔑 API Key: {api_key[:8]}...{api_key[-4:]} (masked)")
+    print(f"\n🔑 API Key: {'✓ Set' if api_key else '✗ Not Set'}")
     print()
     
     # Run tests

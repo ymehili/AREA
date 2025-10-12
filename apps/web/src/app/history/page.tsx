@@ -34,6 +34,23 @@ import {
 } from "lucide-react";
 import { cn, headingClasses } from "@/lib/utils";
 
+interface WeatherForecast {
+  main?: {
+    temp?: number;
+    feels_like?: number;
+    humidity?: number;
+  };
+  weather?: Array<{
+    main?: string;
+    description?: string;
+  }>;
+  wind?: {
+    speed?: number;
+  };
+  dt_txt?: string;
+  pop?: number;
+}
+
 export default function HistoryPage() {
   const auth = useRequireAuth();
   const [executionLogs, setExecutionLogs] = useState<ExecutionLog[]>([]);
@@ -559,7 +576,7 @@ export default function HistoryPage() {
                               
                               {/* Forecast Entries */}
                               <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {forecasts.slice(0, 10).map((forecast: any, index: number) => {
+                                {forecasts.slice(0, 10).map((forecast: WeatherForecast, index: number) => {
                                   const temp = forecast.main?.temp;
                                   const feelsLike = forecast.main?.feels_like;
                                   const condition = forecast.weather?.[0]?.main || 'Unknown';
