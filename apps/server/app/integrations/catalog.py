@@ -275,6 +275,40 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="openai",
+        name="OpenAI",
+        description="Leverage OpenAI's powerful models for text generation, chat, image creation, and content moderation.",
+        actions=(
+            AutomationOption(
+                key="prompt",
+                name="Text/Chat Completion Trigger",
+                description="Triggers when certain conditions are met to generate text or chat responses.",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="complete_text",
+                name="Generate Text Completion",
+                description="Generate text completions from a prompt using OpenAI models.",
+            ),
+            AutomationOption(
+                key="chat",
+                name="Chat with GPT",
+                description="Send a message to ChatGPT and get a response using OpenAI's chat models.",
+            ),
+            AutomationOption(
+                key="generate_image",
+                name="Create Image with DALL-E",
+                description="Generate images from text descriptions using OpenAI's DALL-E model.",
+            ),
+            AutomationOption(
+                key="analyze_text",
+                name="Analyze/Moderate Content",
+                description="Analyze content for potential policy violations using OpenAI's moderation API.",
+            ),
+        ),
+    ),
 )
 
 

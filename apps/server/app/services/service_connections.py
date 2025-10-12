@@ -124,10 +124,58 @@ def delete_service_connection(db: Session, connection_id: str) -> bool:
     return True
 
 
+def create_api_key_connection(db: Session, user_id: str, service_name: str, api_key: str) -> ServiceConnection:
+    """Create a service connection for API-key based services (not OAuth).
+    
+    Args:
+        db: Database session
+        user_id: User ID to associate with the connection
+        service_name: Name of the service (e.g., 'openai')
+        api_key: Unencrypted API key that will be encrypted before storage
+        
+    Returns:
+        Created ServiceConnection object
+        
+    Raises:
+        DuplicateServiceConnectionError: If a connection already exists for this user and service
+    """
+    # Check if a connection already exists for this user and service
+    existing_connection = get_service_connection_by_user_and_service(db, user_id, service_name)
+    if existing_connection is not None:
+        raise DuplicateServiceConnectionError(user_id, service_name)
+
+    # Encrypt the API key before storing
+    from app.core.encryption import encrypt_token
+    encrypted_api_key = encrypt_token(api_key)
+
+    # Create service connection with API key metadata
+    service_connection = ServiceConnection(
+        user_id=user_id,
+        service_name=service_name,
+        encrypted_access_token=encrypted_api_key,
+        # API key connections don't have refresh tokens or expiry
+        encrypted_refresh_token=None,
+        expires_at=None,
+        # Store metadata to indicate this is an API key connection
+        oauth_metadata={"connection_type": "api_key", "service_type": "api_key"}
+    )
+
+    db.add(service_connection)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise DuplicateServiceConnectionError(user_id, service_name) from exc
+
+    db.refresh(service_connection)
+    return service_connection
+
+
 __all__ = [
     "ServiceConnectionNotFoundError",
     "DuplicateServiceConnectionError",
     "create_service_connection",
+    "create_api_key_connection",
     "get_service_connection_by_id",
     "get_service_connection_by_user_and_service",
     "get_user_service_connections",
