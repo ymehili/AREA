@@ -105,9 +105,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       // Update the input value
       input.value = newValue;
       
-      // Set cursor position after the inserted variable
-      const newCursorPosition = start + variableTemplate.length;
-      input.setSelectionRange(newCursorPosition, newCursorPosition);
+      // Set cursor position after the inserted variable (only for text inputs)
+      // Note: setSelectionRange() doesn't work on number inputs
+      const inputElement = input as HTMLInputElement;
+      if (inputElement.type !== 'number') {
+        const newCursorPosition = start + variableTemplate.length;
+        input.setSelectionRange(newCursorPosition, newCursorPosition);
+      }
       
       // Trigger change event to update React state
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -115,43 +119,47 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   };
 
   return (
-    <div className="w-64 h-full bg-gray-50 dark:bg-gray-900/20 p-4 flex flex-col gap-4 overflow-y-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Add Step</CardTitle>
+    <div className="w-80 h-full bg-card border-l overflow-y-auto px-3 py-4 flex flex-col gap-3">
+      <Card className="border-0 shadow-none">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-base font-semibold">Add Step</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2">
+        <CardContent className="flex flex-col gap-2 px-0 pb-0">
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('trigger')}
           >
-            <Badge variant="outline" className="mr-2 bg-blue-100 text-blue-800">Trigger</Badge>
-            Add Event
+            <Badge variant="outline" className="mr-2 bg-blue-100 text-blue-800 text-xs">Trigger</Badge>
+            <span className="text-sm">Add Event</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('action')}
           >
-            <Badge variant="outline" className="mr-2 bg-green-100 text-green-800">Action</Badge>
-            Add Action
+            <Badge variant="outline" className="mr-2 bg-green-100 text-green-800 text-xs">Action</Badge>
+            <span className="text-sm">Add Action</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('condition')}
           >
-            <Badge variant="outline" className="mr-2 bg-yellow-100 text-yellow-800">Condition</Badge>
-            Add If
+            <Badge variant="outline" className="mr-2 bg-yellow-100 text-yellow-800 text-xs">Condition</Badge>
+            <span className="text-sm">Add If</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full justify-start"
+            size="sm"
+            className="w-full justify-start h-9"
             onClick={() => onAddNode('delay')}
           >
-            <Badge variant="outline" className="mr-2 bg-purple-100 text-purple-800">Delay</Badge>
-            Add Delay
+            <Badge variant="outline" className="mr-2 bg-purple-100 text-purple-800 text-xs">Delay</Badge>
+            <span className="text-sm">Add Delay</span>
           </Button>
         </CardContent>
       </Card>
@@ -159,11 +167,11 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       {selectedNodeId && onNodeConfigChange && (
         <>
           <Separator />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Configure Step</CardTitle>
+          <Card className="border-0 shadow-none">
+            <CardHeader className="px-0">
+              <CardTitle className="text-base font-semibold">Configure Step</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-0 pb-0">
               {/* Configuration UI based on the selected node type */}
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {nodeConfig ? 'Configuration options for selected node' : 'Select a node to configure'}
@@ -229,8 +237,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services do not require connection */}
-                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services and services with shared API keys do not require per-user connection */}
+                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
@@ -245,12 +253,15 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 onValueChange={(value) => {
                                   const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
                                   const selectedAction = selectedService?.actions.find(a => a.key === value);
+                                  console.log('[ControlsPanel] Changing trigger from', nodeConfig.actionId, 'to', value);
+                                  console.log('[ControlsPanel] Clearing params, old params:', nodeConfig.params);
                                   onNodeConfigChange(selectedNodeId, {
                                     ...nodeConfig,
                                     actionId: value,
                                     label: selectedAction?.name || nodeConfig.label,
                                     description: selectedAction?.description || nodeConfig.description,
-                                    params: {}
+                                    params: {}, // Clear all params when changing trigger
+                                    config: {} // Also clear config to remove any trigger-specific config
                                   } as TriggerNodeData);
                                 }}
                               >
@@ -499,8 +510,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services do not require connection */}
-                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services and services with shared API keys do not require per-user connection */}
+                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
@@ -515,13 +526,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 onValueChange={(value) => {
                                   const selectedService = services.find(s => s.slug === nodeConfig.serviceId);
                                   const selectedReaction = selectedService?.reactions.find(r => r.key === value);
+                                  console.log('[ControlsPanel] Changing action from', nodeConfig.actionId, 'to', value);
+                                  console.log('[ControlsPanel] Clearing params, old params:', nodeConfig.params);
                                   onNodeConfigChange(selectedNodeId, {
                                     ...nodeConfig,
                                     actionId: value,
                                     label: selectedReaction?.name || nodeConfig.label,
                                     description: selectedReaction?.description || nodeConfig.description,
-                                    params: {}
-                                  } as AreaStepNodeData);
+                                    params: {}, // Clear all params when changing action
+                                    config: {} // Also clear config to remove any action-specific config
+                                  } as ActionNodeData);
                                 }}
                               >
                                 <SelectTrigger id="actionReaction">
@@ -675,6 +689,250 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     }}
                                     onFocus={handleInputFocus}
                                   />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Weather get_current_weather */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'get_current_weather' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="weather_location">Location (City)</Label>
+                                  <Input
+                                    id="weather_location"
+                                    type="text"
+                                    placeholder="e.g., Paris,FR or London,UK"
+                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value;
+                                      // Only clear lat/lon if a non-empty location is entered
+                                      if (value && value.trim()) {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value, lat: undefined, lon: undefined } 
+                                        } as ActionNodeData);
+                                      } else {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value } 
+                                        } as ActionNodeData);
+                                      }
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name with country code (e.g., Paris,FR) or leave empty to use coordinates below</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label htmlFor="weather_lat">Latitude (optional)</Label>
+                                    <Input
+                                      id="weather_lat"
+                                      type="number"
+                                      step="0.0001"
+                                      placeholder="e.g., 48.8566"
+                                      value={(nodeConfig as ActionNodeData).params?.lat as number || ''}
+                                      onChange={(e) => {
+                                        const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid latitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value } 
+                                          } as ActionNodeData);
+                                        }
+                                      }}
+                                      onFocus={handleInputFocus}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="weather_lon">Longitude (optional)</Label>
+                                    <Input
+                                      id="weather_lon"
+                                      type="number"
+                                      step="0.0001"
+                                      placeholder="e.g., 2.3522"
+                                      value={(nodeConfig as ActionNodeData).params?.lon as number || ''}
+                                      onChange={(e) => {
+                                        const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid longitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value } 
+                                          } as ActionNodeData);
+                                        }
+                                      }}
+                                      onFocus={handleInputFocus}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_units">Units</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.units as string || 'metric'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, units: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="weather_units">
+                                      <SelectValue placeholder="Select units" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="metric">Metric (°C, m/s)</SelectItem>
+                                      <SelectItem value="imperial">Imperial (°F, mph)</SelectItem>
+                                      <SelectItem value="standard">Standard (Kelvin)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Temperature and wind speed units</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Weather get_forecast */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'get_forecast' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="forecast_location">Location (City)</Label>
+                                  <Input
+                                    id="forecast_location"
+                                    type="text"
+                                    placeholder="e.g., Tokyo,JP or Berlin,DE"
+                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value;
+                                      // Only clear lat/lon if a non-empty location is entered
+                                      if (value && value.trim()) {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value, lat: undefined, lon: undefined } 
+                                        } as ActionNodeData);
+                                      } else {
+                                        onNodeConfigChange(selectedNodeId, { 
+                                          ...nodeConfig, 
+                                          params: { ...currentParams, location: value } 
+                                        } as ActionNodeData);
+                                      }
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name with country code or use coordinates below</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label htmlFor="forecast_lat">Latitude (optional)</Label>
+                                    <Input
+                                      id="forecast_lat"
+                                      type="number"
+                                      step="0.0001"
+                                      placeholder="e.g., 35.6762"
+                                      value={(nodeConfig as ActionNodeData).params?.lat as number || ''}
+                                      onChange={(e) => {
+                                        const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid latitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lat: value } 
+                                          } as ActionNodeData);
+                                        }
+                                      }}
+                                      onFocus={handleInputFocus}
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label htmlFor="forecast_lon">Longitude (optional)</Label>
+                                    <Input
+                                      id="forecast_lon"
+                                      type="number"
+                                      step="0.0001"
+                                      placeholder="e.g., 139.6503"
+                                      value={(nodeConfig as ActionNodeData).params?.lon as number || ''}
+                                      onChange={(e) => {
+                                        const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                        const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                        // Only clear location if we have a valid longitude value
+                                        if (value !== undefined && !isNaN(value)) {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value, location: undefined } 
+                                          } as ActionNodeData);
+                                        } else {
+                                          onNodeConfigChange(selectedNodeId, { 
+                                            ...nodeConfig, 
+                                            params: { ...currentParams, lon: value } 
+                                          } as ActionNodeData);
+                                        }
+                                      }}
+                                      onFocus={handleInputFocus}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label htmlFor="forecast_units">Units</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.units as string || 'metric'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, units: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="forecast_units">
+                                      <SelectValue placeholder="Select units" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="metric">Metric (°C, m/s)</SelectItem>
+                                      <SelectItem value="imperial">Imperial (°F, mph)</SelectItem>
+                                      <SelectItem value="standard">Standard (Kelvin)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="forecast_cnt">Number of Forecasts (optional)</Label>
+                                  <Input
+                                    id="forecast_cnt"
+                                    type="number"
+                                    min="1"
+                                    max="40"
+                                    placeholder="e.g., 8 (default: all available)"
+                                    value={(nodeConfig as ActionNodeData).params?.cnt as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, cnt: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Max 40 entries (3-hour intervals). Leave empty for all.</p>
                                 </div>
                               </div>
                             )}
