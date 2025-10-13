@@ -1,18 +1,11 @@
 """API routes for service connections."""
 
-from __future__ import annotations
-
 import logging
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.background import BackgroundTasks
-from fastapi.responses import RedirectResponse
-from sqlalchemy.orm import Session
-
+import httpx
 from typing import Any, Dict
 
-import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from fastapi.background import BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -38,8 +31,15 @@ from app.schemas.user_activity_log import UserActivityLogCreate
 # Import the new service connection schemas
 from app.schemas.api_key_connection import ApiKeyConnectionCreate, ApiKeyConnectionCreateRequest
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Create a router instance
 router = APIRouter(tags=["service-connections"])
 logger = logging.getLogger(__name__)
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/connect/{provider}")
@@ -232,9 +232,11 @@ def list_oauth_providers() -> dict[str, list[str]]:
 
 
 @router.get("/test/{provider}/{connection_id}")
+@limiter.limit("10/minute")  # Limit to 10 requests per minute per IP address
 async def test_provider_api_access(
     provider: str,
     connection_id: str,
+    request: Request,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -355,13 +357,15 @@ async def test_provider_api_access(
 
 
 @router.post("/api-key/{provider}")
+@limiter.limit("5/minute")  # Limit to 5 requests per minute per IP address
 async def add_api_key_connection(
     provider: str,
     api_key_connection: ApiKeyConnectionCreateRequest,
+    request: Request,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """Add a new service connection using an API key instead of OAuth flow.
     
     This endpoint allows users to manually input API keys for services that don't use OAuth,
