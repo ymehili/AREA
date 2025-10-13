@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ApiKeyConnectionBase(BaseModel):
@@ -17,7 +17,7 @@ class ApiKeyConnectionCreateRequest(BaseModel):
     
     api_key: str = Field(..., min_length=1)
 
-    @validator("api_key")
+    @field_validator("api_key")
     def validate_api_key_format(cls, v) -> str:
         """Validate that the API key starts with 'sk-' for OpenAI."""
         if not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):
@@ -30,7 +30,7 @@ class ApiKeyConnectionCreate(ApiKeyConnectionBase):
 
     api_key: str = Field(..., min_length=1)
 
-    @validator("api_key")
+    @field_validator("api_key")
     def validate_api_key_format(cls, v) -> str:
         """Validate that the API key starts with 'sk-' for OpenAI."""
         if not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):
@@ -43,7 +43,7 @@ class ApiKeyConnectionUpdate(ApiKeyConnectionBase):
 
     api_key: Optional[str] = Field(None, min_length=1)
 
-    @validator("api_key", pre=True, always=True)
+    @field_validator("api_key")
     def validate_api_key_format(cls, v) -> Optional[str]:
         """Validate that the API key starts with 'sk-' for OpenAI."""
         if v is not None and not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):

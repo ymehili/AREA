@@ -30,15 +30,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger("area")
 
 
-def _get_openai_client(area: Area, db: Session) -> httpx.Client:
-    """Get authenticated OpenAI client for a user by retrieving and decrypting their API key.
+def _get_openai_api_key(area: Area, db: Session) -> str:
+    """Get decrypted OpenAI API key for a user by retrieving and decrypting their API key.
     
     Args:
         area: The Area being executed (contains user_id)
         db: Database session
         
     Returns:
-        HTTP client configured with user's API key
+        Decrypted API key string
         
     Raises:
         OpenAIConnectionError: If service connection not found or API key unavailable
@@ -53,16 +53,7 @@ def _get_openai_client(area: Area, db: Session) -> httpx.Client:
     if not api_key:
         raise OpenAIConnectionError("OpenAI API key not available or invalid.")
 
-    # Create authenticated client
-    client = httpx.Client(
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        },
-        timeout=30.0  # 30 second timeout for OpenAI requests
-    )
-    
-    return client
+    return api_key
 
 
 def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
@@ -83,6 +74,27 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIConnectionError: If API key not found/invalid
         OpenAIAPIError: If API request fails
     """
+    # Validate and prepare parameters first before making database calls
+    model = params.get("model") or "gpt-3.5-turbo"
+    temperature = params.get("temperature", 0.7)
+    max_tokens = params.get("max_tokens", 500)
+    system_prompt = params.get("system_prompt", "")
+    
+    # Build messages array
+    messages = params.get("messages", [])
+    
+    # If no messages provided but prompt is given, create a simple message
+    if not messages and "prompt" in params:
+        messages = [{"role": "user", "content": params["prompt"]}]
+    
+    # If system prompt provided, add it at the beginning
+    if system_prompt:
+        messages = [{"role": "system", "content": system_prompt}] + messages
+    
+    if not messages:
+        raise ValueError("Either 'messages' or 'prompt' parameter must be provided")
+    
+    # Only create DB session when we know params are valid
     try:
         db = SessionLocal()
         
@@ -96,28 +108,8 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Validate and prepare parameters first before making database calls
-        model = params.get("model") or "gpt-3.5-turbo"
-        temperature = params.get("temperature", 0.7)
-        max_tokens = params.get("max_tokens", 500)
-        system_prompt = params.get("system_prompt", "")
-        
-        # Build messages array
-        messages = params.get("messages", [])
-        
-        # If no messages provided but prompt is given, create a simple message
-        if not messages and "prompt" in params:
-            messages = [{"role": "user", "content": params["prompt"]}]
-        
-        # If system prompt provided, add it at the beginning
-        if system_prompt:
-            messages = [{"role": "system", "content": system_prompt}] + messages
-        
-        if not messages:
-            raise ValueError("Either 'messages' or 'prompt' parameter must be provided")
-        
-        # Get authenticated client
-        client = _get_openai_client(area, db)
+        # Get API key
+        api_key = _get_openai_api_key(area, db)
         
         # Prepare request payload
         payload = {
@@ -127,8 +119,15 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
             "max_tokens": max_tokens,
         }
         
-        # Make API request
-        response = client.post("https://api.openai.com/v1/chat/completions", json=payload)
+        # Make API request using a context manager
+        with httpx.Client(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30.0  # 30 second timeout for OpenAI requests
+        ) as client:
+            response = client.post("https://api.openai.com/v1/chat/completions", json=payload)
         
         if response.status_code != 200:
             error_msg = f"OpenAI API error: {response.status_code} - {response.text}"
@@ -228,6 +227,12 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIConnectionError: If API key not found/invalid
         OpenAIAPIError: If API request fails
     """
+    # Validate required parameters first before making database calls
+    prompt = params.get("prompt", "")
+    if not prompt:
+        raise ValueError("'prompt' parameter is required for text completion")
+    
+    # Only create DB session when we know params are valid
     try:
         db = SessionLocal()
         
@@ -241,13 +246,8 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Validate required parameters first before making database calls
-        prompt = params.get("prompt", "")
-        if not prompt:
-            raise ValueError("'prompt' parameter is required for text completion")
-        
-        # Get authenticated client
-        client = _get_openai_client(area, db)
+        # Get API key
+        api_key = _get_openai_api_key(area, db)
         
         # Prepare parameters
         model = params.get("model") or "gpt-3.5-turbo-instruct"
@@ -266,8 +266,15 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
         if stop:
             payload["stop"] = stop
         
-        # Make API request
-        response = client.post("https://api.openai.com/v1/completions", json=payload)
+        # Make API request using a context manager
+        with httpx.Client(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30.0  # 30 second timeout for OpenAI requests
+        ) as client:
+            response = client.post("https://api.openai.com/v1/completions", json=payload)
         
         if response.status_code != 200:
             error_msg = f"OpenAI API error: {response.status_code} - {response.text}"
@@ -366,6 +373,28 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIConnectionError: If API key not found/invalid
         OpenAIAPIError: If API request fails
     """
+    # Validate and prepare parameters first before making database calls
+    prompt = params.get("prompt", "")
+    n = params.get("n", 1)
+    size = params.get("size", "1024x1024")
+    response_format = params.get("response_format", "url")
+    
+    if not prompt:
+        raise ValueError("'prompt' parameter is required for image generation")
+    
+    # Validate parameters
+    if not (1 <= n <= 10):
+        raise ValueError("'n' parameter must be between 1 and 10")
+    
+    valid_sizes = ["256x256", "512x512", "1024x1024"]
+    if size not in valid_sizes:
+        raise ValueError(f"'size' parameter must be one of: {valid_sizes}")
+    
+    valid_formats = ["url", "b64_json"]
+    if response_format not in valid_formats:
+        raise ValueError(f"'response_format' parameter must be one of: {valid_formats}")
+    
+    # Only create DB session when we know params are valid
     try:
         db = SessionLocal()
         
@@ -379,29 +408,8 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Validate and prepare parameters first before making database calls
-        prompt = params.get("prompt", "")
-        n = params.get("n", 1)
-        size = params.get("size", "1024x1024")
-        response_format = params.get("response_format", "url")
-        
-        if not prompt:
-            raise ValueError("'prompt' parameter is required for image generation")
-        
-        # Validate parameters
-        if not (1 <= n <= 10):
-            raise ValueError("'n' parameter must be between 1 and 10")
-        
-        valid_sizes = ["256x256", "512x512", "1024x1024"]
-        if size not in valid_sizes:
-            raise ValueError(f"'size' parameter must be one of: {valid_sizes}")
-        
-        valid_formats = ["url", "b64_json"]
-        if response_format not in valid_formats:
-            raise ValueError(f"'response_format' parameter must be one of: {valid_formats}")
-        
-        # Get authenticated client
-        client = _get_openai_client(area, db)
+        # Get API key
+        api_key = _get_openai_api_key(area, db)
         
         # Prepare request payload
         payload = {
@@ -411,8 +419,15 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
             "response_format": response_format,
         }
         
-        # Make API request
-        response = client.post("https://api.openai.com/v1/images/generations", json=payload)
+        # Make API request using a context manager
+        with httpx.Client(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30.0  # 30 second timeout for OpenAI requests
+        ) as client:
+            response = client.post("https://api.openai.com/v1/images/generations", json=payload)
         
         if response.status_code != 200:
             error_msg = f"OpenAI API error: {response.status_code} - {response.text}"
@@ -511,6 +526,14 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIConnectionError: If API key not found/invalid
         OpenAIAPIError: If API request fails
     """
+    # Validate and prepare parameters first before making database calls
+    input_content = params.get("input", "")
+    model = params.get("model") or "text-moderation-latest"
+    
+    if not input_content:
+        raise ValueError("'input' parameter is required for content moderation")
+    
+    # Only create DB session when we know params are valid
     try:
         db = SessionLocal()
         
@@ -524,15 +547,8 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Validate and prepare parameters first before making database calls
-        input_content = params.get("input", "")
-        model = params.get("model") or "text-moderation-latest"
-        
-        if not input_content:
-            raise ValueError("'input' parameter is required for content moderation")
-        
-        # Get authenticated client
-        client = _get_openai_client(area, db)
+        # Get API key
+        api_key = _get_openai_api_key(area, db)
         
         # Prepare request payload
         payload = {
@@ -540,8 +556,15 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
             "model": model,
         }
         
-        # Make API request
-        response = client.post("https://api.openai.com/v1/moderations", json=payload)
+        # Make API request using a context manager
+        with httpx.Client(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30.0  # 30 second timeout for OpenAI requests
+        ) as client:
+            response = client.post("https://api.openai.com/v1/moderations", json=payload)
         
         if response.status_code != 200:
             error_msg = f"OpenAI API error: {response.status_code} - {response.text}"
