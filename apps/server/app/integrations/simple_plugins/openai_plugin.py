@@ -464,6 +464,7 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
             "num_images": n,
             "size": size,
             "response_format": response_format,
+            "model": "dall-e-3",  # OpenAI's default image generation model
             "full_response": result,
         }
         
@@ -585,10 +586,13 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
         
         # Store full response for display in execution logs
         event["openai_data"] = {
-            "flagged": flagged,
-            "categories": categories,
-            "category_scores": category_scores,
+            "moderation_result": {
+                "flagged": flagged,
+                "categories": categories,
+                "category_scores": category_scores,
+            },
             "input": input_content,
+            "model": model,
             "full_response": result,
         }
         
