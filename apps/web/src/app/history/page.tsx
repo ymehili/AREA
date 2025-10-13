@@ -657,6 +657,306 @@ export default function HistoryPage() {
                     }
                   })()}
 
+                  {/* OpenAI Data Display */}
+                  {selectedLog.step_details && (() => {
+                    try {
+                      const stepDetails = typeof selectedLog.step_details === 'string' 
+                        ? JSON.parse(selectedLog.step_details) 
+                        : selectedLog.step_details;
+                      
+                      const executionLog = stepDetails.execution_log || [];
+                      const openaiStep = executionLog.find((step: { service?: string; status?: string; openai_data?: unknown; action?: string }) => 
+                        step.service === 'openai' && step.status === 'success' && step.openai_data
+                      );
+                      
+                      if (!openaiStep || !openaiStep.openai_data) return null;
+                      
+                      const openaiData = openaiStep.openai_data;
+                      const action = openaiStep.action;
+                      
+                      // Get action emoji and title
+                      const getActionEmoji = (action: string) => {
+                        if (action === 'complete_text') return '✍️';
+                        if (action === 'chat_completion') return '💬';
+                        if (action === 'image_generation') return '🖼️';
+                        if (action === 'content_moderation') return '🛡️';
+                        return '🤖';
+                      };
+                      
+                      const getActionTitle = (action: string) => {
+                        if (action === 'complete_text') return 'Text Completion';
+                        if (action === 'chat_completion') return 'Chat Completion';
+                        if (action === 'image_generation') return 'Image Generation';
+                        if (action === 'content_moderation') return 'Content Moderation';
+                        return 'OpenAI Response';
+                      };
+                      
+                      // Text Completion Display
+                      if (action === 'complete_text' && openaiData.response) {
+                        return (
+                          <Card className="border-2 border-green-200 dark:border-green-800">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {getActionEmoji(action)} OpenAI {getActionTitle(action)}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Response Display */}
+                              <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Generated Response</p>
+                                <div className="text-sm leading-relaxed whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-3 border">
+                                  {openaiData.response}
+                                </div>
+                              </div>
+                              
+                              {/* Model & Token Info Grid */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Model</p>
+                                  <p className="text-sm font-semibold font-mono">
+                                    🤖 {openaiData.model || 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Finish Reason</p>
+                                  <p className="text-sm font-semibold capitalize">
+                                    ✓ {openaiData.finish_reason || 'stop'}
+                                  </p>
+                                </div>
+                                {openaiData.usage && (
+                                  <>
+                                    <div className="bg-muted/50 border rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Tokens Used</p>
+                                      <p className="text-sm font-semibold">
+                                        📊 {openaiData.usage.total_tokens || 0}
+                                      </p>
+                                    </div>
+                                    <div className="bg-muted/50 border rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Completion Tokens</p>
+                                      <p className="text-sm font-semibold">
+                                        ✨ {openaiData.usage.completion_tokens || 0}
+                                      </p>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Generated Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenAI API
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      // Chat Completion Display
+                      if (action === 'chat_completion' && openaiData.response) {
+                        return (
+                          <Card className="border-2 border-blue-200 dark:border-blue-800">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {getActionEmoji(action)} OpenAI {getActionTitle(action)}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Response Display */}
+                              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">AI Response</p>
+                                <div className="text-sm leading-relaxed whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-3 border">
+                                  {openaiData.response}
+                                </div>
+                              </div>
+                              
+                              {/* Model & Token Info Grid */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Model</p>
+                                  <p className="text-sm font-semibold font-mono">
+                                    🤖 {openaiData.model || 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Finish Reason</p>
+                                  <p className="text-sm font-semibold capitalize">
+                                    ✓ {openaiData.finish_reason || 'stop'}
+                                  </p>
+                                </div>
+                                {openaiData.usage && (
+                                  <>
+                                    <div className="bg-muted/50 border rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Tokens Used</p>
+                                      <p className="text-sm font-semibold">
+                                        📊 {openaiData.usage.total_tokens || 0}
+                                      </p>
+                                    </div>
+                                    <div className="bg-muted/50 border rounded-lg p-3">
+                                      <p className="text-xs text-muted-foreground mb-1.5 font-medium">Completion Tokens</p>
+                                      <p className="text-sm font-semibold">
+                                        ✨ {openaiData.usage.completion_tokens || 0}
+                                      </p>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Response Generated Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenAI API
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      // Image Generation Display
+                      if (action === 'image_generation' && openaiData.image_urls) {
+                        return (
+                          <Card className="border-2 border-purple-200 dark:border-purple-800">
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {getActionEmoji(action)} OpenAI {getActionTitle(action)}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Images Display */}
+                              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                                <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Generated Images</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  {openaiData.image_urls.map((url: string, index: number) => (
+                                    <div key={index} className="bg-white dark:bg-gray-900 rounded-lg overflow-hidden border">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img 
+                                        src={url} 
+                                        alt={`Generated image ${index + 1}`}
+                                        className="w-full h-auto"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Model Info */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Model</p>
+                                  <p className="text-sm font-semibold font-mono">
+                                    🎨 {openaiData.model || 'dall-e-3'}
+                                  </p>
+                                </div>
+                                <div className="bg-muted/50 border rounded-lg p-3">
+                                  <p className="text-xs text-muted-foreground mb-1.5 font-medium">Images Generated</p>
+                                  <p className="text-sm font-semibold">
+                                    🖼️ {openaiData.image_urls.length}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Images Generated Successfully
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenAI DALL-E
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      // Content Moderation Display
+                      if (action === 'content_moderation' && openaiData.moderation_result) {
+                        const moderation = openaiData.moderation_result;
+                        const isFlagged = moderation.flagged;
+                        
+                        return (
+                          <Card className={cn(
+                            "border-2",
+                            isFlagged ? "border-red-200 dark:border-red-800" : "border-green-200 dark:border-green-800"
+                          )}>
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                {getActionEmoji(action)} OpenAI {getActionTitle(action)}
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {/* Moderation Status */}
+                              <div className={cn(
+                                "rounded-lg p-4 border",
+                                isFlagged 
+                                  ? "bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950 border-red-200 dark:border-red-800"
+                                  : "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800"
+                              )}>
+                                <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">Moderation Status</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-2xl">{isFlagged ? '⚠️' : '✅'}</span>
+                                  <p className="text-lg font-semibold">
+                                    {isFlagged ? 'Content Flagged' : 'Content Safe'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Category Scores */}
+                              {moderation.categories && (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Flagged Categories</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(moderation.categories)
+                                      .filter(([, flagged]) => flagged)
+                                      .map(([category]) => (
+                                        <div key={category} className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded p-2">
+                                          <p className="text-xs font-medium text-red-700 dark:text-red-300 capitalize">
+                                            {category.replace(/[_-]/g, ' ')}
+                                          </p>
+                                        </div>
+                                      ))}
+                                  </div>
+                                  {!Object.values(moderation.categories).some((v) => v) && (
+                                    <p className="text-xs text-muted-foreground italic">No categories flagged</p>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Model Info */}
+                              <div className="bg-muted/50 border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-1.5 font-medium">Model</p>
+                                <p className="text-sm font-semibold font-mono">
+                                  🛡️ {openaiData.model || 'text-moderation-latest'}
+                                </p>
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div className="flex items-center justify-between pt-3 border-t">
+                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 dark:bg-green-950 dark:text-green-300">
+                                  ✓ Moderation Complete
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  via OpenAI Moderation API
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      
+                      return null;
+                    } catch {
+                      return null;
+                    }
+                  })()}
+
                   {/* Step Details */}
                   {selectedLog.step_details && (
                     <Card className="border-2">
