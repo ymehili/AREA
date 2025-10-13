@@ -405,6 +405,25 @@ class StepExecutor:
                     step_log["weather_data"] = trigger_data["weather_data"]
                     logger.info("Weather data added to step log", extra={"weather_data": trigger_data["weather_data"]})
             
+            # If this is an openai action, include openai data in the log
+            # Check after handler execution as the handler adds this data
+            if step.service == "openai":
+                logger.info(
+                    "OpenAI action executed, checking for openai_data",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": str(step.id),
+                        "trigger_data_keys": list(trigger_data.keys()),
+                        "has_openai_data": "openai_data" in trigger_data,
+                    }
+                )
+                if "openai_data" in trigger_data:
+                    step_log["openai_data"] = trigger_data["openai_data"]
+                    # Also update the output to show the actual response
+                    if "response" in trigger_data["openai_data"]:
+                        step_log["output"] = trigger_data["openai_data"]["response"]
+                    logger.info("OpenAI data added to step log", extra={"openai_data": trigger_data["openai_data"]})
+            
             self.execution_log.append(step_log)
 
             logger.info(
