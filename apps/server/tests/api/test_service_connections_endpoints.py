@@ -200,15 +200,31 @@ class TestServiceConnectionsEndpoints:
                     assert data["provider"] == "github"
                     assert data["test_result"] == mock_test_result
 
-    def test_test_provider_api_access_unsupported_provider(self, client: SyncASGITestClient, auth_token: str) -> None:
+    def test_test_provider_api_access_unsupported_provider(self, client: SyncASGITestClient, auth_token: str, db_session: Session) -> None:
         """Test API access test with unsupported provider."""
-        fake_id = uuid.uuid4()
+        # Get user ID from token
+        from jose import jwt
+        from app.core.config import settings
+        import uuid
+
+        payload = jwt.decode(auth_token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = uuid.UUID(payload["sub"])
+
+        # Create a connection for an unsupported provider
+        connection = ServiceConnection(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            service_name="unsupported_provider",
+            encrypted_access_token="encrypted_token",
+        )
+        db_session.add(connection)
+        db_session.commit()
 
         with patch('app.api.routes.service_connections.OAuth2ProviderFactory.get_supported_providers') as mock_get_providers:
             mock_get_providers.return_value = []  # No supported providers
 
             response = client.get(
-                f"/api/v1/service-connections/test/github/{fake_id}",
+                f"/api/v1/service-connections/test/unsupported_provider/{connection.id}",
                 headers={"Authorization": f"Bearer {auth_token}"}
             )
 
@@ -269,7 +285,7 @@ class TestServiceConnectionsEndpoints:
             mock_client_instance.get.return_value = mock_response
 
             # Mock the token decryption
-            with patch('app.api.routes.service_connections.decrypt_token') as mock_decrypt:
+            with patch('app.core.encryption.decrypt_token') as mock_decrypt:
                 mock_decrypt.return_value = "sk-test-api-key"
 
                 response = client.get(
@@ -323,7 +339,7 @@ class TestServiceConnectionsEndpoints:
             mock_client_instance.get.return_value = mock_response
 
             # Mock the token decryption
-            with patch('app.api.routes.service_connections.decrypt_token') as mock_decrypt:
+            with patch('app.core.encryption.decrypt_token') as mock_decrypt:
                 mock_decrypt.return_value = "sk-invalid-api-key"
 
                 response = client.get(

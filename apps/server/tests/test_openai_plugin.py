@@ -20,10 +20,11 @@ class TestOpenAIPlugin:
     @pytest.fixture
     def area(self):
         """Create a mock area object for testing."""
+        import uuid
         area = Area()
-        area.id = "test-area-id"
+        area.id = uuid.uuid4()
         area.name = "Test Area"
-        area.user_id = "test-user-id"
+        area.user_id = uuid.uuid4()
         return area
     
     @pytest.fixture

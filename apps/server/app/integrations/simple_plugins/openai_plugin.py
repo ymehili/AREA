@@ -96,10 +96,7 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Get authenticated client
-        client = _get_openai_client(area, db)
-        
-        # Prepare model and messages
+        # Validate and prepare parameters first before making database calls
         model = params.get("model") or "gpt-3.5-turbo"
         temperature = params.get("temperature", 0.7)
         max_tokens = params.get("max_tokens", 500)
@@ -118,6 +115,9 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
         
         if not messages:
             raise ValueError("Either 'messages' or 'prompt' parameter must be provided")
+        
+        # Get authenticated client
+        client = _get_openai_client(area, db)
         
         # Prepare request payload
         payload = {
@@ -241,18 +241,19 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
+        # Validate required parameters first before making database calls
+        prompt = params.get("prompt", "")
+        if not prompt:
+            raise ValueError("'prompt' parameter is required for text completion")
+        
         # Get authenticated client
         client = _get_openai_client(area, db)
         
         # Prepare parameters
         model = params.get("model") or "gpt-3.5-turbo-instruct"
-        prompt = params.get("prompt", "")
         temperature = params.get("temperature", 0.7)
         max_tokens = params.get("max_tokens", 256)
         stop = params.get("stop", None)
-        
-        if not prompt:
-            raise ValueError("'prompt' parameter is required for text completion")
         
         # Prepare request payload
         payload = {
@@ -378,10 +379,7 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Get authenticated client
-        client = _get_openai_client(area, db)
-        
-        # Prepare parameters
+        # Validate and prepare parameters first before making database calls
         prompt = params.get("prompt", "")
         n = params.get("n", 1)
         size = params.get("size", "1024x1024")
@@ -401,6 +399,9 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
         valid_formats = ["url", "b64_json"]
         if response_format not in valid_formats:
             raise ValueError(f"'response_format' parameter must be one of: {valid_formats}")
+        
+        # Get authenticated client
+        client = _get_openai_client(area, db)
         
         # Prepare request payload
         payload = {
@@ -523,15 +524,15 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
         
-        # Get authenticated client
-        client = _get_openai_client(area, db)
-        
-        # Prepare parameters
+        # Validate and prepare parameters first before making database calls
         input_content = params.get("input", "")
         model = params.get("model") or "text-moderation-latest"
         
         if not input_content:
             raise ValueError("'input' parameter is required for content moderation")
+        
+        # Get authenticated client
+        client = _get_openai_client(area, db)
         
         # Prepare request payload
         payload = {
