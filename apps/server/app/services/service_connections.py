@@ -31,15 +31,21 @@ class DuplicateServiceConnectionError(Exception):
 
 def get_service_connection_by_id(db: Session, connection_id: str) -> Optional[ServiceConnection]:
     """Fetch a service connection by its ID."""
-    statement = select(ServiceConnection).where(ServiceConnection.id == connection_id)
+    import uuid as uuid_module
+    # Convert string connection_id to UUID for proper comparison
+    connection_uuid = connection_id if isinstance(connection_id, uuid_module.UUID) else uuid_module.UUID(connection_id)
+    statement = select(ServiceConnection).where(ServiceConnection.id == connection_uuid)
     result = db.execute(statement)
     return result.scalar_one_or_none()
 
 
 def get_service_connection_by_user_and_service(db: Session, user_id: str, service_name: str) -> Optional[ServiceConnection]:
     """Fetch a service connection by user ID and service name."""
+    import uuid as uuid_module
+    # Convert string user_id to UUID for proper comparison
+    user_uuid = user_id if isinstance(user_id, uuid_module.UUID) else uuid_module.UUID(user_id)
     statement = select(ServiceConnection).where(
-        ServiceConnection.user_id == user_id,
+        ServiceConnection.user_id == user_uuid,
         ServiceConnection.service_name == service_name
     )
     result = db.execute(statement)
@@ -48,7 +54,10 @@ def get_service_connection_by_user_and_service(db: Session, user_id: str, servic
 
 def get_user_service_connections(db: Session, user_id: str) -> list[ServiceConnection]:
     """Fetch all service connections for a user."""
-    statement = select(ServiceConnection).where(ServiceConnection.user_id == user_id)
+    import uuid as uuid_module
+    # Convert string user_id to UUID for proper comparison
+    user_uuid = user_id if isinstance(user_id, uuid_module.UUID) else uuid_module.UUID(user_id)
+    statement = select(ServiceConnection).where(ServiceConnection.user_id == user_uuid)
     result = db.execute(statement)
     return list(result.scalars().all())
 
@@ -60,6 +69,10 @@ def create_service_connection(
     oauth_metadata: Optional[Dict[str, Any]] = None
 ) -> ServiceConnection:
     """Create a new service connection with encrypted tokens and optional metadata."""
+    import uuid as uuid_module
+    # Convert string user_id to UUID for proper handling
+    user_uuid = user_id if isinstance(user_id, uuid_module.UUID) else uuid_module.UUID(user_id)
+    
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, user_id, service_connection_in.service_name)
     if existing_connection is not None:
@@ -70,7 +83,7 @@ def create_service_connection(
     encrypted_refresh_token = encrypt_token(service_connection_in.refresh_token) if service_connection_in.refresh_token else None
 
     service_connection = ServiceConnection(
-        user_id=user_id,
+        user_id=user_uuid,
         service_name=service_connection_in.service_name,
         encrypted_access_token=encrypted_access_token,
         encrypted_refresh_token=encrypted_refresh_token,
@@ -139,6 +152,10 @@ def create_api_key_connection(db: Session, user_id: str, service_name: str, api_
     Raises:
         DuplicateServiceConnectionError: If a connection already exists for this user and service
     """
+    import uuid as uuid_module
+    # Convert string user_id to UUID for proper handling
+    user_uuid = user_id if isinstance(user_id, uuid_module.UUID) else uuid_module.UUID(user_id)
+    
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, user_id, service_name)
     if existing_connection is not None:
@@ -150,7 +167,7 @@ def create_api_key_connection(db: Session, user_id: str, service_name: str, api_
 
     # Create service connection with API key metadata
     service_connection = ServiceConnection(
-        user_id=user_id,
+        user_id=user_uuid,
         service_name=service_name,
         encrypted_access_token=encrypted_api_key,
         # API key connections don't have refresh tokens or expiry
