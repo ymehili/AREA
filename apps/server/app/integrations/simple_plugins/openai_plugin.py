@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict
 import httpx
 
 from app.models.area import Area
+from app.db.session import SessionLocal
 from app.services.service_connections import get_service_connection_by_user_and_service
 from app.core.encryption import decrypt_token
 from app.integrations.simple_plugins.exceptions import (
@@ -83,8 +84,7 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIAPIError: If API request fails
     """
     try:
-        from sqlalchemy.orm import Session
-        db = Session()
+        db = SessionLocal()
         
         logger.info(
             "Starting OpenAI chat completion action",
@@ -100,7 +100,7 @@ def chat_completion_handler(area: Area, params: dict, event: dict) -> None:
         client = _get_openai_client(area, db)
         
         # Prepare model and messages
-        model = params.get("model", "gpt-3.5-turbo")
+        model = params.get("model") or "gpt-3.5-turbo"
         temperature = params.get("temperature", 0.7)
         max_tokens = params.get("max_tokens", 500)
         system_prompt = params.get("system_prompt", "")
@@ -217,7 +217,7 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
     Args:
         area: The Area being executed
         params: Action parameters:
-            - model (str, optional): Model to use (default: text-davinci-003)
+            - model (str, optional): Model to use (default: gpt-3.5-turbo-instruct)
             - prompt (str): Input text to complete
             - temperature (float, optional): Sampling temperature (0.0-1.0)
             - max_tokens (int, optional): Maximum tokens to generate
@@ -229,8 +229,7 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIAPIError: If API request fails
     """
     try:
-        from sqlalchemy.orm import Session
-        db = Session()
+        db = SessionLocal()
         
         logger.info(
             "Starting OpenAI text completion action",
@@ -246,7 +245,7 @@ def text_completion_handler(area: Area, params: dict, event: dict) -> None:
         client = _get_openai_client(area, db)
         
         # Prepare parameters
-        model = params.get("model", "text-davinci-003")
+        model = params.get("model") or "gpt-3.5-turbo-instruct"
         prompt = params.get("prompt", "")
         temperature = params.get("temperature", 0.7)
         max_tokens = params.get("max_tokens", 256)
@@ -367,8 +366,7 @@ def image_generation_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIAPIError: If API request fails
     """
     try:
-        from sqlalchemy.orm import Session
-        db = Session()
+        db = SessionLocal()
         
         logger.info(
             "Starting OpenAI image generation action",
@@ -512,8 +510,7 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
         OpenAIAPIError: If API request fails
     """
     try:
-        from sqlalchemy.orm import Session
-        db = Session()
+        db = SessionLocal()
         
         logger.info(
             "Starting OpenAI content moderation action",
@@ -530,7 +527,7 @@ def content_moderation_handler(area: Area, params: dict, event: dict) -> None:
         
         # Prepare parameters
         input_content = params.get("input", "")
-        model = params.get("model", "text-moderation-latest")
+        model = params.get("model") or "text-moderation-latest"
         
         if not input_content:
             raise ValueError("'input' parameter is required for content moderation")

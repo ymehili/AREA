@@ -169,7 +169,7 @@ class TestOpenAIPlugin:
         """Test successful text completion."""
         params = {
             "prompt": "Complete this sentence: Today is",
-            "model": "text-davinci-003",
+            "model": "gpt-3.5-turbo-instruct",
             "temperature": 0.5,
             "max_tokens": 50
         }
@@ -206,7 +206,7 @@ class TestOpenAIPlugin:
             mock_client.post.assert_called_once_with(
                 "https://api.openai.com/v1/completions",
                 json={
-                    "model": "text-davinci-003",
+                    "model": "gpt-3.5-turbo-instruct",
                     "prompt": "Complete this sentence: Today is",
                     "temperature": 0.5,
                     "max_tokens": 50
@@ -216,7 +216,7 @@ class TestOpenAIPlugin:
             # Verify event data
             assert event["openai.response"] == " a beautiful day!"
             assert event["openai.finish_reason"] == "stop"
-            assert event["openai.model"] == "text-davinci-003"
+            assert event["openai.model"] == "gpt-3.5-turbo-instruct"
     
     def test_image_generation_handler_success(self, area):
         """Test successful image generation."""
