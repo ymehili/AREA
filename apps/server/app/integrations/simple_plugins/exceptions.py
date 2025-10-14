@@ -45,6 +45,36 @@ class WeatherConfigError(WeatherError):
     pass
 
 
+class OpenAIError(Exception):
+    """Base exception for OpenAI operations."""
+
+    pass
+
+
+class OpenAIAuthError(OpenAIError):
+    """OpenAI authentication/authorization failed."""
+
+    pass
+
+
+class OpenAIAPIError(OpenAIError):
+    """OpenAI API request failed."""
+
+    pass
+
+
+class OpenAIConnectionError(OpenAIError):
+    """OpenAI service connection not found or invalid."""
+
+    pass
+
+
+class OpenAIConfigError(OpenAIError):
+    """OpenAI configuration invalid or missing."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
@@ -53,4 +83,9 @@ __all__ = [
     "WeatherError",
     "WeatherAPIError",
     "WeatherConfigError",
+    "OpenAIError",
+    "OpenAIAuthError",
+    "OpenAIAPIError",
+    "OpenAIConnectionError",
+    "OpenAIConfigError",
 ]
