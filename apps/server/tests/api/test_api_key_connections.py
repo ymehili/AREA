@@ -68,11 +68,12 @@ class TestApiKeyConnectionEndpoints:
             headers={"Authorization": f"Bearer {auth_token}"}
         )
         
-        # Pydantic validation errors return 422
-        assert response.status_code == 422
+        # Route validation errors return 400 (not Pydantic validation)
+        assert response.status_code == 400
         # Check if the error message mentions invalid format
         response_data = response.json()
         assert "detail" in response_data
+        assert "Invalid API key format" in response_data["detail"]
     
     def test_add_api_key_connection_invalid_key(self, client: SyncASGITestClient, auth_token: str, valid_api_key: str):
         """Test adding an API key that fails OpenAI validation."""
@@ -170,17 +171,19 @@ class TestApiKeyConnectionEndpoints:
             mock_response.status_code = 200
             mock_client_instance.get.return_value = mock_response
             
-            response = client.post(
-                "/api/v1/service-connections/api-key/openai",
-                json={"api_key": valid_api_key_proj},
-                headers={"Authorization": f"Bearer {auth_token}"}
-            )
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert data["message"] == "Successfully added openai API key"
-            assert data["provider"] == "openai"
-            assert "connection_id" in data
+            # Patch the rate limiter's enabled property to bypass rate limiting in tests
+            with patch("app.api.routes.service_connections.limiter.enabled", False):
+                response = client.post(
+                    "/api/v1/service-connections/api-key/openai",
+                    json={"api_key": valid_api_key_proj},
+                    headers={"Authorization": f"Bearer {auth_token}"}
+                )
+                
+                assert response.status_code == 200
+                data = response.json()
+                assert data["message"] == "Successfully added openai API key"
+                assert data["provider"] == "openai"
+                assert "connection_id" in data
     
     def test_add_api_key_connection_success_svcacct_format(self, client: SyncASGITestClient, auth_token: str, valid_api_key_svcacct: str):
         """Test successful addition of an API key connection with service account format."""
@@ -195,14 +198,16 @@ class TestApiKeyConnectionEndpoints:
             mock_response.status_code = 200
             mock_client_instance.get.return_value = mock_response
             
-            response = client.post(
-                "/api/v1/service-connections/api-key/openai",
-                json={"api_key": valid_api_key_svcacct},
-                headers={"Authorization": f"Bearer {auth_token}"}
-            )
-            
-            assert response.status_code == 200
-            data = response.json()
-            assert data["message"] == "Successfully added openai API key"
-            assert data["provider"] == "openai"
-            assert "connection_id" in data
+            # Patch the rate limiter's enabled property to bypass rate limiting in tests
+            with patch("app.api.routes.service_connections.limiter.enabled", False):
+                response = client.post(
+                    "/api/v1/service-connections/api-key/openai",
+                    json={"api_key": valid_api_key_svcacct},
+                    headers={"Authorization": f"Bearer {auth_token}"}
+                )
+                
+                assert response.status_code == 200
+                data = response.json()
+                assert data["message"] == "Successfully added openai API key"
+                assert data["provider"] == "openai"
+                assert "connection_id" in data

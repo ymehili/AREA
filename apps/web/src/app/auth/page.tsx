@@ -188,19 +188,30 @@ function AuthPageContent() {
                 <Button type="submit" className="w-full h-11 text-base font-medium shadow-md hover:shadow-lg transition-shadow" disabled={isBusy}>
                   {isBusy ? "Creating account…" : "Create account"}
                 </Button>
-                <div className="mt-6 space-y-3 p-4 bg-muted/30 rounded-lg border border-success/20">
-                  <div className="flex items-center space-x-3 text-sm text-foreground">
-                    <Check className="h-5 w-5 text-success flex-shrink-0" />
-                    <span>No credit card required</span>
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
                   </div>
-                  <div className="flex items-center space-x-3 text-sm text-foreground">
-                    <Check className="h-5 w-5 text-success flex-shrink-0" />
-                    <span>Free forever plan available</span>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-3 bg-card text-muted-foreground font-medium">Or continue with</span>
                   </div>
-                  <div className="flex items-center space-x-3 text-sm text-foreground">
-                    <Check className="h-5 w-5 text-success flex-shrink-0" />
-                    <span>Cancel anytime</span>
-                  </div>
+                </div>
+                <div className="space-y-3">
+                  <OAuthButton
+                    provider="google"
+                    action="signup"
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
+                  />
+                  <OAuthButton
+                    provider="github"
+                    action="signup"
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/service-connections/connect/github`}
+                  />
+                  <OAuthButton
+                    provider="microsoft"
+                    action="signup"
+                    onClick={() => toast.info("Microsoft OAuth coming soon!")}
+                  />
                 </div>
               </form>
             </TabsContent>

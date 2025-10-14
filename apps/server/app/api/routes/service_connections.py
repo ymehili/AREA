@@ -380,53 +380,92 @@ async def add_api_key_connection(
     Returns:
         Connection details with success status
     """
-    # Validate provider name
-    # For now, we'll allow 'openai' specifically, but in the future this could be 
-    # extended to validate against a list of supported API-key based services
-    if provider != "openai":
+    # Validate provider name - support for OpenAI and Weather
+    supported_providers = ["openai", "weather"]
+    if provider not in supported_providers:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"API key connection not supported for provider: {provider}",
+            detail=f"API key connection not supported for provider: {provider}. Supported providers: {', '.join(supported_providers)}",
         )
     
-    # Validate the API key format (OpenAI keys start with 'sk-', 'sk-proj-', or 'sk-svcacct-')
     api_key = api_key_connection.api_key
-    if not (api_key.startswith("sk-") or api_key.startswith("sk-proj-") or api_key.startswith("sk-svcacct-")):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid API key format. OpenAI API keys must start with 'sk-', 'sk-proj-', or 'sk-svcacct-'",
-        )
     
-    # Test the API key by making a simple request to the OpenAI API
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.openai.com/v1/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10.0
+    # Validate and test the API key based on the provider
+    if provider == "openai":
+        # Validate the API key format (OpenAI keys start with 'sk-', 'sk-proj-', or 'sk-svcacct-')
+        if not (api_key.startswith("sk-") or api_key.startswith("sk-proj-") or api_key.startswith("sk-svcacct-")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid API key format. OpenAI API keys must start with 'sk-', 'sk-proj-', or 'sk-svcacct-'",
             )
-            if response.status_code != 200:
-                error_detail = "Invalid API key or API error. Please check your API key and try again."
-                if response.status_code == 401:
-                    error_detail = "Authentication failed. Invalid OpenAI API key."
-                elif response.status_code == 429:
-                    error_detail = "Rate limit exceeded. Please check your OpenAI usage limits."
-                elif response.status_code == 403:
-                    error_detail = "Access forbidden. Please verify your OpenAI API key permissions."
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=error_detail
+        
+        # Test the API key by making a simple request to the OpenAI API
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=10.0
                 )
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=status.HTTP_408_REQUEST_TIMEOUT,
-            detail="Request timed out while validating the API key with OpenAI service. Please try again later."
-        )
-    except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to validate API key with OpenAI service: {str(e)}"
-        )
+                if response.status_code != 200:
+                    error_detail = "Invalid API key or API error. Please check your API key and try again."
+                    if response.status_code == 401:
+                        error_detail = "Authentication failed. Invalid OpenAI API key."
+                    elif response.status_code == 429:
+                        error_detail = "Rate limit exceeded. Please check your OpenAI usage limits."
+                    elif response.status_code == 403:
+                        error_detail = "Access forbidden. Please verify your OpenAI API key permissions."
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=error_detail
+                    )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail="Request timed out while validating the API key with OpenAI service. Please try again later."
+            )
+        except httpx.RequestError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to validate API key with OpenAI service: {str(e)}"
+            )
+    
+    elif provider == "weather":
+        # Validate the API key format (OpenWeatherMap keys are 32 alphanumeric characters)
+        if len(api_key) != 32 or not api_key.isalnum():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid API key format. OpenWeatherMap API keys should be 32 alphanumeric characters.",
+            )
+        
+        # Test the API key by making a simple request to the OpenWeatherMap API
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.openweathermap.org/data/2.5/weather",
+                    params={"q": "London", "appid": api_key},
+                    timeout=10.0
+                )
+                if response.status_code != 200:
+                    error_detail = "Invalid API key or API error. Please check your OpenWeatherMap API key and try again."
+                    if response.status_code == 401:
+                        error_detail = "Authentication failed. Invalid OpenWeatherMap API key."
+                    elif response.status_code == 429:
+                        error_detail = "Rate limit exceeded. Please check your OpenWeatherMap usage limits."
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=error_detail
+                    )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail="Request timed out while validating the API key with OpenWeatherMap service. Please try again later."
+            )
+        except httpx.RequestError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to validate API key with OpenWeatherMap service: {str(e)}"
+            )
     
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, str(current_user.id), provider)

@@ -6,7 +6,7 @@ This plugin integrates with OpenWeatherMap API to provide:
 - Temperature threshold triggers
 - Weather condition change triggers
 
-All weather data is fetched using a shared API key (no per-user authentication required).
+Each user provides their own API key which is securely stored and retrieved.
 """
 
 from __future__ import annotations
@@ -15,14 +15,17 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict
 import httpx
 
-from app.core.config import settings
+from app.models.area import Area
+from app.db.session import SessionLocal
+from app.services.service_connections import get_service_connection_by_user_and_service
+from app.core.encryption import decrypt_token
 from app.integrations.simple_plugins.exceptions import (
     WeatherAPIError,
     WeatherConfigError,
 )
 
 if TYPE_CHECKING:
-    from app.models.area import Area
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger("area")
 
@@ -30,39 +33,50 @@ logger = logging.getLogger("area")
 OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5"
 
 
-def _get_api_key() -> str:
-    """Get OpenWeatherMap API key from settings.
+def _get_weather_api_key(area: Area, db: Session) -> str:
+    """Get decrypted OpenWeatherMap API key for a user by retrieving and decrypting their API key.
     
+    Args:
+        area: The Area being executed (contains user_id)
+        db: Database session
+        
     Returns:
-        API key string
+        Decrypted API key string
         
     Raises:
-        WeatherConfigError: If API key is not configured
+        WeatherConfigError: If service connection not found or API key unavailable
     """
-    api_key = getattr(settings, "openweathermap_api_key", None)
+    # Get service connection for Weather
+    connection = get_service_connection_by_user_and_service(db, area.user_id, "weather")
+    if not connection:
+        raise WeatherConfigError("Weather service connection not found. Please add your OpenWeatherMap API key.")
+
+    # Decrypt API key
+    api_key = decrypt_token(connection.encrypted_access_token)
     if not api_key:
-        raise WeatherConfigError(
-            "OpenWeatherMap API key not configured. "
-            "Please set OPENWEATHERMAP_API_KEY in your environment variables."
-        )
+        raise WeatherConfigError("OpenWeatherMap API key not available or invalid.")
+
     return api_key
 
 
-def _make_weather_request(endpoint: str, params: dict) -> dict:
+def _make_weather_request(endpoint: str, params: dict, area: Area, db: Session) -> dict:
     """Make a request to OpenWeatherMap API.
     
     Args:
         endpoint: API endpoint (e.g., "weather", "forecast")
         params: Query parameters (must include location)
+        area: The Area being executed (contains user_id)
+        db: Database session
         
     Returns:
         JSON response as dictionary
         
     Raises:
         WeatherAPIError: If API request fails
+        WeatherConfigError: If API key not found/invalid
     """
     try:
-        api_key = _get_api_key()
+        api_key = _get_weather_api_key(area, db)
         
         # Add API key to params
         params["appid"] = api_key
@@ -146,12 +160,32 @@ def get_current_weather_handler(area: Area, params: dict, event: dict) -> None:
         {"location": "Paris,FR", "units": "metric"}
         {"lat": 48.8566, "lon": 2.3522, "units": "metric"}
     """
+    # Validate and prepare parameters first before making database calls
+    location = params.get("location")
+    lat = params.get("lat")
+    lon = params.get("lon")
+    units = params.get("units", "metric")
+    
+    # Build request parameters
+    request_params = {"units": units}
+    
+    if lat is not None and lon is not None:
+        # Use coordinates
+        request_params["lat"] = lat
+        request_params["lon"] = lon
+        location_str = f"lat={lat}, lon={lon}"
+    elif location:
+        # Use city name
+        request_params["q"] = location
+        location_str = location
+    else:
+        raise ValueError(
+            "Either 'location' (city name) or both 'lat' and 'lon' (coordinates) must be provided"
+        )
+    
+    # Only create DB session when we know params are valid
     try:
-        # Extract location parameters
-        location = params.get("location")
-        lat = params.get("lat")
-        lon = params.get("lon")
-        units = params.get("units", "metric")
+        db = SessionLocal()
         
         logger.info(
             "Starting Weather get_current_weather action",
@@ -166,25 +200,8 @@ def get_current_weather_handler(area: Area, params: dict, event: dict) -> None:
             }
         )
         
-        # Build request parameters
-        request_params = {"units": units}
-        
-        if lat is not None and lon is not None:
-            # Use coordinates
-            request_params["lat"] = lat
-            request_params["lon"] = lon
-            location_str = f"lat={lat}, lon={lon}"
-        elif location:
-            # Use city name
-            request_params["q"] = location
-            location_str = location
-        else:
-            raise ValueError(
-                "Either 'location' (city name) or both 'lat' and 'lon' (coordinates) must be provided"
-            )
-        
         # Make API request
-        weather_data = _make_weather_request("weather", request_params)
+        weather_data = _make_weather_request("weather", request_params, area, db)
         
         # Extract key information for logging
         temp = weather_data.get("main", {}).get("temp")
@@ -236,6 +253,9 @@ def get_current_weather_handler(area: Area, params: dict, event: dict) -> None:
             "clouds": weather_data.get("clouds", {}).get("all"),
         }
         
+    except WeatherConfigError:
+        # Re-raise config errors as they are specific to this plugin
+        raise
     except ValueError as e:
         logger.error(
             "Invalid parameters for get_current_weather",
@@ -256,7 +276,9 @@ def get_current_weather_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise
+        raise WeatherAPIError(f"Weather API request failed: {str(e)}") from e
+    finally:
+        db.close()
 
 
 def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
@@ -283,13 +305,37 @@ def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
         {"location": "Berlin,DE", "units": "metric", "cnt": 8}
         {"lat": 52.52, "lon": 13.405, "units": "metric"}
     """
+    # Validate and prepare parameters first before making database calls
+    location = params.get("location")
+    lat = params.get("lat")
+    lon = params.get("lon")
+    units = params.get("units", "metric")
+    cnt = params.get("cnt")  # Optional: number of forecast entries
+    
+    # Build request parameters
+    request_params = {"units": units}
+    
+    if lat is not None and lon is not None:
+        # Use coordinates
+        request_params["lat"] = lat
+        request_params["lon"] = lon
+        location_str = f"lat={lat}, lon={lon}"
+    elif location:
+        # Use city name
+        request_params["q"] = location
+        location_str = location
+    else:
+        raise ValueError(
+            "Either 'location' (city name) or both 'lat' and 'lon' (coordinates) must be provided"
+        )
+    
+    # Add optional count parameter
+    if cnt:
+        request_params["cnt"] = cnt
+    
+    # Only create DB session when we know params are valid
     try:
-        # Extract location parameters
-        location = params.get("location")
-        lat = params.get("lat")
-        lon = params.get("lon")
-        units = params.get("units", "metric")
-        cnt = params.get("cnt")  # Optional: number of forecast entries
+        db = SessionLocal()
         
         logger.info(
             "Starting Weather get_forecast action",
@@ -305,29 +351,8 @@ def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
             }
         )
         
-        # Build request parameters
-        request_params = {"units": units}
-        
-        if lat is not None and lon is not None:
-            # Use coordinates
-            request_params["lat"] = lat
-            request_params["lon"] = lon
-            location_str = f"lat={lat}, lon={lon}"
-        elif location:
-            # Use city name
-            request_params["q"] = location
-            location_str = location
-        else:
-            raise ValueError(
-                "Either 'location' (city name) or both 'lat' and 'lon' (coordinates) must be provided"
-            )
-        
-        # Add optional count parameter
-        if cnt:
-            request_params["cnt"] = cnt
-        
         # Make API request
-        forecast_data = _make_weather_request("forecast", request_params)
+        forecast_data = _make_weather_request("forecast", request_params, area, db)
         
         # Extract summary information
         forecast_list = forecast_data.get("list", [])
@@ -380,6 +405,9 @@ def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
             "forecast_data": forecast_data,
         }
         
+    except WeatherConfigError:
+        # Re-raise config errors as they are specific to this plugin
+        raise
     except ValueError as e:
         logger.error(
             "Invalid parameters for get_forecast",
@@ -400,7 +428,9 @@ def get_forecast_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise
+        raise WeatherAPIError(f"Weather API request failed: {str(e)}") from e
+    finally:
+        db.close()
 
 
 __all__ = [
