@@ -13,7 +13,7 @@ import { cn, headingClasses } from "@/lib/utils";
 import ApiKeyConnectionDialog from "@/components/api-key-connection-dialog";
 
 // Define API-key services - these services use API keys instead of OAuth
-const API_KEY_SERVICES = ["openai"];
+const API_KEY_SERVICES = ["openai", "weather"];
 
 type Service = {
   id: string;
