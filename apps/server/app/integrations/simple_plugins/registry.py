@@ -60,6 +60,18 @@ class PluginsRegistry:
         self._handlers[("weather", "get_current_weather")] = get_current_weather_handler
         self._handlers[("weather", "get_forecast")] = get_forecast_handler
 
+        # OpenAI handlers
+        from app.integrations.simple_plugins.openai_plugin import (
+            chat_completion_handler,
+            text_completion_handler,
+            image_generation_handler,
+            content_moderation_handler,
+        )
+        self._handlers[("openai", "chat")] = chat_completion_handler
+        self._handlers[("openai", "complete_text")] = text_completion_handler
+        self._handlers[("openai", "generate_image")] = image_generation_handler
+        self._handlers[("openai", "analyze_text")] = content_moderation_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.

@@ -237,8 +237,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services and services with shared API keys do not require per-user connection */}
-                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services do not require per-user connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
@@ -510,8 +510,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services and services with shared API keys do not require per-user connection */}
-                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services do not require per-user connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
@@ -937,6 +937,273 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Action params: OpenAI chat completion */}
+                            {nodeConfig.serviceId === 'openai' && nodeConfig.actionId === 'chat' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="openai_prompt">Prompt</Label>
+                                  <textarea
+                                    id="openai_prompt"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter your prompt (supports variables like {{gmail.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.prompt as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, prompt: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The message or question to send to ChatGPT</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_model">Model (optional)</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.model as string || 'gpt-3.5-turbo'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, model: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="openai_model">
+                                      <SelectValue placeholder="Select model" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                                      <SelectItem value="gpt-4">GPT-4</SelectItem>
+                                      <SelectItem value="gpt-4-turbo-preview">GPT-4 Turbo</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Default: gpt-3.5-turbo</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_max_tokens">Max Tokens (optional)</Label>
+                                  <Input
+                                    id="openai_max_tokens"
+                                    type="number"
+                                    min="1"
+                                    max="4000"
+                                    placeholder="500"
+                                    value={(nodeConfig as ActionNodeData).params?.max_tokens as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, max_tokens: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Maximum length of the response (default: 500)</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_temperature">Temperature (optional)</Label>
+                                  <Input
+                                    id="openai_temperature"
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="2"
+                                    placeholder="0.7"
+                                    value={(nodeConfig as ActionNodeData).params?.temperature as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, temperature: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">0 = focused, 2 = creative (default: 0.7)</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_system_prompt">System Prompt (optional)</Label>
+                                  <textarea
+                                    id="openai_system_prompt"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="You are a helpful assistant..."
+                                    value={(nodeConfig as ActionNodeData).params?.system_prompt as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, system_prompt: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Set the AI&apos;s behavior and context</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: OpenAI text completion */}
+                            {nodeConfig.serviceId === 'openai' && nodeConfig.actionId === 'complete_text' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="openai_text_prompt">Prompt</Label>
+                                  <textarea
+                                    id="openai_text_prompt"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter text to complete..."
+                                    value={(nodeConfig as ActionNodeData).params?.prompt as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, prompt: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_text_model">Model (optional)</Label>
+                                  <Input
+                                    id="openai_text_model"
+                                    type="text"
+                                    placeholder="gpt-3.5-turbo-instruct"
+                                    value={(nodeConfig as ActionNodeData).params?.model as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, model: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Default: gpt-3.5-turbo-instruct</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_text_max_tokens">Max Tokens (optional)</Label>
+                                  <Input
+                                    id="openai_text_max_tokens"
+                                    type="number"
+                                    min="1"
+                                    placeholder="256"
+                                    value={(nodeConfig as ActionNodeData).params?.max_tokens as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, max_tokens: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: OpenAI image generation */}
+                            {nodeConfig.serviceId === 'openai' && nodeConfig.actionId === 'generate_image' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="openai_image_prompt">Image Description</Label>
+                                  <textarea
+                                    id="openai_image_prompt"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="A cute cat playing with a ball of yarn..."
+                                    value={(nodeConfig as ActionNodeData).params?.prompt as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, prompt: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Describe the image you want to generate</p>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_image_size">Image Size</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.size as string || '1024x1024'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, size: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="openai_image_size">
+                                      <SelectValue placeholder="Select size" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="256x256">256x256 (Small)</SelectItem>
+                                      <SelectItem value="512x512">512x512 (Medium)</SelectItem>
+                                      <SelectItem value="1024x1024">1024x1024 (Large)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div>
+                                  <Label htmlFor="openai_image_n">Number of Images</Label>
+                                  <Input
+                                    id="openai_image_n"
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    placeholder="1"
+                                    value={(nodeConfig as ActionNodeData).params?.n as number || 1}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const value = e.target.value ? parseInt(e.target.value) : 1;
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, n: value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Generate 1-10 images (default: 1)</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: OpenAI content moderation */}
+                            {nodeConfig.serviceId === 'openai' && nodeConfig.actionId === 'analyze_text' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="openai_moderate_input">Content to Moderate</Label>
+                                  <textarea
+                                    id="openai_moderate_input"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter content to analyze (supports variables like {{gmail.body}})"
+                                    value={(nodeConfig as ActionNodeData).params?.input as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, input: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Text to check for policy violations</p>
+                                </div>
+                              </div>
+                            )}
+
                             <VariablePicker
                               availableVariables={[
                                 { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
@@ -950,6 +1217,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'gmail.message_id', name: 'Message ID', description: 'The Gmail message ID', category: 'Gmail', type: 'text' as const },
                                   { id: 'gmail.thread_id', name: 'Thread ID', description: 'The Gmail thread ID', category: 'Gmail', type: 'text' as const },
                                   { id: 'gmail.snippet', name: 'Snippet', description: 'A short preview of the email', category: 'Gmail', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'openai' ? [
+                                  { id: 'openai.response', name: 'AI Response', description: 'The generated text from OpenAI', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.image_urls', name: 'Image URLs', description: 'Generated image URLs (DALL-E)', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.moderation.flagged', name: 'Content Flagged', description: 'Whether content was flagged', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
                                 ] : []),
                               ]}
                               onInsertVariable={handleInsertVariable}
