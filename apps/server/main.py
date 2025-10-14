@@ -5,6 +5,10 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -22,6 +26,7 @@ from app.db.migrations import run_migrations
 from app.db.session import verify_connection
 from app.integrations.catalog import service_catalog_payload
 from app.integrations.simple_plugins.scheduler import start_scheduler, stop_scheduler
+from slowapi.util import get_remote_address
 from app.integrations.simple_plugins.gmail_scheduler import (
     start_gmail_scheduler,
     stop_gmail_scheduler,
@@ -114,6 +119,17 @@ async def lifespan(app: FastAPI):
 logger.info("Creating FastAPI application instance")
 app = FastAPI(lifespan=lifespan)
 logger.info("FastAPI application created")
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+
+# Add SlowAPI middleware
+app.add_middleware(SlowAPIMiddleware)
+
+# Add exception handler for rate limit exceeded
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add CORS middleware for development
 logger.info("Configuring CORS middleware")

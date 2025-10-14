@@ -10,6 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { UnauthorizedError, requestJson } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { cn, headingClasses } from "@/lib/utils";
+import ApiKeyConnectionDialog from "@/components/api-key-connection-dialog";
+
+// Define API-key services - these services use API keys instead of OAuth
+const API_KEY_SERVICES = ["openai", "weather"];
 
 type Service = {
   id: string;
@@ -17,6 +21,7 @@ type Service = {
   description: string;
   connected: boolean;
   connection_id?: string;
+  is_api_key_service: boolean; // New field to distinguish between OAuth and API-key services
 };
 
 type ServiceFromAPI = {
@@ -57,6 +62,7 @@ export default function ConnectionsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedApiKeyService, setSelectedApiKeyService] = useState<Service | null>(null);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
@@ -85,10 +91,13 @@ export default function ConnectionsPage() {
         auth.token,
       );
 
-      // Filter services to only show those with OAuth2 implementations
+      // Combine OAuth providers and API-key services to determine which to show
+      const allSupportedServices = [...providersData.providers, ...API_KEY_SERVICES];
+
+      // Filter services to only show those with either OAuth or API-key implementations
       // and merge with connection status
       const transformed = servicesData.services
-        .filter((service) => providersData.providers.includes(service.slug))
+        .filter((service) => allSupportedServices.includes(service.slug))
         .map((service) => {
           const connection = connectionsData.find(
             (conn) => conn.service_name === service.slug
@@ -99,6 +108,7 @@ export default function ConnectionsPage() {
             description: service.description,
             connected: !!connection,
             connection_id: connection?.id,
+            is_api_key_service: API_KEY_SERVICES.includes(service.slug),
           };
         });
 
@@ -246,6 +256,15 @@ export default function ConnectionsPage() {
     }
   };
 
+  const handleApiKeyConnect = (service: Service) => {
+    setSelectedApiKeyService(service);
+  };
+
+  const handleApiKeyDialogClose = () => {
+    setSelectedApiKeyService(null);
+    void loadServices(); // Reload to ensure the connection status is updated
+  };
+
   return (
     <AppShell>
       <div className="flex items-center justify-between mb-6">
@@ -311,6 +330,8 @@ export default function ConnectionsPage() {
                       Disconnect
                     </Button>
                   </>
+                ) : s.is_api_key_service ? (
+                  <Button onClick={() => handleApiKeyConnect(s)}>Add API Key</Button>
                 ) : (
                   <Button onClick={() => void connectService(s.id)}>Connect</Button>
                 )}
@@ -318,6 +339,16 @@ export default function ConnectionsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* API Key Connection Dialog */}
+      {selectedApiKeyService && (
+        <ApiKeyConnectionDialog
+          open={!!selectedApiKeyService}
+          onOpenChange={() => setSelectedApiKeyService(null)}
+          service={selectedApiKeyService}
+          onConnect={handleApiKeyDialogClose}
+        />
       )}
     </AppShell>
   );

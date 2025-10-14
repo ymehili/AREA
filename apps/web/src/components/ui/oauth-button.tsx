@@ -6,6 +6,7 @@ interface OAuthButtonProps {
   onClick: () => void;
   disabled?: boolean;
   className?: string;
+  action?: "signin" | "signup";
 }
 
 const providerConfig = {
@@ -62,8 +63,9 @@ const providerConfig = {
   },
 };
 
-export function OAuthButton({ provider, onClick, disabled, className }: OAuthButtonProps) {
+export function OAuthButton({ provider, onClick, disabled, className, action = "signin" }: OAuthButtonProps) {
   const config = providerConfig[provider];
+  const actionText = action === "signup" ? "Sign up" : "Sign in";
 
   return (
     <Button
@@ -80,7 +82,7 @@ export function OAuthButton({ provider, onClick, disabled, className }: OAuthBut
       disabled={disabled}
     >
       {config.logo}
-      <span>Sign in with {config.name}</span>
+      <span>{actionText} with {config.name}</span>
     </Button>
   );
 }
