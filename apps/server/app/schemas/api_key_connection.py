@@ -13,42 +13,30 @@ class ApiKeyConnectionBase(BaseModel):
 
 
 class ApiKeyConnectionCreateRequest(BaseModel):
-    """Schema for API key creation request - doesn't require service_name since it comes from path parameter."""
+    """Schema for API key creation request - doesn't require service_name since it comes from path parameter.
+    
+    Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
+    """
     
     api_key: str = Field(..., min_length=1)
 
-    @field_validator("api_key")
-    def validate_api_key_format(cls, v) -> str:
-        """Validate that the API key starts with 'sk-' for OpenAI."""
-        if not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):
-            raise ValueError("API key must start with 'sk-', 'sk-proj-', or 'sk-svcacct-'")
-        return v
-
 
 class ApiKeyConnectionCreate(ApiKeyConnectionBase):
-    """Schema for creating a new API key connection."""
+    """Schema for creating a new API key connection.
+    
+    Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
+    """
 
     api_key: str = Field(..., min_length=1)
 
-    @field_validator("api_key")
-    def validate_api_key_format(cls, v) -> str:
-        """Validate that the API key starts with 'sk-' for OpenAI."""
-        if not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):
-            raise ValueError("API key must start with 'sk-', 'sk-proj-', or 'sk-svcacct-'")
-        return v
-
 
 class ApiKeyConnectionUpdate(ApiKeyConnectionBase):
-    """Schema for updating an existing API key connection."""
+    """Schema for updating an existing API key connection.
+    
+    Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
+    """
 
     api_key: Optional[str] = Field(None, min_length=1)
-
-    @field_validator("api_key")
-    def validate_api_key_format(cls, v) -> Optional[str]:
-        """Validate that the API key starts with 'sk-' for OpenAI."""
-        if v is not None and not (v.startswith("sk-") or v.startswith("sk-proj-") or v.startswith("sk-svcacct-")):
-            raise ValueError("API key must start with 'sk-', 'sk-proj-', or 'sk-svcacct-'")
-        return v
 
 
 class ApiKeyConnectionRead(ApiKeyConnectionBase):

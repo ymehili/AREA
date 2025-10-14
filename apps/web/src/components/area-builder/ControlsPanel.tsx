@@ -237,8 +237,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services and services with shared API keys do not require per-user connection */}
-                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services do not require per-user connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}
@@ -510,8 +510,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
                         {nodeConfig.serviceId && (
                           <>
-                            {/* Built-in services and services with shared API keys do not require per-user connection */}
-                            {!['debug', 'time', 'delay', 'weather'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
+                            {/* Built-in services do not require per-user connection */}
+                            {!['debug', 'time', 'delay'].includes(nodeConfig.serviceId) && !connectedServices.includes(nodeConfig.serviceId) && (
                               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <p className="text-sm text-yellow-800">
                                   ⚠️ You need to connect your {services.find(s => s.slug === nodeConfig.serviceId)?.name} account.{' '}

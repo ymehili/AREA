@@ -76,8 +76,29 @@ export default function ApiKeyConnectionDialog({
     }
   };
 
-  // Validate OpenAI API key format (starts with "sk-", "sk-proj-", or "sk-svcacct-")
-  const isValidApiKey = (apiKey.startsWith("sk-") || apiKey.startsWith("sk-proj-") || apiKey.startsWith("sk-svcacct-")) && apiKey.length > 10;
+  // Validate API key format based on service
+  const getApiKeyValidation = () => {
+    if (service.id === 'openai') {
+      // OpenAI API keys start with "sk-", "sk-proj-", or "sk-svcacct-"
+      return {
+        isValid: (apiKey.startsWith("sk-") || apiKey.startsWith("sk-proj-") || apiKey.startsWith("sk-svcacct-")) && apiKey.length > 10,
+        helpText: 'For OpenAI, API keys start with "sk-".'
+      };
+    } else if (service.id === 'weather') {
+      // Weather API keys are alphanumeric (OpenWeatherMap format)
+      return {
+        isValid: apiKey.length >= 32, // OpenWeatherMap API keys are 32 characters
+        helpText: 'Get your API key from OpenWeatherMap (https://openweathermap.org/api).'
+      };
+    }
+    // Default validation for other services
+    return {
+      isValid: apiKey.trim().length > 0,
+      helpText: 'Your API key will be encrypted and stored securely.'
+    };
+  };
+
+  const { isValid: isValidApiKey, helpText } = getApiKeyValidation();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,7 +112,13 @@ export default function ApiKeyConnectionDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="service-name">Service</Label>
-            <Input id="service-name" value={service.name} readOnly className="bg-muted" />
+            <Input 
+              id="service-name" 
+              value={service.name} 
+              readOnly 
+              disabled
+              className="bg-muted cursor-not-allowed opacity-60" 
+            />
           </div>
           <div>
             <Label htmlFor="api-key">API Key</Label>
@@ -104,7 +131,7 @@ export default function ApiKeyConnectionDialog({
               required
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Your API key will be encrypted and stored securely. For OpenAI, API keys start with &quot;sk-&quot;.
+              Your API key will be encrypted and stored securely. {helpText}
             </p>
           </div>
           
