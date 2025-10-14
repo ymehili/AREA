@@ -42,6 +42,16 @@ class PluginsRegistry:
         self._handlers[("gmail", "mark_as_read")] = mark_as_read_handler
         self._handlers[("gmail", "forward_email")] = forward_email_handler
 
+        # Outlook handlers
+        from app.integrations.simple_plugins.outlook_plugin import (
+            send_email_handler as outlook_send_email,
+            mark_as_read_handler as outlook_mark_as_read,
+            forward_email_handler as outlook_forward_email,
+        )
+        self._handlers[("outlook", "send_email")] = outlook_send_email
+        self._handlers[("outlook", "mark_as_read")] = outlook_mark_as_read
+        self._handlers[("outlook", "forward_email")] = outlook_forward_email
+
         # Weather handlers
         from app.integrations.simple_plugins.weather_plugin import (
             get_current_weather_handler,

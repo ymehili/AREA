@@ -9,6 +9,7 @@ from app.integrations.oauth.base import OAuth2Config, OAuth2Provider
 from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
+from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 
 
 class OAuth2ProviderFactory:
@@ -17,6 +18,7 @@ class OAuth2ProviderFactory:
     _providers: Dict[str, Type[OAuth2Provider]] = {
         "github": GitHubOAuth2Provider,
         "gmail": GmailOAuth2Provider,
+        "outlook": OutlookOAuth2Provider,
     }
 
     @classmethod
@@ -65,6 +67,24 @@ class OAuth2ProviderFactory:
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/gmail",
             )
+        elif provider_name == "outlook":
+            # Microsoft Graph API scopes for Outlook:
+            # - User.Read: Get user profile information
+            # - Mail.ReadWrite: Read and write access to user mail
+            # - Mail.Send: Send mail as user
+            return OAuth2Config(
+                client_id=settings.microsoft_client_id,
+                client_secret=settings.microsoft_client_secret,
+                authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                scopes=[
+                    "User.Read",
+                    "Mail.ReadWrite",
+                    "Mail.Send",
+                    "offline_access",  # Required for refresh tokens
+                ],
+                redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/outlook",
+            )
 
         raise UnsupportedProviderError(f"No configuration for provider: {provider_name}")
 
@@ -80,6 +100,8 @@ class OAuth2ProviderFactory:
             return bool(settings.github_client_id and settings.github_client_secret)
         elif provider_name == "gmail":
             return bool(settings.google_client_id and settings.google_client_secret)
+        elif provider_name == "outlook":
+            return bool(settings.microsoft_client_id and settings.microsoft_client_secret)
 
         return False
 

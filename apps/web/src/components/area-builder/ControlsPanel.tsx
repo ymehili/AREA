@@ -283,12 +283,12 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </p>
                             </div>
 
-                            {/* Trigger params: Gmail new_email_from_sender requires sender_email */}
-                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'new_email_from_sender' && (
+                            {/* Trigger params: Gmail and Outlook new_email_from_sender requires sender_email */}
+                            {(nodeConfig.serviceId === 'gmail' || nodeConfig.serviceId === 'outlook') && nodeConfig.actionId === 'new_email_from_sender' && (
                               <div>
-                                <Label htmlFor="gmail_sender_email">Sender Email</Label>
+                                <Label htmlFor={`${nodeConfig.serviceId}_sender_email`}>Sender Email</Label>
                                 <Input
-                                  id="gmail_sender_email"
+                                  id={`${nodeConfig.serviceId}_sender_email`}
                                   type="email"
                                   placeholder="name@example.com"
                                   value={(nodeConfig as TriggerNodeData).params?.sender_email as string || ''}

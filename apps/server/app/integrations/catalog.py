@@ -111,6 +111,50 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         ),
     ),
     ServiceIntegration(
+        slug="outlook",
+        name="Outlook",
+        description="Automate workflows around Outlook/Microsoft 365 email events.",
+        actions=(
+            AutomationOption(
+                key="new_email",
+                name="New Email Received",
+                description="Triggers when a new email arrives in the Outlook inbox.",
+            ),
+            AutomationOption(
+                key="new_email_from_sender",
+                name="New Email from Sender",
+                description="Triggers when a new email arrives from a specific sender.",
+            ),
+            AutomationOption(
+                key="new_unread_email",
+                name="New Unread Email",
+                description="Triggers when a new unread email arrives in the inbox.",
+            ),
+            AutomationOption(
+                key="email_important",
+                name="Important Email",
+                description="Triggers when an email marked as important is received.",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="send_email",
+                name="Send Email",
+                description="Send an email message to one or more recipients via Outlook.",
+            ),
+            AutomationOption(
+                key="mark_as_read",
+                name="Mark as Read",
+                description="Mark a specific email message as read in Outlook.",
+            ),
+            AutomationOption(
+                key="forward_email",
+                name="Forward Email",
+                description="Forward an email message to another recipient via Outlook.",
+            ),
+        ),
+    ),
+    ServiceIntegration(
         slug="google_drive",
         name="Google Drive",
         description="Manage files and folders stored in Google Drive.",
