@@ -57,6 +57,7 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
         'time': ['every_interval'],  # Implemented in scheduler.py
         'gmail': ['new_email', 'new_email_from_sender', 'new_unread_email', 'email_starred'],  # Implemented in gmail_scheduler.py
         'outlook': ['new_email', 'new_email_from_sender', 'new_unread_email', 'email_flagged'],  # Implemented in outlook_scheduler.py
+        'github': ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'],  # Implemented in github_scheduler.py
     }
 
     filtered_services = []
