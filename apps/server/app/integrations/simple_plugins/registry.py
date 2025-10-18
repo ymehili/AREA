@@ -72,6 +72,20 @@ class PluginsRegistry:
         self._handlers[("openai", "generate_image")] = image_generation_handler
         self._handlers[("openai", "analyze_text")] = content_moderation_handler
 
+        # GitHub handlers
+        from app.integrations.simple_plugins.github_plugin import (
+            create_issue_handler,
+            add_comment_handler,
+            close_issue_handler,
+            add_label_handler,
+            create_branch_handler,
+        )
+        self._handlers[("github", "create_issue")] = create_issue_handler
+        self._handlers[("github", "add_comment")] = add_comment_handler
+        self._handlers[("github", "close_issue")] = close_issue_handler
+        self._handlers[("github", "add_label")] = add_label_handler
+        self._handlers[("github", "create_branch")] = create_branch_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.
