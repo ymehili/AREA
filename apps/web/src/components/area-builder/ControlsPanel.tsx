@@ -89,33 +89,82 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
   // Function to insert variable at cursor position in focused input
   const handleInsertVariable = (variableId: string) => {
-    if (focusedInputRef.current) {
-      const input = focusedInputRef.current;
-      const start = input.selectionStart || 0;
-      const end = input.selectionEnd || 0;
-      const currentValue = input.value;
-      const variableTemplate = `{{${variableId}}}`;
-      
-      // Insert the variable template at cursor position
-      const newValue = 
-        currentValue.substring(0, start) + 
-        variableTemplate + 
-        currentValue.substring(end);
-      
-      // Update the input value
-      input.value = newValue;
-      
-      // Set cursor position after the inserted variable (only for text inputs)
-      // Note: setSelectionRange() doesn't work on number inputs
-      const inputElement = input as HTMLInputElement;
-      if (inputElement.type !== 'number') {
-        const newCursorPosition = start + variableTemplate.length;
-        input.setSelectionRange(newCursorPosition, newCursorPosition);
-      }
-      
-      // Trigger change event to update React state
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+    if (!selectedNodeId || !focusedInputRef.current || !nodeConfig || !onNodeConfigChange) return;
+
+    const input = focusedInputRef.current;
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const currentValue = input.value;
+    const variableTemplate = `{{${variableId}}}`;
+
+    // Insert the variable template at cursor position
+    const newValue =
+      currentValue.substring(0, start) +
+      variableTemplate +
+      currentValue.substring(end);
+
+    // Get the parameter name from the input's ID attribute
+    const inputId = input.id;
+    // Strip common prefixes to extract the param name
+    let paramName = inputId;
+
+    // Handle GitHub prefixes
+    paramName = paramName.replace(/^github_issue_/, '');
+    paramName = paramName.replace(/^github_comment_/, '');
+    paramName = paramName.replace(/^github_close_/, '');
+    paramName = paramName.replace(/^github_label_/, '');
+    paramName = paramName.replace(/^github_branch_/, '');
+    paramName = paramName.replace(/^github_/, '');
+
+    // Handle Gmail prefixes
+    paramName = paramName.replace(/^gmail_fwd_/, '');
+    paramName = paramName.replace(/^gmail_/, '');
+
+    // Handle other service prefixes
+    paramName = paramName.replace(/^weather_/, '');
+    paramName = paramName.replace(/^forecast_/, '');
+    paramName = paramName.replace(/^openai_/, '');
+    paramName = paramName.replace(/^openai_image_/, '');
+    paramName = paramName.replace(/^openai_text_/, '');
+    paramName = paramName.replace(/^openai_moderate_/, '');
+
+    console.log('[ControlsPanel] handleInsertVariable:', {
+      inputId,
+      paramName,
+      variableId,
+      currentValue,
+      newValue,
+      nodeConfig
+    });
+
+    // Update the node config via onNodeConfigChange
+    if (isActionNode(nodeConfig)) {
+      const currentParams = (nodeConfig as ActionNodeData).params || {};
+      onNodeConfigChange(selectedNodeId, {
+        ...nodeConfig,
+        params: { ...currentParams, [paramName]: newValue }
+      } as ActionNodeData);
+    } else if (isTriggerNode(nodeConfig)) {
+      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+      onNodeConfigChange(selectedNodeId, {
+        ...nodeConfig,
+        params: { ...currentParams, [paramName]: newValue }
+      } as TriggerNodeData);
     }
+
+    // Also update the DOM for immediate visual feedback
+    input.value = newValue;
+
+    // Set cursor position after the inserted variable (only for text inputs)
+    // Note: setSelectionRange() doesn't work on number inputs
+    const inputElement = input as HTMLInputElement;
+    if (inputElement.type !== 'number') {
+      const newCursorPosition = start + variableTemplate.length;
+      input.setSelectionRange(newCursorPosition, newCursorPosition);
+    }
+
+    // Focus back on the input
+    input.focus();
   };
 
   return (
