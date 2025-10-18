@@ -210,9 +210,10 @@ def add_comment_handler(area: Area, params: dict, event: dict) -> None:
         issue_number = params.get("issue_number")
         body = params.get("body")
 
-        # Try to get issue_number from event if not in params
-        if not issue_number:
-            issue_number = event.get("github.issue_number") or event.get("github.pull_request_number")
+        # Fallback: Try to get issue_number from the trigger event if not in params
+        # The event dict contains the full trigger context including extracted variables
+        if not issue_number and event:
+            issue_number = event.get("github.issue_number")
 
         logger.info(
             "Starting GitHub add_comment action",
@@ -230,7 +231,7 @@ def add_comment_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for add_comment action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Use {{github.issue_number}} from trigger or provide it.")
+            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
         if not body:
             raise ValueError("'body' parameter is required for add_comment action")
 
@@ -283,8 +284,8 @@ def close_issue_handler(area: Area, params: dict, event: dict) -> None:
         repo_name = params.get("repo_name")
         issue_number = params.get("issue_number")
 
-        # Try to get issue_number from event if not in params
-        if not issue_number:
+        # Fallback: Try to get issue_number from the trigger event if not in params
+        if not issue_number and event:
             issue_number = event.get("github.issue_number")
 
         logger.info(
@@ -303,7 +304,7 @@ def close_issue_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for close_issue action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Use {{github.issue_number}} from trigger or provide it.")
+            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
 
         # Get GitHub access token
         access_token = _get_github_access_token(area)
@@ -354,9 +355,9 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
         issue_number = params.get("issue_number")
         labels = params.get("labels", [])
 
-        # Try to get issue_number from event if not in params
-        if not issue_number:
-            issue_number = event.get("github.issue_number") or event.get("github.pull_request_number")
+        # Fallback: Try to get issue_number from the trigger event if not in params
+        if not issue_number and event:
+            issue_number = event.get("github.issue_number")
 
         logger.info(
             "Starting GitHub add_label action",
@@ -375,7 +376,7 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for add_label action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Use {{github.issue_number}} from trigger or provide it.")
+            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
         if not labels:
             raise ValueError("'labels' parameter is required for add_label action")
 

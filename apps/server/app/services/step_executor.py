@@ -363,12 +363,24 @@ class StepExecutor:
             # Import variable resolver and substitute variables
             from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get('trigger', {})
-            
+
             # Use service-specific extractor based on trigger service, not action service
             # The trigger data should be parsed according to the trigger service type
             trigger_service = self.area.trigger_service
             variables_from_context = extract_variables_by_service(trigger_data, trigger_service)
+
+            # DEBUG: Log variables before substitution
+            print(f"\n=== VARIABLE SUBSTITUTION DEBUG ===")
+            print(f"Area ID: {self.area.id}")
+            print(f"Trigger Service: {trigger_service}")
+            print(f"Variables Extracted: {variables_from_context}")
+            print(f"Params BEFORE: {params}")
+
             params = substitute_variables_in_params(params, variables_from_context)
+
+            # DEBUG: Log params after substitution
+            print(f"Params AFTER: {params}")
+            print(f"=== END DEBUG ===\n")
 
             # Execute handler - pass the trigger_data as the event parameter
             logger.info(
