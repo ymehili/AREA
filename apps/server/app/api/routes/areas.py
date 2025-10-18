@@ -592,6 +592,14 @@ def update_area_step_endpoint(
     try:
         updated_step = update_area_step(db, step_id, step_in, user_id=str(current_user.id))
         return AreaStepResponse.model_validate(updated_step)
+    except ValueError as e:
+        # Handle invalid UUID format (e.g., temporary client-side IDs like "action-1234567")
+        if "badly formed hexadecimal UUID string" in str(e) or "UUID" in str(e):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid step ID format: '{step_id}'. Step must be saved before it can be updated. Please save the area first to generate a valid step ID.",
+            )
+        raise
     except AreaStepNotFoundError:
         raise HTTPException(
             status_code=404,

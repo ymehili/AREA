@@ -225,11 +225,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {services.map((service) => (
-                                <SelectItem key={service.slug} value={service.slug}>
-                                  {service.name}
-                                </SelectItem>
-                              ))}
+                              {services
+                                .filter((service) => service.actions.length > 0)
+                                .map((service) => (
+                                  <SelectItem key={service.slug} value={service.slug}>
+                                    {service.name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-gray-500 mt-1">Choose the service that will trigger this automation</p>
@@ -302,6 +304,48 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   onFocus={handleInputFocus}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Only trigger for emails from this sender.</p>
+                              </div>
+                            )}
+
+                            {/* Trigger params: GitHub triggers require repo_owner and repo_name */}
+                            {nodeConfig.serviceId === 'github' && ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'].includes(nodeConfig.actionId || '') && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as TriggerNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, repo_owner: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">GitHub username or organization name</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as TriggerNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, repo_name: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Name of the repository to monitor</p>
+                                </div>
                               </div>
                             )}
                           </>
@@ -498,11 +542,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {services.map((service) => (
-                                <SelectItem key={service.slug} value={service.slug}>
-                                  {service.name}
-                                </SelectItem>
-                              ))}
+                              {services
+                                .filter((service) => service.reactions.length > 0)
+                                .map((service) => (
+                                  <SelectItem key={service.slug} value={service.slug}>
+                                    {service.name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-gray-500 mt-1">Choose the service to perform an action</p>
@@ -689,6 +735,322 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     }}
                                     onFocus={handleInputFocus}
                                   />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: GitHub create_issue */}
+                            {nodeConfig.serviceId === 'github' && nodeConfig.actionId === 'create_issue' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_issue_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_issue_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_owner: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_issue_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_issue_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_issue_title">Issue Title</Label>
+                                  <Input
+                                    id="github_issue_title"
+                                    type="text"
+                                    placeholder="e.g., Bug in authentication"
+                                    value={(nodeConfig as ActionNodeData).params?.title as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, title: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_issue_body">Issue Body</Label>
+                                  <textarea
+                                    id="github_issue_body"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Describe the issue... (supports variables)"
+                                    value={(nodeConfig as ActionNodeData).params?.body as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_issue_labels">Labels (optional, comma-separated)</Label>
+                                  <Input
+                                    id="github_issue_labels"
+                                    type="text"
+                                    placeholder="bug, help wanted"
+                                    value={(nodeConfig as ActionNodeData).params?.labels as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const labels = e.target.value ? e.target.value.split(',').map(l => l.trim()) : [];
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, labels } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: GitHub add_comment */}
+                            {nodeConfig.serviceId === 'github' && nodeConfig.actionId === 'add_comment' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_comment_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_comment_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_owner: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_comment_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_comment_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_comment_issue_number">Issue/PR Number</Label>
+                                  <Input
+                                    id="github_comment_issue_number"
+                                    type="text"
+                                    placeholder="e.g., 42 or {{github.issue_number}}"
+                                    value={(nodeConfig as ActionNodeData).params?.issue_number as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, issue_number: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Use issue/PR number or variable from trigger</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_comment_body">Comment</Label>
+                                  <textarea
+                                    id="github_comment_body"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Your comment... (supports variables)"
+                                    value={(nodeConfig as ActionNodeData).params?.body as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: GitHub close_issue */}
+                            {nodeConfig.serviceId === 'github' && nodeConfig.actionId === 'close_issue' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_close_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_close_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_owner: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_close_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_close_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_close_issue_number">Issue Number</Label>
+                                  <Input
+                                    id="github_close_issue_number"
+                                    type="text"
+                                    placeholder="e.g., 42 or {{github.issue_number}}"
+                                    value={(nodeConfig as ActionNodeData).params?.issue_number as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, issue_number: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Use issue number or variable from trigger</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: GitHub add_label */}
+                            {nodeConfig.serviceId === 'github' && nodeConfig.actionId === 'add_label' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_label_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_label_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_owner: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_label_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_label_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_label_issue_number">Issue/PR Number</Label>
+                                  <Input
+                                    id="github_label_issue_number"
+                                    type="text"
+                                    placeholder="e.g., 42 or {{github.issue_number}}"
+                                    value={(nodeConfig as ActionNodeData).params?.issue_number as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, issue_number: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Use issue/PR number or variable from trigger</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_label_labels">Labels (comma-separated)</Label>
+                                  <Input
+                                    id="github_label_labels"
+                                    type="text"
+                                    placeholder="bug, enhancement"
+                                    value={(nodeConfig as ActionNodeData).params?.labels as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      const labels = e.target.value ? e.target.value.split(',').map(l => l.trim()) : [];
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, labels } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: GitHub create_branch */}
+                            {nodeConfig.serviceId === 'github' && nodeConfig.actionId === 'create_branch' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="github_branch_repo_owner">Repository Owner</Label>
+                                  <Input
+                                    id="github_branch_repo_owner"
+                                    type="text"
+                                    placeholder="e.g., octocat"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_owner as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_owner: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_branch_repo_name">Repository Name</Label>
+                                  <Input
+                                    id="github_branch_repo_name"
+                                    type="text"
+                                    placeholder="e.g., Hello-World"
+                                    value={(nodeConfig as ActionNodeData).params?.repo_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, repo_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_branch_name">New Branch Name</Label>
+                                  <Input
+                                    id="github_branch_name"
+                                    type="text"
+                                    placeholder="e.g., feature-123"
+                                    value={(nodeConfig as ActionNodeData).params?.branch_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, branch_name: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="github_from_branch">From Branch (optional)</Label>
+                                  <Input
+                                    id="github_from_branch"
+                                    type="text"
+                                    placeholder="main (default)"
+                                    value={(nodeConfig as ActionNodeData).params?.from_branch as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, from_branch: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Default: main</p>
                                 </div>
                               </div>
                             )}
@@ -1224,6 +1586,22 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'openai.moderation.flagged', name: 'Content Flagged', description: 'Whether content was flagged', category: 'OpenAI', type: 'text' as const },
                                   { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
                                   { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'github' ? [
+                                  { id: 'github.repo', name: 'Repository Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.repo_full_name', name: 'Repository Full Name', description: 'The full name of the repository (owner/repo)', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.repo_url', name: 'Repository URL', description: 'The HTML URL of the repository', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.sender', name: 'Sender', description: 'The user who triggered the event', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.issue_number', name: 'Issue Number', description: 'The issue number', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.issue_body', name: 'Issue Body', description: 'The body content of the issue', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.issue_author', name: 'Issue Author', description: 'The author of the issue', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.pull_request_number', name: 'PR Number', description: 'The pull request number', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.pull_request_title', name: 'PR Title', description: 'The title of the pull request', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.pull_request_body', name: 'PR Body', description: 'The body content of the pull request', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.pull_request_author', name: 'PR Author', description: 'The author of the pull request', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.branch', name: 'Branch', description: 'The branch name', category: 'GitHub', type: 'text' as const },
+                                  { id: 'github.action', name: 'Action', description: 'The action that occurred (opened, closed, etc.)', category: 'GitHub', type: 'text' as const },
                                 ] : []),
                               ]}
                               onInsertVariable={handleInsertVariable}
