@@ -73,7 +73,10 @@ const VariablePicker: React.FC<VariablePickerProps> = ({
               <div 
                 key={variable.id} 
                 className="flex items-center p-2 border rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                onClick={() => onInsertVariable(variable.id)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onInsertVariable(variable.id);
+                }}
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{variable.name}</div>
