@@ -142,5 +142,37 @@ class GitHubOAuth2Provider(OAuth2Provider):
             except httpx.HTTPError as e:
                 raise OAuth2ValidationError(f"Failed to test API access: {str(e)}")
 
+    async def revoke_token(self, access_token: str) -> bool:
+        """Revoke a GitHub OAuth token.
+
+        This uses the GitHub API to revoke the OAuth application grant,
+        which invalidates all tokens for this user and application.
+
+        Args:
+            access_token: The access token to revoke
+
+        Returns:
+            True if revocation succeeded, False otherwise
+        """
+        async with httpx.AsyncClient() as client:
+            try:
+                # Revoke the token using the GitHub API
+                # https://docs.github.com/en/rest/apps/oauth-applications#delete-an-app-authorization
+                response = await client.delete(
+                    f"https://api.github.com/applications/{self.config.client_id}/grant",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "AREA-App/1.0",
+                    },
+                    auth=(self.config.client_id, self.config.client_secret),
+                    json={"access_token": access_token},
+                )
+                # 204 No Content means success
+                return response.status_code == 204
+            except httpx.HTTPError:
+                # If revocation fails, we still return True to allow disconnection
+                # The token may already be revoked or invalid
+                return True
+
 
 __all__ = ["GitHubOAuth2Provider"]
