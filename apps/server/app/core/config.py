@@ -112,6 +112,13 @@ class Settings(BaseSettings):
         description="Gmail polling interval in seconds (default: 15). Lower values increase API usage.",
     )
 
+    # Google Calendar Scheduler Configuration
+    calendar_poll_interval_seconds: int = Field(
+        default=15,
+        alias="CALENDAR_POLL_INTERVAL_SECONDS",
+        description="Google Calendar polling interval in seconds (default: 15). Lower values increase API usage.",
+    )
+
     # OpenWeatherMap API Configuration
     openweathermap_api_key: str = Field(
         default="",
