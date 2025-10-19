@@ -87,6 +87,20 @@ class PluginsRegistry:
         self._handlers[("github", "add_label")] = add_label_handler
         self._handlers[("github", "create_branch")] = create_branch_handler
 
+        # Google Calendar handlers
+        from app.integrations.simple_plugins.calendar_plugin import (
+            create_event_handler,
+            update_event_handler,
+            delete_event_handler,
+            create_all_day_event_handler,
+            quick_add_event_handler,
+        )
+        self._handlers[("google_calendar", "create_event")] = create_event_handler
+        self._handlers[("google_calendar", "update_event")] = update_event_handler
+        self._handlers[("google_calendar", "delete_event")] = delete_event_handler
+        self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
+        self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.

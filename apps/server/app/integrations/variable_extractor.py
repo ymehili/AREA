@@ -115,6 +115,76 @@ def extract_google_drive_variables(trigger_data: Dict[str, Any]) -> Dict[str, An
     return variables
 
 
+def extract_calendar_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract common variables from Google Calendar events.
+
+    Args:
+        trigger_data: Dictionary containing Calendar event data
+
+    Returns:
+        Dictionary mapping variable names to their values
+    """
+    if not trigger_data:
+        logger.warning("extract_calendar_variables called with empty trigger_data")
+        return {}
+
+    variables = {}
+
+    # Extract common Calendar variables
+    if 'id' in trigger_data:
+        variables['calendar.event_id'] = trigger_data['id']
+
+    if 'summary' in trigger_data:
+        variables['calendar.title'] = trigger_data['summary']
+        variables['calendar.summary'] = trigger_data['summary']
+
+    if 'description' in trigger_data:
+        variables['calendar.description'] = trigger_data['description']
+
+    if 'location' in trigger_data:
+        variables['calendar.location'] = trigger_data['location']
+
+    if 'start_time' in trigger_data:
+        variables['calendar.start_time'] = trigger_data['start_time']
+
+    if 'end_time' in trigger_data:
+        variables['calendar.end_time'] = trigger_data['end_time']
+
+    if 'timezone' in trigger_data:
+        variables['calendar.timezone'] = trigger_data['timezone']
+
+    if 'attendees' in trigger_data:
+        # Convert list to comma-separated string for easy use in templates
+        if isinstance(trigger_data['attendees'], list):
+            variables['calendar.attendees'] = ', '.join(trigger_data['attendees'])
+        else:
+            variables['calendar.attendees'] = trigger_data['attendees']
+
+    if 'organizer' in trigger_data:
+        variables['calendar.organizer'] = trigger_data['organizer']
+
+    if 'status' in trigger_data:
+        variables['calendar.status'] = trigger_data['status']
+
+    if 'html_link' in trigger_data:
+        variables['calendar.link'] = trigger_data['html_link']
+        variables['calendar.html_link'] = trigger_data['html_link']
+
+    if 'created' in trigger_data:
+        variables['calendar.created'] = trigger_data['created']
+
+    if 'updated' in trigger_data:
+        variables['calendar.updated'] = trigger_data['updated']
+
+    if 'is_all_day' in trigger_data:
+        variables['calendar.is_all_day'] = str(trigger_data['is_all_day'])
+
+    if not variables:
+        logger.info("No Calendar variables extracted from trigger_data", extra={"trigger_data": trigger_data})
+
+    return variables
+
+
 def extract_github_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     """Extract common variables from GitHub events.
     
