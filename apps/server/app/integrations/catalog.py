@@ -309,6 +309,50 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="google_calendar",
+        name="Google Calendar",
+        description="Automate workflows around calendar events, meetings, and schedules.",
+        actions=(
+            AutomationOption(
+                key="event_created",
+                name="Event Created",
+                description="Triggers when a new event is added to the calendar.",
+            ),
+            AutomationOption(
+                key="event_starting_soon",
+                name="Event Starting Soon",
+                description="Triggers X minutes before an event starts (configurable).",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="create_event",
+                name="Create Event",
+                description="Create a new calendar event with specified details.",
+            ),
+            AutomationOption(
+                key="update_event",
+                name="Update Event",
+                description="Modify an existing calendar event.",
+            ),
+            AutomationOption(
+                key="delete_event",
+                name="Delete Event",
+                description="Delete a calendar event.",
+            ),
+            AutomationOption(
+                key="create_all_day_event",
+                name="Create All-Day Event",
+                description="Create an all-day event (no specific time).",
+            ),
+            AutomationOption(
+                key="quick_add_event",
+                name="Quick Add Event",
+                description="Create an event using natural language (e.g., 'Meeting tomorrow at 3pm').",
+            ),
+        ),
+    ),
 )
 
 
