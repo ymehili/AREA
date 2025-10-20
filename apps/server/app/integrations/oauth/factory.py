@@ -9,6 +9,7 @@ from app.integrations.oauth.base import OAuth2Config, OAuth2Provider
 from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
+from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
 
 
 class OAuth2ProviderFactory:
@@ -17,6 +18,7 @@ class OAuth2ProviderFactory:
     _providers: Dict[str, Type[OAuth2Provider]] = {
         "github": GitHubOAuth2Provider,
         "gmail": GmailOAuth2Provider,
+        "discord": DiscordOAuth2Provider,
     }
 
     @classmethod
@@ -65,6 +67,23 @@ class OAuth2ProviderFactory:
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/gmail",
             )
+        elif provider_name == "discord":
+            # Discord Bot OAuth:
+            # - bot scope: Adds the bot to the user's selected server
+            # - identify: Gets user info for linking the connection
+            # Users authorize which server to add the bot to, then the centralized
+            # bot token (DISCORD_BOT_TOKEN) is used to send messages
+            return OAuth2Config(
+                client_id=settings.discord_client_id,
+                client_secret=settings.discord_client_secret,
+                authorization_url="https://discord.com/api/oauth2/authorize",
+                token_url="https://discord.com/api/oauth2/token",
+                scopes=[
+                    "bot",
+                    "identify",
+                ],
+                redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/discord",
+            )
 
         raise UnsupportedProviderError(f"No configuration for provider: {provider_name}")
 
@@ -80,6 +99,8 @@ class OAuth2ProviderFactory:
             return bool(settings.github_client_id and settings.github_client_secret)
         elif provider_name == "gmail":
             return bool(settings.google_client_id and settings.google_client_secret)
+        elif provider_name == "discord":
+            return bool(settings.discord_client_id and settings.discord_client_secret)
 
         return False
 

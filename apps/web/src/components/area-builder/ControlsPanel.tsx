@@ -1204,6 +1204,214 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Action params: Discord send_message */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'send_message' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="discord_channel_id">Channel ID</Label>
+                                  <Input
+                                    id="discord_channel_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.channel_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, channel_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord channel to send the message to</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_message">Message</Label>
+                                  <textarea
+                                    id="discord_message"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter message (supports variables like {{gmail.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.message as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, message: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Message content to send to the channel</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Discord send_dm */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'send_dm' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="discord_dm_user_id">User ID</Label>
+                                  <Input
+                                    id="discord_dm_user_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.user_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, user_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord user to send a direct message to</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_dm_message">Message</Label>
+                                  <textarea
+                                    id="discord_dm_message"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter message (supports variables like {{gmail.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.message as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, message: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Direct message content to send to the user</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Discord add_role */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'add_role' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="discord_guild_id">Server (Guild) ID</Label>
+                                  <Input
+                                    id="discord_guild_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.guild_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, guild_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord server (guild)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_role_user_id">User ID</Label>
+                                  <Input
+                                    id="discord_role_user_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.user_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, user_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the user to assign the role to</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_role_id">Role ID</Label>
+                                  <Input
+                                    id="discord_role_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.role_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, role_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the role to assign</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Discord create_channel */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'create_channel' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="discord_create_guild_id">Server (Guild) ID</Label>
+                                  <Input
+                                    id="discord_create_guild_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.guild_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, guild_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord server (guild) where the channel will be created</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_channel_name">Channel Name</Label>
+                                  <Input
+                                    id="discord_channel_name"
+                                    type="text"
+                                    placeholder="e.g., new-announcements (supports variables)"
+                                    value={(nodeConfig as ActionNodeData).params?.name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, name: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Name for the new channel (supports variable templates)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_channel_type">Channel Type</Label>
+                                  <Select
+                                    value={String((nodeConfig as ActionNodeData).params?.type || '0')}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, type: parseInt(value) } 
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="discord_channel_type">
+                                      <SelectValue placeholder="Select channel type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="0">Text Channel</SelectItem>
+                                      <SelectItem value="2">Voice Channel</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Type of channel to create</p>
+                                </div>
+                              </div>
+                            )}
+
                             <VariablePicker
                               availableVariables={[
                                 { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
@@ -1224,6 +1432,15 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'openai.moderation.flagged', name: 'Content Flagged', description: 'Whether content was flagged', category: 'OpenAI', type: 'text' as const },
                                   { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
                                   { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'discord' ? [
+                                  { id: 'discord.message.content', name: 'Message Content', description: 'The content of the Discord message', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.message.author.id', name: 'Author ID', description: 'The ID of the message author', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.message.author.username', name: 'Author Username', description: 'The username of the message author', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.channel.id', name: 'Channel ID', description: 'The ID of the Discord channel', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.channel.name', name: 'Channel Name', description: 'The name of the Discord channel', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.guild.id', name: 'Server ID', description: 'The ID of the Discord server', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.guild.name', name: 'Server Name', description: 'The name of the Discord server', category: 'Discord', type: 'text' as const },
                                 ] : []),
                               ]}
                               onInsertVariable={handleInsertVariable}

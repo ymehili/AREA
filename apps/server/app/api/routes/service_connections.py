@@ -279,7 +279,7 @@ async def test_provider_api_access(
             access_token = decrypt_token(connection.encrypted_access_token)
 
             # Test API access based on provider
-            if provider == "github":
+            if provider in ["github", "discord"]:
                 test_result = await oauth_provider.test_api_access(access_token)
             else:
                 # For other providers, just validate the token

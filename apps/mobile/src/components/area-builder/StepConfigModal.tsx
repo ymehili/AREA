@@ -21,18 +21,30 @@ interface StepConfigModalProps {
   onSave: (updatedStep: NodeData) => void;
 }
 
-const SERVICES = ['Gmail', 'Google Drive', 'Slack', 'GitHub'];
+const SERVICES = ['Gmail', 'Google Drive', 'Slack', 'GitHub', 'Discord', 'Time', 'Debug', 'Delay', 'Weather', 'OpenAI'];
 const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
   Gmail: ['New Email', 'New Email w/ Attachment'],
   'Google Drive': ['New File in Folder'],
   Slack: ['New Message in Channel'],
   GitHub: ['New Pull Request'],
+  Discord: ['New Message in Channel', 'Member Joined Server', 'Reaction Added'],
+  Time: ['Every Interval'],
+  Debug: [],
+  Delay: [],
+  Weather: ['Temperature Threshold', 'Weather Condition'],
+  OpenAI: ['Text/Chat Completion Trigger'],
 };
 const ACTIONS_BY_SERVICE: Record<string, string[]> = {
   Gmail: ['Send Email'],
   'Google Drive': ['Upload File', 'Create Folder'],
   Slack: ['Send Message'],
   GitHub: ['Create Issue'],
+  Discord: ['Send Message', 'Send Direct Message', 'Add Role to Member', 'Create Channel'],
+  Time: [],
+  Debug: ['Log Message'],
+  Delay: ['Wait for Duration'],
+  Weather: ['Get Current Weather', 'Get Weather Forecast'],
+  OpenAI: ['Generate Text Completion', 'Chat with GPT', 'Create Image with DALL-E', 'Analyze/Moderate Content'],
 };
 
 const StepConfigModal: React.FC<StepConfigModalProps> = ({

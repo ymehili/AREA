@@ -62,6 +62,14 @@ class PluginsRegistry:
         self._handlers[("openai", "generate_image")] = image_generation_handler
         self._handlers[("openai", "analyze_text")] = content_moderation_handler
 
+        # Discord handlers
+        from app.integrations.simple_plugins.discord_plugin import (
+            send_message_handler,
+            create_channel_handler,
+        )
+        self._handlers[("discord", "send_message")] = send_message_handler
+        self._handlers[("discord", "create_channel")] = create_channel_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.
