@@ -56,6 +56,8 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
     implemented_triggers = {
         'time': ['every_interval'],  # Implemented in scheduler.py
         'gmail': ['new_email', 'new_email_from_sender', 'new_unread_email', 'email_starred'],  # Implemented in gmail_scheduler.py
+        # Note: Discord triggers would require webhook or polling implementation
+        # 'discord': ['new_message', 'member_joined', 'reaction_added'],
     }
 
     filtered_services = []

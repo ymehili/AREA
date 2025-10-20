@@ -105,6 +105,23 @@ class Settings(BaseSettings):
         alias="GITHUB_CLIENT_SECRET",
     )
 
+    # Discord Configuration
+    discord_client_id: str = Field(
+        default="",
+        alias="DISCORD_CLIENT_ID",
+        description="Discord OAuth Client ID for bot authorization flow",
+    )
+    discord_client_secret: str = Field(
+        default="",
+        alias="DISCORD_CLIENT_SECRET",
+        description="Discord OAuth Client Secret for bot authorization flow",
+    )
+    discord_bot_token: str = Field(
+        default="",
+        alias="DISCORD_BOT_TOKEN",
+        description="Discord Bot Token for sending messages - get this from Bot section in Developer Portal",
+    )
+
     # Gmail Scheduler Configuration
     gmail_poll_interval_seconds: int = Field(
         default=15,

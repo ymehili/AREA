@@ -309,6 +309,24 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="discord",
+        name="Discord",
+        description="Send messages and manage channels in Discord servers. Add the bot to your servers using the invite link.",
+        actions=(),
+        reactions=(
+            AutomationOption(
+                key="send_message",
+                name="Send Message to Channel",
+                description="Send a message to any Discord channel where the bot has been invited. Supports text, images, and videos via URL.",
+            ),
+            AutomationOption(
+                key="create_channel",
+                name="Create Channel",
+                description="Create a new text or voice channel in any Discord server where the bot has been invited.",
+            ),
+        ),
+    ),
 )
 
 
