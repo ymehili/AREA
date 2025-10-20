@@ -20,6 +20,8 @@ class TestOAuth2ProviderFactory:
             mock_settings.github_client_secret = ""
             mock_settings.google_client_id = ""
             mock_settings.google_client_secret = ""
+            mock_settings.discord_client_id = ""
+            mock_settings.discord_client_secret = ""
 
             providers = OAuth2ProviderFactory.get_supported_providers()
             assert providers == []
