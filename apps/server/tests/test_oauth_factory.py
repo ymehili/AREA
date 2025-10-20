@@ -8,6 +8,7 @@ from unittest.mock import patch
 from app.integrations.oauth.factory import OAuth2ProviderFactory
 from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
+from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
 
 
 class TestOAuth2ProviderFactory:
@@ -129,3 +130,58 @@ class TestOAuth2ProviderFactory:
 
         # Clean up
         del OAuth2ProviderFactory._providers["test"]
+
+    def test_get_supported_providers_with_discord_config(self) -> None:
+        """Test that Discord is returned when properly configured."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.github_client_id = ""
+            mock_settings.github_client_secret = ""
+            mock_settings.google_client_id = ""
+            mock_settings.google_client_secret = ""
+            mock_settings.discord_client_id = "test_discord_client_id"
+            mock_settings.discord_client_secret = "test_discord_client_secret"
+
+            providers = OAuth2ProviderFactory.get_supported_providers()
+            assert "discord" in providers
+
+    def test_is_provider_configured_discord_with_credentials(self) -> None:
+        """Test provider configuration check with Discord credentials."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.discord_client_id = "test_client_id"
+            mock_settings.discord_client_secret = "test_client_secret"
+
+            assert OAuth2ProviderFactory._is_provider_configured("discord") is True
+
+    def test_is_provider_configured_discord_without_credentials(self) -> None:
+        """Test provider configuration check without Discord credentials."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.discord_client_id = ""
+            mock_settings.discord_client_secret = ""
+
+            assert OAuth2ProviderFactory._is_provider_configured("discord") is False
+
+    def test_create_provider_discord_success(self) -> None:
+        """Test creating Discord provider successfully."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.discord_client_id = "test_client_id"
+            mock_settings.discord_client_secret = "test_client_secret"
+            mock_settings.oauth_redirect_base_url = "http://localhost:8080/api/v1/oauth"
+
+            provider = OAuth2ProviderFactory.create_provider("discord")
+            assert isinstance(provider, DiscordOAuth2Provider)
+
+    def test_get_provider_config_discord(self) -> None:
+        """Test getting Discord provider configuration."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.discord_client_id = "test_discord_client_id"
+            mock_settings.discord_client_secret = "test_discord_client_secret"
+            mock_settings.oauth_redirect_base_url = "http://localhost:8080/api/v1/oauth"
+
+            config = OAuth2ProviderFactory._get_provider_config("discord")
+
+            assert config.client_id == "test_discord_client_id"
+            assert config.client_secret == "test_discord_client_secret"
+            assert config.authorization_url == "https://discord.com/api/oauth2/authorize"
+            assert config.token_url == "https://discord.com/api/oauth2/token"
+            assert "bot" in config.scopes
+            assert "identify" in config.scopes
