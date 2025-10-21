@@ -19,9 +19,9 @@ from app.services.service_connections import (
 from app.schemas.service_connection import ServiceConnectionUpdate
 from app.core.config import settings
 from app.integrations.simple_plugins.exceptions import (
-    GmailAuthError,
-    GmailAPIError,
-    GmailConnectionError,
+    CalendarAuthError,
+    CalendarAPIError,
+    CalendarConnectionError,
 )
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ def _get_calendar_service(area: Area, db=None):
         # Get service connection for Google Calendar
         connection = get_service_connection_by_user_and_service(db, area.user_id, "google_calendar")
         if not connection:
-            raise GmailConnectionError("Google Calendar service connection not found. Please connect your Google Calendar account.")
+            raise CalendarConnectionError("Google Calendar service connection not found. Please connect your Google Calendar account.")
 
         # Create credentials from stored tokens
         from app.core.encryption import decrypt_token
@@ -92,7 +92,7 @@ def _get_calendar_service(area: Area, db=None):
                     },
                     exc_info=True,
                 )
-                raise GmailAuthError("Failed to refresh Google Calendar token") from refresh_err
+                raise CalendarAuthError("Failed to refresh Google Calendar token") from refresh_err
 
         # Build Calendar service
         service = build('calendar', 'v3', credentials=creds)
@@ -186,7 +186,7 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise GmailAPIError(f"Failed to create calendar event: {e}") from e
+        raise CalendarAPIError(f"Failed to create calendar event: {e}") from e
     except Exception as e:
         logger.error(
             "Error creating calendar event",
@@ -279,7 +279,7 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise GmailAPIError(f"Failed to update calendar event: {e}") from e
+        raise CalendarAPIError(f"Failed to update calendar event: {e}") from e
     except Exception as e:
         logger.error(
             "Error updating calendar event",
@@ -346,7 +346,7 @@ def delete_event_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise GmailAPIError(f"Failed to delete calendar event: {e}") from e
+        raise CalendarAPIError(f"Failed to delete calendar event: {e}") from e
     except Exception as e:
         logger.error(
             "Error deleting calendar event",
@@ -431,7 +431,7 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise GmailAPIError(f"Failed to create all-day calendar event: {e}") from e
+        raise CalendarAPIError(f"Failed to create all-day calendar event: {e}") from e
     except Exception as e:
         logger.error(
             "Error creating all-day calendar event",
@@ -499,7 +499,7 @@ def quick_add_event_handler(area: Area, params: dict, event: dict) -> None:
             },
             exc_info=True
         )
-        raise GmailAPIError(f"Failed to create event via quick add: {e}") from e
+        raise CalendarAPIError(f"Failed to create event via quick add: {e}") from e
     except Exception as e:
         logger.error(
             "Error using quick add",
