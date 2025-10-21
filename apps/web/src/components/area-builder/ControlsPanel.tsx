@@ -626,6 +626,54 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Action params: Outlook send_email */}
+                            {nodeConfig.serviceId === 'outlook' && nodeConfig.actionId === 'send_email' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="outlook_to">To</Label>
+                                  <Input
+                                    id="outlook_to"
+                                    type="text"
+                                    placeholder="recipient@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.to as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, to: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_subject">Subject</Label>
+                                  <Input
+                                    id="outlook_subject"
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={(nodeConfig as ActionNodeData).params?.subject as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, subject: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_body">Body</Label>
+                                  <textarea
+                                    id="outlook_body"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Message body (supports variables like {{outlook.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.body as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
                             {/* Action params: Gmail mark_as_read needs message_id */}
                             {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'mark_as_read' && (
                               <div>
