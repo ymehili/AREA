@@ -32,6 +32,11 @@ from app.integrations.simple_plugins.gmail_scheduler import (
     stop_gmail_scheduler,
     is_gmail_scheduler_running,
 )
+from app.integrations.simple_plugins.calendar_scheduler import (
+    start_calendar_scheduler,
+    stop_calendar_scheduler,
+    is_calendar_scheduler_running,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -75,6 +80,18 @@ async def lifespan(app: FastAPI):
                 logger.info("Startup: Gmail scheduler started successfully")
         except Exception:
             logger.warning("Startup: Unable to verify Gmail scheduler status; continuing")
+
+        # Start the Google Calendar polling scheduler (non-blocking)
+        logger.info("Startup: starting Calendar scheduler")
+        start_calendar_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_calendar_scheduler_running():
+                logger.warning("Startup: Calendar scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Calendar scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Calendar scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -89,6 +106,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping Gmail scheduler")
     stop_gmail_scheduler()
     logger.info("Shutdown: Gmail scheduler stopped")
+
+    logger.info("Shutdown: stopping Calendar scheduler")
+    stop_calendar_scheduler()
+    logger.info("Shutdown: Calendar scheduler stopped")
 
 
 
