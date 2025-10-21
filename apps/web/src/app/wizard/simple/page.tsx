@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import AppShell from "@/components/app-shell";
@@ -10,19 +10,12 @@ import { createAreaWithSteps } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { cn, headingClasses } from '@/lib/utils';
 
-// Service and action options matching mobile wizard
-const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
-const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["New Email", "New Email w/ Attachment"],
-  "Google Drive": ["New File in Folder"],
-  Slack: ["New Message in Channel"],
-  GitHub: ["New Pull Request"],
-};
-const ACTIONS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["Send Email"],
-  "Google Drive": ["Upload File", "Create Folder"],
-  Slack: ["Send Message"],
-  GitHub: ["Create Issue"],
+type CatalogService = {
+  slug: string;
+  name: string;
+  description: string;
+  actions: Array<{ key: string; name: string; description: string }>;
+  reactions: Array<{ key: string; name: string; description: string }>;
 };
 
 export default function SimpleWizardPage() {
@@ -34,6 +27,71 @@ export default function SimpleWizardPage() {
   const [actionService, setActionService] = useState("");
   const [action, setAction] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Load catalog services on mount
+  useEffect(() => {
+    const loadCatalog = async () => {
+      if (!auth.token) {
+        setCatalogError("Not authenticated");
+        setLoadingCatalog(false);
+        return;
+      }
+      setLoadingCatalog(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/services/actions-reactions`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${auth.token}`,
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error('Failed to load services catalog');
+        }
+        
+        const data = await response.json();
+        console.log(`[SimpleWizard] Loaded ${data.services.length} services from catalog`);
+        setCatalogServices(data.services);
+        setCatalogError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to load services catalog.";
+        setCatalogError(message);
+        console.error("[SimpleWizard] Failed to load catalog:", message);
+        toast.error("Failed to load services catalog");
+      } finally {
+        setLoadingCatalog(false);
+      }
+    };
+    void loadCatalog();
+  }, [auth.token]);
+
+  // Get services that have actions (triggers)
+  const servicesWithActions = React.useMemo(() => {
+    return catalogServices.filter((service) => service.actions.length > 0);
+  }, [catalogServices]);
+
+  // Get services that have reactions
+  const servicesWithReactions = React.useMemo(() => {
+    return catalogServices.filter((service) => service.reactions.length > 0);
+  }, [catalogServices]);
+
+  // Get actions for selected trigger service
+  const availableActions = React.useMemo(() => {
+    const service = catalogServices.find((s) => s.slug === triggerService);
+    return service?.actions ?? [];
+  }, [catalogServices, triggerService]);
+
+  // Get reactions for selected action service
+  const availableReactions = React.useMemo(() => {
+    const service = catalogServices.find((s) => s.slug === actionService);
+    return service?.reactions ?? [];
+  }, [catalogServices, actionService]);
 
   const canNext = React.useMemo(() => {
     if (step === 1) return !!triggerService;
@@ -128,6 +186,48 @@ export default function SimpleWizardPage() {
     }
   }, [auth, triggerService, trigger, actionService, action, router]);
 
+  if (loadingCatalog) {
+    return (
+      <AppShell>
+        <div className="container mx-auto py-8 max-w-3xl">
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                <p className="text-muted-foreground">Loading services...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (catalogError) {
+    return (
+      <AppShell>
+        <div className="container mx-auto py-8 max-w-3xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>Error Loading Services</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-destructive mb-4">{catalogError}</p>
+              <div className="flex gap-2">
+                <Button onClick={() => router.push('/dashboard')} variant="outline">
+                  Back to Dashboard
+                </Button>
+                <Button onClick={() => window.location.reload()}>
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="container mx-auto py-8 max-w-3xl">
@@ -170,19 +270,30 @@ export default function SimpleWizardPage() {
               >
                 <div className="space-y-4">
                   <h3 className={cn(headingClasses(3))}>Choose Trigger Service</h3>
-                  <p className="text-sm text-muted-foreground">When this happens...</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {SERVICES.map((s) => (
-                      <Button
-                        key={s}
-                        variant={triggerService === s ? "default" : "outline"}
-                        onClick={() => setTriggerService(s)}
-                        className="w-full"
-                      >
-                        {s}
-                      </Button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    When this happens... ({servicesWithActions.length} available)
+                  </p>
+                  {servicesWithActions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No services with triggers available. Please check your server connection.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {servicesWithActions.map((service) => (
+                        <Button
+                          key={service.slug}
+                          variant={triggerService === service.slug ? "default" : "outline"}
+                          onClick={() => {
+                            setTriggerService(service.slug);
+                            setTrigger(""); // Reset trigger when service changes
+                          }}
+                          className="w-full"
+                        >
+                          {service.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -199,19 +310,32 @@ export default function SimpleWizardPage() {
               >
                 <div className="space-y-4">
                   <h3 className={cn(headingClasses(3))}>Choose Trigger Action</h3>
-                  <p className="text-sm text-muted-foreground">From {triggerService}</p>
-                  <div className="grid grid-cols-1 gap-3">
-                    {(TRIGGERS_BY_SERVICE[triggerService] || []).map((t) => (
-                      <Button
-                        key={t}
-                        variant={trigger === t ? "default" : "outline"}
-                        onClick={() => setTrigger(t)}
-                        className="w-full"
-                      >
-                        {t}
-                      </Button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    From {catalogServices.find(s => s.slug === triggerService)?.name || triggerService} ({availableActions.length} available)
+                  </p>
+                  {availableActions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No triggers available for this service.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {availableActions.map((action) => (
+                        <Button
+                          key={action.key}
+                          variant={trigger === action.key ? "default" : "outline"}
+                          onClick={() => setTrigger(action.key)}
+                          className="w-full flex flex-col items-start h-auto py-3"
+                        >
+                          <span className="font-semibold">{action.name}</span>
+                          {action.description && (
+                            <span className="text-xs text-muted-foreground font-normal mt-1">
+                              {action.description}
+                            </span>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -228,19 +352,30 @@ export default function SimpleWizardPage() {
               >
                 <div className="space-y-4">
                   <h3 className={cn(headingClasses(3))}>Choose Reaction Service</h3>
-                  <p className="text-sm text-muted-foreground">Then do this...</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {SERVICES.map((s) => (
-                      <Button
-                        key={s}
-                        variant={actionService === s ? "default" : "outline"}
-                        onClick={() => setActionService(s)}
-                        className="w-full"
-                      >
-                        {s}
-                      </Button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Then do this... ({servicesWithReactions.length} available)
+                  </p>
+                  {servicesWithReactions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No services with reactions available. Please check your server connection.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {servicesWithReactions.map((service) => (
+                        <Button
+                          key={service.slug}
+                          variant={actionService === service.slug ? "default" : "outline"}
+                          onClick={() => {
+                            setActionService(service.slug);
+                            setAction(""); // Reset action when service changes
+                          }}
+                          className="w-full"
+                        >
+                          {service.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -257,19 +392,32 @@ export default function SimpleWizardPage() {
               >
                 <div className="space-y-4">
                   <h3 className={cn(headingClasses(3))}>Choose Reaction Action</h3>
-                  <p className="text-sm text-muted-foreground">In {actionService}</p>
-                  <div className="grid grid-cols-1 gap-3">
-                    {(ACTIONS_BY_SERVICE[actionService] || []).map((a) => (
-                      <Button
-                        key={a}
-                        variant={action === a ? "default" : "outline"}
-                        onClick={() => setAction(a)}
-                        className="w-full"
-                      >
-                        {a}
-                      </Button>
-                    ))}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    In {catalogServices.find(s => s.slug === actionService)?.name || actionService} ({availableReactions.length} available)
+                  </p>
+                  {availableReactions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No reactions available for this service.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {availableReactions.map((reaction) => (
+                        <Button
+                          key={reaction.key}
+                          variant={action === reaction.key ? "default" : "outline"}
+                          onClick={() => setAction(reaction.key)}
+                          className="w-full flex flex-col items-start h-auto py-3"
+                        >
+                          <span className="font-semibold">{reaction.name}</span>
+                          {reaction.description && (
+                            <span className="text-xs text-muted-foreground font-normal mt-1">
+                              {reaction.description}
+                            </span>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -288,12 +436,12 @@ export default function SimpleWizardPage() {
                     <CardContent className="pt-6">
                       <p className="text-sm font-medium mb-2">Your automation:</p>
                       <p className="text-base">
-                        <span className="font-semibold">When</span> &ldquo;{trigger}&rdquo; happens in{" "}
-                        <span className="font-semibold">{triggerService}</span>
+                        <span className="font-semibold">When</span> &ldquo;{availableActions.find(a => a.key === trigger)?.name || trigger}&rdquo; happens in{" "}
+                        <span className="font-semibold">{catalogServices.find(s => s.slug === triggerService)?.name || triggerService}</span>
                       </p>
                       <p className="text-base mt-2">
-                        <span className="font-semibold">Then</span> &ldquo;{action}&rdquo; in{" "}
-                        <span className="font-semibold">{actionService}</span>
+                        <span className="font-semibold">Then</span> &ldquo;{availableReactions.find(r => r.key === action)?.name || action}&rdquo; in{" "}
+                        <span className="font-semibold">{catalogServices.find(s => s.slug === actionService)?.name || actionService}</span>
                       </p>
                     </CardContent>
                   </Card>
