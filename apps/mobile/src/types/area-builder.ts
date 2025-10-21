@@ -15,6 +15,7 @@ export interface TriggerNodeData extends AreaStepNodeData {
   serviceId: string;
   actionId: string;
   config?: Record<string, unknown>;
+  params?: Record<string, any>;
 }
 
 export interface ActionNodeData extends AreaStepNodeData {
@@ -22,6 +23,7 @@ export interface ActionNodeData extends AreaStepNodeData {
   serviceId: string;
   actionId: string;
   config?: Record<string, unknown>;
+  params?: Record<string, any>;
 }
 
 export interface ConditionNodeData extends AreaStepNodeData {

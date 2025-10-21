@@ -94,10 +94,23 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
               };
 
               if (step.step_type === 'trigger' || step.step_type === 'action') {
+                // Extract params from config (they're flattened in)
+                // Exclude standard config properties to get just the params
+                const standardConfigKeys = ['clientId', 'label', 'description', 'targets', 'position', 'conditionType', 'conditionValue', 'duration', 'unit'];
+                const params: Record<string, any> = {};
+                if (step.config) {
+                  Object.keys(step.config).forEach(key => {
+                    if (!standardConfigKeys.includes(key)) {
+                      params[key] = step.config![key];
+                    }
+                  });
+                }
+
                 return {
                   ...baseStep,
                   serviceId: step.service || '',
                   actionId: step.action || '',
+                  params,
                 } as TriggerNodeData | ActionNodeData;
               } else if (step.step_type === 'condition') {
                 return {
@@ -242,27 +255,57 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
     setSaving(true);
     try {
       const castedTriggerNodeData = triggerStep as NodeData;
+      const triggerParams = isTriggerNode(castedTriggerNodeData) ? castedTriggerNodeData.params : undefined;
+      
       const areaData = {
         name: areaName,
         description: areaDescription,
         is_active: true,
         trigger_service: castedTriggerNodeData.type === 'trigger' ? (castedTriggerNodeData as TriggerNodeData).serviceId || 'manual' : 'manual',
         trigger_action: castedTriggerNodeData.type === 'trigger' ? (castedTriggerNodeData as TriggerNodeData).actionId || 'trigger' : 'trigger',
+        trigger_params: triggerParams,
         reaction_service: 'manual',
         reaction_action: 'reaction',
-        steps: steps.map((step, index) => ({
-          step_type: step.type as 'trigger' | 'action' | 'condition' | 'delay',
-          order: index,
-          service: (isTriggerNode(step) || isActionNode(step)) ? step.serviceId : null,
-          action: (isTriggerNode(step) || isActionNode(step)) ? step.actionId : null,
-          config: {
+        steps: steps.map((step, index) => {
+          // Build step config - flatten params into config like the web app does
+          const stepConfig: Record<string, any> = {
             ...(step.config || {}),
             clientId: step.id,
             label: step.label,
             description: step.description,
             targets: step.connections || [],
-          },
-        })),
+          };
+
+          // Include params for trigger and action steps (flatten them into config)
+          if (isTriggerNode(step) || isActionNode(step)) {
+            if (step.params && Object.keys(step.params).length > 0) {
+              // Flatten params into config
+              Object.assign(stepConfig, step.params);
+            }
+          }
+
+          // Include condition-specific config
+          if (step.type === 'condition') {
+            const conditionStep = step as ConditionNodeData;
+            stepConfig.conditionType = conditionStep.conditionType;
+            stepConfig.conditionValue = conditionStep.conditionValue;
+          }
+
+          // Include delay-specific config
+          if (step.type === 'delay') {
+            const delayStep = step as DelayNodeData;
+            stepConfig.duration = delayStep.duration;
+            stepConfig.unit = delayStep.unit;
+          }
+
+          return {
+            step_type: step.type as 'trigger' | 'action' | 'condition' | 'delay',
+            order: index,
+            service: (isTriggerNode(step) || isActionNode(step)) ? step.serviceId : null,
+            action: (isTriggerNode(step) || isActionNode(step)) ? step.actionId : null,
+            config: stepConfig,
+          };
+        }),
       };
 
       if (areaId) {
