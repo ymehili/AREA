@@ -306,12 +306,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {services.filter(service => service.actions && service.actions.length > 0).map((service) => (
-                                <SelectItem key={service.slug} value={service.slug}>
-                                  {service.name}
-                                </SelectItem>
-                              ))}
-
                               {services
                                 .filter((service) => service.actions.length > 0)
                                 .map((service) => (
@@ -574,6 +568,36 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </>
                             )}
 
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Action-specific configuration */}
+                  {isActionNode(nodeConfig) && (
+                    <>
+                      <Separator className="my-3" />
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="actionService">Service</Label>
+                          <Select
+                            value={nodeConfig.serviceId || ''}
+                            onValueChange={(value) => {
+                              // Reset actionId when service changes
+                              onNodeConfigChange(selectedNodeId, {
+                                ...nodeConfig,
+                                serviceId: value,
+                                actionId: '',
+                                label: services.find(s => s.slug === value)?.name || nodeConfig.label
+                              } as ActionNodeData);
+                            }}
+                            disabled={loadingServices}
+                          >
+                            <SelectTrigger id="actionService">
+                              <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
+                            </SelectTrigger>
+                            <SelectContent>
                               {services
                                 .filter((service) => service.reactions.length > 0)
                                 .map((service) => (
@@ -1806,7 +1830,42 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
-
+                            <VariablePicker
+                              availableVariables={[
+                                { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
+                                { id: 'user_id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
+                                { id: 'area_id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
+                                ...(nodeConfig.serviceId === 'gmail' ? [
+                                  { id: 'gmail.message_id', name: 'Message ID', description: 'The unique message identifier', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.subject', name: 'Subject', description: 'The email subject line', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.sender', name: 'Sender', description: 'The email sender address', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.body', name: 'Body', description: 'The email body content', category: 'Gmail', type: 'text' as const },
+                                  { id: 'gmail.snippet', name: 'Snippet', description: 'Brief preview of email content', category: 'Gmail', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'weather' ? [
+                                  { id: 'weather.location', name: 'Location', description: 'City name and country code', category: 'Weather', type: 'text' as const },
+                                  { id: 'weather.temperature', name: 'Temperature', description: 'Current temperature in Celsius', category: 'Weather', type: 'text' as const },
+                                  { id: 'weather.condition', name: 'Condition', description: 'Current weather condition (e.g., Clear, Rain)', category: 'Weather', type: 'text' as const },
+                                  { id: 'weather.description', name: 'Description', description: 'Detailed weather description', category: 'Weather', type: 'text' as const },
+                                  { id: 'weather.humidity', name: 'Humidity', description: 'Humidity percentage', category: 'Weather', type: 'text' as const },
+                                  { id: 'weather.wind_speed', name: 'Wind Speed', description: 'Wind speed in m/s', category: 'Weather', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'openai' ? [
+                                  { id: 'openai.response', name: 'Response', description: 'AI-generated text response', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.image_url', name: 'Image URL', description: 'Generated image URL', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.moderation_result', name: 'Moderation Result', description: 'Content moderation analysis', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
+                                  { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'discord' ? [
+                                  { id: 'discord.message.content', name: 'Message Content', description: 'The content of the Discord message', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.message.author.id', name: 'Author ID', description: 'The ID of the message author', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.message.author.username', name: 'Author Username', description: 'The username of the message author', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.channel.id', name: 'Channel ID', description: 'The ID of the Discord channel', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.channel.name', name: 'Channel Name', description: 'The name of the Discord channel', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.guild.id', name: 'Server ID', description: 'The ID of the Discord server', category: 'Discord', type: 'text' as const },
+                                  { id: 'discord.guild.name', name: 'Server Name', description: 'The name of the Discord server', category: 'Discord', type: 'text' as const },
+                                ] : []),
                                 ...(nodeConfig.serviceId === 'google_calendar' ? [
                                   { id: 'calendar.event_id', name: 'Event ID', description: 'The unique event identifier', category: 'Google Calendar', type: 'text' as const },
                                   { id: 'calendar.title', name: 'Event Title', description: 'The event title/summary', category: 'Google Calendar', type: 'text' as const },
