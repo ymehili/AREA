@@ -283,6 +283,12 @@ class ConditionEvaluator:
                         )
                 else:
                     raise UnsafeExpressionError("Function calls not allowed")
+            elif isinstance(node, ast.Attribute):
+                # Check for potentially dangerous attribute access
+                if node.attr.startswith('__') and node.attr.endswith('__'):
+                    raise UnsafeExpressionError(
+                        f"Unsafe attribute access: {node.attr}"
+                    )
 
     def _eval_node(self, node: ast.AST) -> Any:
         """Recursively evaluate an AST node.

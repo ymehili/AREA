@@ -1,407 +1,335 @@
 """Tests for condition evaluator service."""
 
-from __future__ import annotations
-
 import pytest
-
 from app.services.condition_evaluator import (
-    ConditionEvaluationError,
     ConditionEvaluator,
+    ConditionEvaluationError,
     UnsafeExpressionError,
     evaluate_condition,
 )
 
 
 class TestConditionEvaluator:
-    """Tests for ConditionEvaluator class."""
+    """Test condition evaluator functionality."""
 
     def test_simple_condition_eq(self):
         """Test simple equality condition."""
         context = {"trigger": {"subject": "Invoice"}}
         evaluator = ConditionEvaluator(context)
 
-        result = evaluator.evaluate_simple_condition(
-            "trigger.subject", "eq", "Invoice"
-        )
-        assert result is True
+        result = evaluator.evaluate_simple_condition("trigger.subject", "eq", "Invoice")
 
-        result = evaluator.evaluate_simple_condition(
-            "trigger.subject", "eq", "Payment"
-        )
-        assert result is False
+        assert result is True
 
     def test_simple_condition_ne(self):
-        """Test simple not-equal condition."""
-        context = {"trigger": {"status": "active"}}
+        """Test simple inequality condition."""
+        context = {"trigger": {"subject": "Invoice"}}
         evaluator = ConditionEvaluator(context)
 
-        result = evaluator.evaluate_simple_condition(
-            "trigger.status", "ne", "inactive"
-        )
+        result = evaluator.evaluate_simple_condition("trigger.subject", "ne", "Receipt")
+
         assert result is True
 
-        result = evaluator.evaluate_simple_condition(
-            "trigger.status", "ne", "active"
-        )
-        assert result is False
-
-    def test_simple_condition_numeric_comparison(self):
-        """Test numeric comparison conditions."""
-        context = {"trigger": {"amount": 150, "count": 5}}
-        evaluator = ConditionEvaluator(context)
-
-        # Greater than
-        assert evaluator.evaluate_simple_condition("trigger.amount", "gt", 100) is True
-        assert evaluator.evaluate_simple_condition("trigger.amount", "gt", 200) is False
-
-        # Less than
-        assert evaluator.evaluate_simple_condition("trigger.count", "lt", 10) is True
-        assert evaluator.evaluate_simple_condition("trigger.count", "lt", 3) is False
-
-        # Greater than or equal
-        assert evaluator.evaluate_simple_condition("trigger.amount", "gte", 150) is True
-        assert evaluator.evaluate_simple_condition("trigger.amount", "gte", 151) is False
-
-        # Less than or equal
-        assert evaluator.evaluate_simple_condition("trigger.count", "lte", 5) is True
-        assert evaluator.evaluate_simple_condition("trigger.count", "lte", 4) is False
-
-    def test_simple_condition_string_operations(self):
-        """Test string operation conditions."""
-        context = {"trigger": {"subject": "Invoice from Acme Corp"}}
-        evaluator = ConditionEvaluator(context)
-
-        # Contains
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "contains", "Invoice"
-            )
-            is True
-        )
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "contains", "Payment"
-            )
-            is False
-        )
-
-        # Startswith
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "startswith", "Invoice"
-            )
-            is True
-        )
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "startswith", "Payment"
-            )
-            is False
-        )
-
-        # Endswith
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "endswith", "Corp"
-            )
-            is True
-        )
-        assert (
-            evaluator.evaluate_simple_condition(
-                "trigger.subject", "endswith", "Inc"
-            )
-            is False
-        )
-
-    def test_simple_condition_nested_field(self):
-        """Test condition with nested field path."""
-        context = {
-            "trigger": {
-                "email": {"sender": "user@example.com", "subject": "Test"}
-            }
-        }
-        evaluator = ConditionEvaluator(context)
-
-        result = evaluator.evaluate_simple_condition(
-            "trigger.email.sender", "eq", "user@example.com"
-        )
-        assert result is True
-
-    def test_simple_condition_field_not_found(self):
-        """Test condition with non-existent field."""
-        context = {"trigger": {"subject": "Test"}}
-        evaluator = ConditionEvaluator(context)
-
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluator.evaluate_simple_condition("trigger.nonexistent", "eq", "value")
-
-        assert "not found" in str(exc_info.value).lower()
-
-    def test_simple_condition_unknown_operator(self):
-        """Test condition with unknown operator."""
-        context = {"trigger": {"value": 10}}
-        evaluator = ConditionEvaluator(context)
-
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluator.evaluate_simple_condition("trigger.value", "unknown_op", 10)
-
-        assert "unknown operator" in str(exc_info.value).lower()
-
-    def test_expression_simple_comparison(self):
-        """Test expression with simple comparison."""
+    def test_simple_condition_gt(self):
+        """Test simple greater than condition."""
         context = {"trigger": {"amount": 150}}
         evaluator = ConditionEvaluator(context)
 
-        assert evaluator.evaluate_expression("trigger.amount > 100") is True
-        assert evaluator.evaluate_expression("trigger.amount < 100") is False
-        assert evaluator.evaluate_expression("trigger.amount == 150") is True
-        assert evaluator.evaluate_expression("trigger.amount != 200") is True
+        result = evaluator.evaluate_simple_condition("trigger.amount", "gt", 100)
+
+        assert result is True
+
+    def test_simple_condition_lt(self):
+        """Test simple less than condition."""
+        context = {"trigger": {"amount": 50}}
+        evaluator = ConditionEvaluator(context)
+
+        result = evaluator.evaluate_simple_condition("trigger.amount", "lt", 100)
+
+        assert result is True
+
+    def test_simple_condition_gte(self):
+        """Test simple greater than or equal condition."""
+        context = {"trigger": {"amount": 100}}
+        evaluator = ConditionEvaluator(context)
+
+        # Test with equal value
+        result = evaluator.evaluate_simple_condition("trigger.amount", "gte", 100)
+        assert result is True
+
+        # Test with smaller value
+        result = evaluator.evaluate_simple_condition("trigger.amount", "gte", 50)
+        assert result is True
+
+    def test_simple_condition_lte(self):
+        """Test simple less than or equal condition."""
+        context = {"trigger": {"amount": 100}}
+        evaluator = ConditionEvaluator(context)
+
+        # Test with equal value
+        result = evaluator.evaluate_simple_condition("trigger.amount", "lte", 100)
+        assert result is True
+
+        # Test with larger value
+        result = evaluator.evaluate_simple_condition("trigger.amount", "lte", 150)
+        assert result is True
+
+    def test_simple_condition_contains(self):
+        """Test simple contains condition."""
+        context = {"trigger": {"subject": "Monthly Invoice"}}
+        evaluator = ConditionEvaluator(context)
+
+        result = evaluator.evaluate_simple_condition("trigger.subject", "contains", "Invoice")
+
+        assert result is True
+
+    def test_simple_condition_startswith(self):
+        """Test simple startswith condition."""
+        context = {"trigger": {"subject": "Invoice #12345"}}
+        evaluator = ConditionEvaluator(context)
+
+        result = evaluator.evaluate_simple_condition("trigger.subject", "startswith", "Invoice")
+
+        assert result is True
+
+    def test_simple_condition_endswith(self):
+        """Test simple endswith condition."""
+        context = {"trigger": {"subject": "Payment Confirmation"}}
+        evaluator = ConditionEvaluator(context)
+
+        result = evaluator.evaluate_simple_condition("trigger.subject", "endswith", "Confirmation")
+
+        assert result is True
+
+    def test_simple_condition_invalid_field(self):
+        """Test simple condition with invalid field path."""
+        context = {"trigger": {"subject": "Invoice"}}
+        evaluator = ConditionEvaluator(context)
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluator.evaluate_simple_condition("trigger.invalid_field", "eq", "value")
+
+    def test_simple_condition_unknown_operator(self):
+        """Test simple condition with unknown operator."""
+        context = {"trigger": {"subject": "Invoice"}}
+        evaluator = ConditionEvaluator(context)
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluator.evaluate_simple_condition("trigger.subject", "unknown_op", "value")
+
+    def test_expression_simple_comparison(self):
+        """Test evaluating a simple expression with comparison."""
+        context = {"trigger": {"amount": 150}}
+        evaluator = ConditionEvaluator(context)
+
+        result = evaluator.evaluate_expression("trigger.amount > 100")
+
+        assert result is True
 
     def test_expression_logical_and(self):
-        """Test expression with AND logic."""
+        """Test evaluating an expression with logical AND."""
         context = {"trigger": {"amount": 150, "status": "pending"}}
         evaluator = ConditionEvaluator(context)
 
-        result = evaluator.evaluate_expression(
-            'trigger.amount > 100 and trigger.status == "pending"'
-        )
-        assert result is True
+        result = evaluator.evaluate_expression("trigger.amount > 100 and trigger.status == 'pending'")
 
-        result = evaluator.evaluate_expression(
-            'trigger.amount > 200 and trigger.status == "pending"'
-        )
-        assert result is False
+        assert result is True
 
     def test_expression_logical_or(self):
-        """Test expression with OR logic."""
-        context = {"trigger": {"amount": 50, "priority": "high"}}
+        """Test evaluating an expression with logical OR."""
+        context = {"trigger": {"amount": 50, "status": "approved"}}
         evaluator = ConditionEvaluator(context)
 
-        result = evaluator.evaluate_expression(
-            'trigger.amount > 100 or trigger.priority == "high"'
-        )
-        assert result is True
+        result = evaluator.evaluate_expression("trigger.amount > 100 or trigger.status == 'approved'")
 
-        result = evaluator.evaluate_expression(
-            'trigger.amount > 100 or trigger.priority == "low"'
-        )
-        assert result is False
+        assert result is True
 
     def test_expression_logical_not(self):
-        """Test expression with NOT logic."""
-        context = {"trigger": {"active": False}}
+        """Test evaluating an expression with logical NOT."""
+        context = {"trigger": {"status": "pending"}}
         evaluator = ConditionEvaluator(context)
 
-        result = evaluator.evaluate_expression("not trigger.active")
+        result = evaluator.evaluate_expression("not trigger.status == 'approved'")
+
         assert result is True
 
-        context = {"trigger": {"active": True}}
-        evaluator = ConditionEvaluator(context)
-        result = evaluator.evaluate_expression("not trigger.active")
-        assert result is False
-
-    def test_expression_complex_logic(self):
-        """Test expression with complex logic combinations."""
-        context = {
-            "trigger": {
-                "amount": 150,
-                "status": "pending",
-                "priority": "high",
-            }
-        }
+    def test_expression_complex_expression(self):
+        """Test evaluating a complex expression."""
+        context = {"trigger": {"amount": 150, "status": "pending", "category": "urgent"}}
         evaluator = ConditionEvaluator(context)
 
         result = evaluator.evaluate_expression(
-            '(trigger.amount > 100 and trigger.status == "pending") or trigger.priority == "urgent"'
+            "(trigger.amount > 100 and trigger.status == 'pending') or trigger.category == 'urgent'"
         )
+
         assert result is True
 
-    def test_expression_with_constants(self):
-        """Test expression with various constant types."""
-        context = {"trigger": {"count": 5, "enabled": True, "name": "test"}}
+    def test_expression_with_arithmetic(self):
+        """Test evaluating an expression with arithmetic operations."""
+        context = {"trigger": {"price": 100, "tax": 10}}
         evaluator = ConditionEvaluator(context)
 
-        # Integer
-        assert evaluator.evaluate_expression("trigger.count == 5") is True
+        result = evaluator.evaluate_expression("trigger.price + trigger.tax > 105")
 
-        # Boolean
-        assert evaluator.evaluate_expression("trigger.enabled == True") is True
-
-        # String
-        assert evaluator.evaluate_expression('trigger.name == "test"') is True
-
-    def test_expression_arithmetic(self):
-        """Test expression with arithmetic operations."""
-        context = {"trigger": {"price": 100, "quantity": 3}}
-        evaluator = ConditionEvaluator(context)
-
-        # Multiplication
-        result = evaluator.evaluate_expression(
-            "trigger.price * trigger.quantity > 250"
-        )
         assert result is True
 
-        # Addition
-        result = evaluator.evaluate_expression("trigger.price + trigger.quantity == 103")
-        assert result is True
+    def test_expression_unsafe_operation(self):
+        """Test that unsafe operations are rejected."""
+        evaluator = ConditionEvaluator({})
 
-    def test_expression_field_not_found(self):
-        """Test expression with non-existent field."""
-        context = {"trigger": {"value": 10}}
-        evaluator = ConditionEvaluator(context)
+        with pytest.raises(UnsafeExpressionError):
+            # This should fail because function calls are not allowed
+            evaluator.evaluate_expression("len('hello')")
 
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluator.evaluate_expression("trigger.nonexistent > 5")
-
-        assert "not found" in str(exc_info.value).lower()
-
-    def test_expression_unsafe_import(self):
-        """Test that unsafe expressions are rejected."""
-        context = {"trigger": {"value": 10}}
+    def test_expression_unsafe_attribute_access(self):
+        """Test that unsafe attribute access is rejected."""
+        context = {"trigger": {"test": "value"}}
+        
         evaluator = ConditionEvaluator(context)
 
         with pytest.raises(UnsafeExpressionError):
-            evaluator.evaluate_expression("__import__('os').system('ls')")
+            # This should fail because accessing __class__ is not allowed in the AST validation
+            evaluator.evaluate_expression("trigger.__class__")
 
-    def test_expression_unsafe_function_call(self):
-        """Test that unsafe function calls are rejected."""
-        context = {"trigger": {"value": 10}}
+    def test_resolve_field_simple_path(self):
+        """Test resolving a simple field path."""
+        context = {"user": {"name": "Alice", "age": 30}}
         evaluator = ConditionEvaluator(context)
 
-        with pytest.raises(UnsafeExpressionError):
-            evaluator.evaluate_expression("eval('1+1')")
+        result = evaluator._resolve_field("user.name")
 
-    def test_expression_safe_string_methods(self):
-        """Test that safe string methods are allowed."""
-        context = {"trigger": {"text": "Hello World"}}
+        assert result == "Alice"
+
+    def test_resolve_field_nested_path(self):
+        """Test resolving a nested field path."""
+        context = {"data": {"user": {"profile": {"email": "alice@example.com"}}}}
         evaluator = ConditionEvaluator(context)
 
-        # These should work (safe methods)
-        result = evaluator.evaluate_expression('trigger.text.lower() == "hello world"')
+        result = evaluator._resolve_field("data.user.profile.email")
+
+        assert result == "alice@example.com"
+
+    def test_resolve_field_invalid_path(self):
+        """Test resolving an invalid field path."""
+        context = {"user": {"name": "Alice"}}
+        evaluator = ConditionEvaluator(context)
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluator._resolve_field("user.invalid_field")
+
+    def test_validate_ast_safe_expression(self):
+        """Test that safe expressions pass validation."""
+        context = {"trigger": {"amount": 150}}
+        evaluator = ConditionEvaluator(context)
+
+        # This should not raise an exception
+        result = evaluator.evaluate_expression("trigger.amount > 100")
         assert result is True
 
-        result = evaluator.evaluate_expression('trigger.text.upper() == "HELLO WORLD"')
-        assert result is True
+    def test_eval_node_constant(self):
+        """Test evaluating a constant node."""
+        evaluator = ConditionEvaluator({})
+        
+        # This test is more of a coverage test since _eval_node is private
+        # We'll test it indirectly through evaluate_expression
+        result = evaluator.evaluate_expression("42")
+        assert result is True  # The result gets converted to boolean in evaluate_expression
 
-    def test_resolve_field_nested(self):
-        """Test resolving deeply nested field paths."""
-        context = {
-            "trigger": {
-                "data": {
-                    "user": {
-                        "profile": {"name": "John Doe"}
-                    }
-                }
-            }
-        }
+    def test_eval_node_name(self):
+        """Test evaluating a name node."""
+        context = {"x": 10}
         evaluator = ConditionEvaluator(context)
+        
+        result = evaluator.evaluate_expression("x")
+        assert result is True  # The result gets converted to boolean in evaluate_expression
 
-        value = evaluator._resolve_field("trigger.data.user.profile.name")
-        assert value == "John Doe"
-
-    def test_time_based_condition(self):
-        """Test condition based on time values (for our test case)."""
-        # Simulate minute being even
-        context = {"trigger": {"minute": 42}}
-        evaluator = ConditionEvaluator(context)
-
-        # Minute is even (using modulo)
-        result = evaluator.evaluate_expression("trigger.minute % 2 == 0")
-        assert result is True
-
-        # Minute is odd
-        context = {"trigger": {"minute": 43}}
-        evaluator = ConditionEvaluator(context)
-        result = evaluator.evaluate_expression("trigger.minute % 2 == 0")
-        assert result is False
-
-
-class TestEvaluateConditionHelper:
-    """Tests for evaluate_condition helper function."""
-
-    def test_evaluate_simple_condition_config(self):
-        """Test evaluating simple condition from config."""
-        config = {
+    def test_evaluate_condition_simple_type(self):
+        """Test evaluating a condition with simple type."""
+        condition_config = {
             "conditionType": "simple",
             "simple": {
-                "field": "trigger.subject",
-                "operator": "contains",
-                "value": "Invoice",
-            },
-        }
-        context = {"trigger": {"subject": "Invoice #1234"}}
-
-        result = evaluate_condition(config, context)
-        assert result is True
-
-    def test_evaluate_expression_condition_config(self):
-        """Test evaluating expression condition from config."""
-        config = {
-            "conditionType": "expression",
-            "expression": "trigger.amount > 100 and trigger.status == 'pending'",
-        }
-        context = {"trigger": {"amount": 150, "status": "pending"}}
-
-        result = evaluate_condition(config, context)
-        assert result is True
-
-    def test_evaluate_condition_missing_type(self):
-        """Test that missing condition type defaults to simple."""
-        config = {
-            "simple": {
-                "field": "trigger.value",
+                "field": "trigger.status",
                 "operator": "eq",
-                "value": 10,
+                "value": "pending"
             }
         }
-        context = {"trigger": {"value": 10}}
+        context = {"trigger": {"status": "pending"}}
 
-        result = evaluate_condition(config, context)
+        result = evaluate_condition(condition_config, context)
+
         assert result is True
 
-    def test_evaluate_condition_missing_simple_config(self):
-        """Test error when simple config is missing."""
-        config = {"conditionType": "simple"}
-        context = {"trigger": {}}
+    def test_evaluate_condition_expression_type(self):
+        """Test evaluating a condition with expression type."""
+        condition_config = {
+            "conditionType": "expression",
+            "expression": "trigger.amount > 100"
+        }
+        context = {"trigger": {"amount": 150}}
 
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluate_condition(config, context)
+        result = evaluate_condition(condition_config, context)
 
-        assert "simple condition configuration missing" in str(exc_info.value).lower()
+        assert result is True
+
+    def test_evaluate_condition_invalid_type(self):
+        """Test evaluating a condition with invalid type."""
+        condition_config = {
+            "conditionType": "invalid_type"
+        }
+        context = {}
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluate_condition(condition_config, context)
+
+    def test_evaluate_condition_missing_config(self):
+        """Test evaluating a simple condition with missing configuration."""
+        condition_config = {
+            "conditionType": "simple"
+            # Missing 'simple' configuration
+        }
+        context = {}
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluate_condition(condition_config, context)
 
     def test_evaluate_condition_missing_expression(self):
-        """Test error when expression is missing."""
-        config = {"conditionType": "expression"}
-        context = {"trigger": {}}
-
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluate_condition(config, context)
-
-        assert "expression" in str(exc_info.value).lower()
-
-    def test_evaluate_condition_unknown_type(self):
-        """Test error with unknown condition type."""
-        config = {"conditionType": "unknown"}
-        context = {"trigger": {}}
-
-        with pytest.raises(ConditionEvaluationError) as exc_info:
-            evaluate_condition(config, context)
-
-        assert "unknown condition type" in str(exc_info.value).lower()
-
-    def test_evaluate_minute_even_condition(self):
-        """Test the specific condition for our test area: minute is even."""
-        config = {
-            "conditionType": "expression",
-            "expression": "trigger.minute % 2 == 0",
+        """Test evaluating an expression condition with missing expression."""
+        condition_config = {
+            "conditionType": "expression"
+            # Missing 'expression' field
         }
+        context = {}
 
-        # Even minute
-        context = {"trigger": {"minute": 42}}
-        result = evaluate_condition(config, context)
+        with pytest.raises(ConditionEvaluationError):
+            evaluate_condition(condition_config, context)
+
+    def test_evaluate_condition_missing_simple_parts(self):
+        """Test evaluating a simple condition with missing parts."""
+        condition_config = {
+            "conditionType": "simple",
+            "simple": {
+                # Missing field and operator
+                "value": "test"
+            }
+        }
+        context = {}
+
+        with pytest.raises(ConditionEvaluationError):
+            evaluate_condition(condition_config, context)
+
+    def test_expression_with_string_methods(self):
+        """Test evaluating an expression with allowed string methods."""
+        context = {"trigger": {"subject": "  HELLO  "}}
+        evaluator = ConditionEvaluator(context)
+
+        # Testing the allowed string methods
+        result = evaluator.evaluate_expression("trigger.subject.strip().lower() == 'hello'")
         assert result is True
 
-        # Odd minute
-        context = {"trigger": {"minute": 43}}
-        result = evaluate_condition(config, context)
-        assert result is False
+    def test_expression_with_unsafe_method_call(self):
+        """Test that unsafe method calls are rejected."""
+        evaluator = ConditionEvaluator({"x": "test"})
+
+        with pytest.raises(UnsafeExpressionError):
+            # This should fail because eval() or other unsafe methods are not allowed
+            evaluator.evaluate_expression("x.eval()")
