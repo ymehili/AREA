@@ -37,6 +37,11 @@ from app.integrations.simple_plugins.discord_scheduler import (
     stop_discord_scheduler,
     is_discord_scheduler_running,
 )
+from app.integrations.simple_plugins.weather_scheduler import (
+    start_weather_scheduler,
+    stop_weather_scheduler,
+    is_weather_scheduler_running,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -92,6 +97,18 @@ async def lifespan(app: FastAPI):
                 logger.info("Startup: Discord scheduler started successfully")
         except Exception:
             logger.warning("Startup: Unable to verify Discord scheduler status; continuing")
+
+        # Start the Weather polling scheduler (non-blocking)
+        logger.info("Startup: starting Weather scheduler")
+        start_weather_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_weather_scheduler_running():
+                logger.warning("Startup: Weather scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Weather scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Weather scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -110,6 +127,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping Discord scheduler")
     stop_discord_scheduler()
     logger.info("Shutdown: Discord scheduler stopped")
+
+    logger.info("Shutdown: stopping Weather scheduler")
+    stop_weather_scheduler()
+    logger.info("Shutdown: Weather scheduler stopped")
 
 
 
