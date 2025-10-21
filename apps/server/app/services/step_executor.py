@@ -9,6 +9,8 @@ This module provides the core execution engine that:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -359,15 +361,16 @@ class StepExecutor:
 
             # Prepare parameters for handler
             params = step.config or {}
-            
+
             # Import variable resolver and substitute variables
             from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get('trigger', {})
-            
+
             # Use service-specific extractor based on trigger service, not action service
             # The trigger data should be parsed according to the trigger service type
             trigger_service = self.area.trigger_service
             variables_from_context = extract_variables_by_service(trigger_data, trigger_service)
+
             params = substitute_variables_in_params(params, variables_from_context)
 
             # Execute handler - pass the trigger_data as the event parameter
@@ -381,9 +384,34 @@ class StepExecutor:
                     "params": params,
                 },
             )
-            
+
             # Execute handler - it may modify trigger_data (e.g., weather adds weather_data)
-            handler(self.area, params, trigger_data)
+            # Check if handler accepts db parameter and pass it
+            sig = inspect.signature(handler)
+            handler_accepts_db = 'db' in sig.parameters
+
+            if handler_accepts_db:
+                result = handler(self.area, params, trigger_data, db=self.db)
+            else:
+                result = handler(self.area, params, trigger_data)
+
+            # If handler is async, we need to run it synchronously
+            # Since execute_area is called from both sync and async contexts,
+            # we use asyncio.get_event_loop().run_until_complete() when in sync context
+            # or run in a separate thread when in async context
+            if inspect.iscoroutine(result):
+                try:
+                    # Try to get the running loop
+                    asyncio.get_running_loop()
+                    # We're in an async context, but execute_area is sync
+                    # We need to run the coroutine in a thread pool
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, result)
+                        result = future.result()
+                except RuntimeError:
+                    # No running loop, we can use asyncio.run()
+                    result = asyncio.run(result)
 
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
@@ -554,20 +582,38 @@ class StepExecutor:
             # Import variable resolver and substitute variables
             from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get("trigger", {})
-            
+
             # Use service-specific extractor based on trigger service, not reaction service
             variables_from_context = extract_variables_by_service(trigger_data, self.area.trigger_service)
-            
+
             # Process reaction params with variable substitution
             reaction_params = self.area.reaction_params or {}
             reaction_params = substitute_variables_in_params(reaction_params, variables_from_context)
-            
+
             # Execute reaction with params
-            handler(
-                self.area,
-                reaction_params,
-                trigger_data,  # Pass original trigger data to handler
-            )
+            # Check if handler accepts db parameter and pass it
+            sig = inspect.signature(handler)
+            handler_accepts_db = 'db' in sig.parameters
+
+            if handler_accepts_db:
+                result = handler(self.area, reaction_params, trigger_data, db=self.db)
+            else:
+                result = handler(self.area, reaction_params, trigger_data)
+
+            # If handler is async, we need to run it synchronously
+            if inspect.iscoroutine(result):
+                try:
+                    # Try to get the running loop
+                    asyncio.get_running_loop()
+                    # We're in an async context, but execute_area is sync
+                    # We need to run the coroutine in a thread pool
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, result)
+                        result = future.result()
+                except RuntimeError:
+                    # No running loop, we can use asyncio.run()
+                    result = asyncio.run(result)
 
             step_log["status"] = "success"
             step_log[
