@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface OAuthButtonProps {
-  provider: "google" | "github" | "microsoft";
+  provider: "google";
   onClick: () => void;
   disabled?: boolean;
   className?: string;

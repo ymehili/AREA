@@ -394,20 +394,6 @@ function LoginScreen() {
               onPress={handleGoogleSignIn}
             />
           </View>
-          <View style={{ height: 8 }} />
-          <View style={styles.buttonContainer}>
-            <OAuthButton
-              provider="github"
-              onPress={() => Alert.alert('GitHub OAuth', 'GitHub sign-in coming soon!')}
-            />
-          </View>
-          <View style={{ height: 8 }} />
-          <View style={styles.buttonContainer}>
-            <OAuthButton
-              provider="microsoft"
-              onPress={() => Alert.alert('Microsoft OAuth', 'Microsoft sign-in coming soon!')}
-            />
-          </View>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -1496,7 +1482,7 @@ function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Login methods</Text>
-          {profile.login_methods.map((method) => {
+          {profile.login_methods.filter((method) => method.provider !== 'github' && method.provider !== 'microsoft').map((method) => {
             const label = PROVIDER_LABELS[method.provider] ?? method.provider;
             const pending = providerPending[method.provider] ?? false;
             return (
