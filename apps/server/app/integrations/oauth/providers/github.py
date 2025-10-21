@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import logging
 from typing import Any, Dict
 from urllib.parse import urlencode
 
@@ -12,6 +13,8 @@ from app.integrations.oauth.exceptions import (
     OAuth2TokenExchangeError,
     OAuth2ValidationError,
 )
+
+logger = logging.getLogger("area")
 
 
 class GitHubOAuth2Provider(OAuth2Provider):
@@ -141,6 +144,47 @@ class GitHubOAuth2Provider(OAuth2Provider):
                 }
             except httpx.HTTPError as e:
                 raise OAuth2ValidationError(f"Failed to test API access: {str(e)}")
+
+    async def revoke_token(self, access_token: str) -> bool:
+        """Revoke a GitHub OAuth token.
+
+        This uses the GitHub API to revoke the OAuth application grant,
+        which invalidates all tokens for this user and application.
+
+        Args:
+            access_token: The access token to revoke
+
+        Returns:
+            True if revocation succeeded or token already revoked, False on actual errors
+        """
+        async with httpx.AsyncClient() as client:
+            try:
+                # Revoke the token using the GitHub API
+                # https://docs.github.com/en/rest/apps/oauth-applications#delete-an-app-authorization
+                response = await client.delete(
+                    f"https://api.github.com/applications/{self.config.client_id}/grant",
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": "AREA-App/1.0",
+                    },
+                    auth=(self.config.client_id, self.config.client_secret),
+                    json={"access_token": access_token},
+                )
+                # 204 No Content means success
+                response.raise_for_status()
+                return True
+            except httpx.HTTPStatusError as e:
+                # 404 means token already revoked or doesn't exist - this is acceptable
+                if e.response.status_code == 404:
+                    logger.info("GitHub token already revoked or invalid")
+                    return True
+                # Other HTTP errors are real failures
+                logger.error(f"Failed to revoke GitHub token: HTTP {e.response.status_code}", exc_info=True)
+                return False
+            except httpx.HTTPError as e:
+                # Network errors or other httpx errors
+                logger.error(f"Network error during GitHub token revocation: {e}", exc_info=True)
+                return False
 
 
 __all__ = ["GitHubOAuth2Provider"]

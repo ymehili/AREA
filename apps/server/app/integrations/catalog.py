@@ -235,14 +235,19 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                 description="Add a comment to an issue or pull request.",
             ),
             AutomationOption(
+                key="close_issue",
+                name="Close Issue",
+                description="Close an issue in a repository.",
+            ),
+            AutomationOption(
+                key="add_label",
+                name="Add Label",
+                description="Add labels to an issue or pull request.",
+            ),
+            AutomationOption(
                 key="create_branch",
                 name="Create Branch",
                 description="Create a new branch in a repository.",
-            ),
-            AutomationOption(
-                key="update_file",
-                name="Update File",
-                description="Update or create a file in a repository.",
             ),
         ),
     ),
