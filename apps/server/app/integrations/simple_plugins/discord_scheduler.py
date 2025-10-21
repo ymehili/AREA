@@ -22,6 +22,8 @@ logger = logging.getLogger("area")
 
 # In-memory storage for last seen message IDs per AREA
 _last_seen_messages: Dict[str, set[str]] = {}
+# In-memory storage for last seen reactions per AREA (key: area_id, value: dict[message_id, set[reaction_ids]])
+_last_seen_reactions: Dict[str, Dict[str, set[str]]] = {}
 _discord_scheduler_task: asyncio.Task | None = None
 
 
@@ -53,6 +55,37 @@ def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
             return response.json()
     except httpx.HTTPError as e:
         logger.error(f"Failed to fetch Discord messages: {e}", exc_info=True)
+        return []
+
+
+def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dict]:
+    """Fetch a specific message with its reactions from Discord.
+
+    Args:
+        channel_id: Discord channel ID
+        message_id: Discord message ID
+
+    Returns:
+        List of reaction objects from the message
+    """
+    if not settings.discord_bot_token:
+        logger.error("Discord bot token not configured")
+        return []
+
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
+                headers={
+                    "Authorization": f"Bot {settings.discord_bot_token}",
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            message_data = response.json()
+            return message_data.get('reactions', [])
+    except httpx.HTTPError as e:
+        logger.error(f"Failed to fetch Discord message reactions: {e}", exc_info=True)
         return []
 
 
@@ -91,27 +124,53 @@ def _extract_message_data(message: dict) -> dict:
     }
 
 
-def _fetch_due_discord_areas(db: Session) -> list[Area]:
+def _extract_reaction_data(reaction: dict, message_id: str, channel_id: str) -> dict:
+    """Extract relevant data from Discord reaction.
+
+    Args:
+        reaction: Discord reaction object
+        message_id: ID of the message that was reacted to
+        channel_id: ID of the channel containing the message
+
+    Returns:
+        Dictionary with extracted reaction data for variable resolution
+    """
+    emoji = reaction.get('emoji', {})
+    
+    return {
+        'message_id': message_id,
+        'channel_id': channel_id,
+        'emoji_name': emoji.get('name', ''),
+        'emoji_id': emoji.get('id'),
+        'emoji_animated': emoji.get('animated', False),
+        'count': reaction.get('count', 0),
+        'me': reaction.get('me', False),
+    }
+
+
+def _fetch_due_discord_areas(db: Session, trigger_type: str | None = None) -> list[Area]:
     """Fetch all enabled areas with Discord triggers.
 
     Args:
         db: Database session
+        trigger_type: Optional trigger type filter (e.g., "new_message_in_channel", "reaction_added")
 
     Returns:
         List of Area objects
     """
-    return (
-        db.query(Area)
-        .filter(
-            Area.enabled == True,  # noqa: E712
-            Area.trigger_service == "discord",
-        )
-        .all()
+    query = db.query(Area).filter(
+        Area.enabled == True,  # noqa: E712
+        Area.trigger_service == "discord",
     )
+    
+    if trigger_type:
+        query = query.filter(Area.trigger_action == trigger_type)
+    
+    return query.all()
 
 
 async def discord_scheduler_task() -> None:
-    """Background task that polls Discord channels for new messages based on AREA triggers."""
+    """Background task that polls Discord channels for new messages and reactions based on AREA triggers."""
     from app.db.session import SessionLocal
 
     logger.info("Starting Discord polling scheduler task")
@@ -125,18 +184,20 @@ async def discord_scheduler_task() -> None:
 
             # Fetch all enabled Discord areas using a scoped session
             with SessionLocal() as db:
-                areas = await asyncio.to_thread(_fetch_due_discord_areas, db)
+                message_areas = await asyncio.to_thread(_fetch_due_discord_areas, db, "new_message_in_channel")
+                reaction_areas = await asyncio.to_thread(_fetch_due_discord_areas, db, "reaction_added")
 
                 logger.info(
                     "Discord scheduler tick",
                     extra={
                         "utc_now": now.isoformat(),
-                        "areas_count": len(areas),
+                        "message_areas_count": len(message_areas),
+                        "reaction_areas_count": len(reaction_areas),
                     },
                 )
 
-            # Process each area with its own scoped session
-            for area in areas:
+            # Process message trigger areas
+            for area in message_areas:
                 area_id_str = str(area.id)
 
                 # Initialize last seen messages set for this area
@@ -152,7 +213,7 @@ async def discord_scheduler_task() -> None:
                         
                         if not channel_id:
                             logger.warning(
-                                f"No channel_id configured for Discord area {area_id_str}, skipping"
+                                f"No channel_id configured for Discord message area {area_id_str}, skipping"
                             )
                             continue
 
@@ -163,7 +224,7 @@ async def discord_scheduler_task() -> None:
                         if len(_last_seen_messages[area_id_str]) == 0 and messages:
                             _last_seen_messages[area_id_str].update(m['id'] for m in messages)
                             logger.info(
-                                f"Initialized seen set for Discord area {area_id_str} with {len(messages)} message(s)"
+                                f"Initialized seen set for Discord message area {area_id_str} with {len(messages)} message(s)"
                             )
 
                         logger.debug(
@@ -206,7 +267,86 @@ async def discord_scheduler_task() -> None:
 
                 except Exception as e:
                     logger.error(
-                        "Error processing Discord area",
+                        "Error processing Discord message area",
+                        extra={
+                            "area_id": area_id_str,
+                            "error": str(e),
+                        },
+                        exc_info=True,
+                    )
+
+            # Process reaction trigger areas
+            for area in reaction_areas:
+                area_id_str = str(area.id)
+
+                # Initialize last seen reactions dict for this area
+                if area_id_str not in _last_seen_reactions:
+                    _last_seen_reactions[area_id_str] = {}
+
+                try:
+                    # Use scoped session for this area's processing
+                    with SessionLocal() as db:
+                        # Get channel_id and message_id from trigger params
+                        params = area.trigger_params or {}
+                        channel_id = params.get("channel_id")
+                        message_id = params.get("message_id")
+                        
+                        if not channel_id or not message_id:
+                            logger.warning(
+                                f"Missing channel_id or message_id for Discord reaction area {area_id_str}, skipping"
+                            )
+                            continue
+
+                        # Fetch reactions from the specific message
+                        reactions = await asyncio.to_thread(_fetch_message_reactions, channel_id, message_id)
+
+                        # On first run, prime the seen set with fetched reactions to avoid backlog
+                        if message_id not in _last_seen_reactions[area_id_str]:
+                            _last_seen_reactions[area_id_str][message_id] = set()
+                            for reaction in reactions:
+                                emoji_key = reaction.get('emoji', {}).get('name', '')
+                                _last_seen_reactions[area_id_str][message_id].add(emoji_key)
+                            logger.info(
+                                f"Initialized reaction set for Discord reaction area {area_id_str} with {len(reactions)} reaction(s)"
+                            )
+                            continue  # Skip processing on first run
+
+                        logger.debug(
+                            f"Discord fetched {len(reactions)} reaction(s) for area {area_id_str}",
+                            extra={
+                                "area_id": area_id_str,
+                                "area_name": area.name,
+                                "user_id": str(area.user_id),
+                                "reactions_fetched": len(reactions),
+                                "message_id": message_id,
+                                "channel_id": channel_id,
+                            }
+                        )
+
+                        # Check for new reactions
+                        for reaction in reactions:
+                            emoji_key = reaction.get('emoji', {}).get('name', '')
+                            
+                            # Check if this is a new reaction (not seen before)
+                            if emoji_key not in _last_seen_reactions[area_id_str][message_id]:
+                                logger.info(
+                                    f"Found NEW Discord reaction for area {area_id_str}: {emoji_key}",
+                                    extra={
+                                        "area_id": area_id_str,
+                                        "area_name": area.name,
+                                        "user_id": str(area.user_id),
+                                        "message_id": message_id,
+                                        "emoji": emoji_key,
+                                    }
+                                )
+                                
+                                await _process_discord_reaction_trigger(db, area, reaction, message_id, channel_id, now)
+                                # Mark as seen
+                                _last_seen_reactions[area_id_str][message_id].add(emoji_key)
+
+                except Exception as e:
+                    logger.error(
+                        "Error processing Discord reaction area",
                         extra={
                             "area_id": area_id_str,
                             "error": str(e),
@@ -329,6 +469,108 @@ async def _process_discord_trigger(db: Session, area: Area, message: dict, now: 
         )
 
 
+async def _process_discord_reaction_trigger(
+    db: Session, area: Area, reaction: dict, message_id: str, channel_id: str, now: datetime
+) -> None:
+    """Process a Discord reaction trigger event and execute the area.
+
+    Args:
+        db: Database session
+        area: Area to execute
+        reaction: Discord reaction data
+        message_id: ID of the message that was reacted to
+        channel_id: ID of the channel containing the message
+        now: Current timestamp
+    """
+    # Re-attach the Area instance to the current session
+    area = db.merge(area)
+    area_id_str = str(area.id)
+    execution_log = None
+
+    try:
+        # Extract reaction data
+        reaction_data = _extract_reaction_data(reaction, message_id, channel_id)
+
+        # Create execution log entry
+        execution_log_start = ExecutionLogCreate(
+            area_id=area.id,
+            status="Started",
+            output=None,
+            error_message=None,
+            step_details={
+                "event": {
+                    "now": now.isoformat(),
+                    "area_id": area_id_str,
+                    "user_id": str(area.user_id),
+                    "message_id": message_id,
+                    "emoji": reaction_data.get('emoji_name'),
+                }
+            }
+        )
+        execution_log = create_execution_log(db, execution_log_start)
+
+        # Build trigger_data with discord reaction variables
+        trigger_data = {
+            # Discord reaction variables
+            "discord.reaction.message_id": reaction_data.get('message_id'),
+            "discord.reaction.channel_id": reaction_data.get('channel_id'),
+            "discord.reaction.emoji_name": reaction_data.get('emoji_name'),
+            "discord.reaction.emoji_id": reaction_data.get('emoji_id'),
+            "discord.reaction.emoji_animated": reaction_data.get('emoji_animated'),
+            "discord.reaction.count": reaction_data.get('count'),
+            # General context
+            "now": now.isoformat(),
+            "timestamp": now.timestamp(),
+            "area_id": area_id_str,
+            "user_id": str(area.user_id),
+        }
+
+        # Execute area
+        result = execute_area(db, area, trigger_data)
+
+        # Update execution log
+        execution_log.status = "Success" if result["status"] == "success" else "Failed"
+        execution_log.output = f"Discord reaction trigger executed: {result['steps_executed']} step(s)"
+        execution_log.error_message = result.get("error")
+        execution_log.step_details = {
+            "execution_log": result.get("execution_log", []),
+            "steps_executed": result["steps_executed"],
+            "message_id": message_id,
+            "emoji": reaction_data.get('emoji_name'),
+        }
+        db.commit()
+
+        logger.info(
+            "Discord reaction trigger executed",
+            extra={
+                "area_id": area_id_str,
+                "area_name": area.name,
+                "user_id": str(area.user_id),
+                "message_id": message_id,
+                "channel_id": channel_id,
+                "emoji": reaction_data.get('emoji_name'),
+                "status": result["status"],
+                "steps_executed": result.get("steps_executed", 0),
+            },
+        )
+
+    except Exception as e:
+        # Update execution log with failure
+        if execution_log:
+            execution_log.status = "Failed"
+            execution_log.error_message = str(e)
+            db.commit()
+
+        logger.error(
+            "Error executing Discord reaction trigger",
+            extra={
+                "area_id": area_id_str,
+                "error": str(e),
+            },
+            exc_info=True,
+        )
+
+
 def start_discord_scheduler() -> None:
     """Start the Discord polling scheduler task."""
     global _discord_scheduler_task
@@ -368,9 +610,10 @@ def is_discord_scheduler_running() -> bool:
 
 
 def clear_discord_seen_state() -> None:
-    """Clear the in-memory seen messages state (useful for testing)."""
-    global _last_seen_messages
+    """Clear the in-memory seen messages and reactions state (useful for testing)."""
+    global _last_seen_messages, _last_seen_reactions
     _last_seen_messages.clear()
+    _last_seen_reactions.clear()
 
 
 __all__ = [

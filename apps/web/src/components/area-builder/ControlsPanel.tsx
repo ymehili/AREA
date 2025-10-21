@@ -327,6 +327,48 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Trigger params: Discord reaction_added requires channel_id and message_id */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'reaction_added' && (
+                              <>
+                                <div>
+                                  <Label htmlFor="discord_reaction_channel_id">Channel ID</Label>
+                                  <Input
+                                    id="discord_reaction_channel_id"
+                                    type="text"
+                                    placeholder="123456789012345678"
+                                    value={(nodeConfig as TriggerNodeData).params?.channel_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, channel_id: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The Discord channel ID where the message is located.</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_reaction_message_id">Message ID</Label>
+                                  <Input
+                                    id="discord_reaction_message_id"
+                                    type="text"
+                                    placeholder="987654321098765432"
+                                    value={(nodeConfig as TriggerNodeData).params?.message_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, message_id: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The specific message ID to monitor for reactions. Enable Discord Developer Mode to copy message IDs.</p>
+                                </div>
+                              </>
+                            )}
+
                             {/* Trigger params: Weather temperature_threshold requires location, threshold, and operator */}
                             {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'temperature_threshold' && (
                               <>
