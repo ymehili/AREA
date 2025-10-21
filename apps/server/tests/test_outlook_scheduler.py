@@ -97,15 +97,15 @@ class TestOutlookScheduler:
 
         assert "isRead eq false" in filter_str
 
-    def test_build_outlook_filter_email_important(self):
-        """Test Outlook filter building for important email trigger."""
+    def test_build_outlook_filter_email_flagged(self):
+        """Test Outlook filter building for flagged email trigger."""
         area = Mock()
-        area.trigger_action = "email_important"
+        area.trigger_action = "email_flagged"
         area.trigger_params = {}
 
         filter_str = _build_outlook_filter(area)
 
-        assert "importance eq 'high'" in filter_str
+        assert "flag/flagStatus eq 'flagged'" in filter_str
 
     @pytest.mark.asyncio
     async def test_fetch_messages_success(self):

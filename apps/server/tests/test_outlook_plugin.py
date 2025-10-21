@@ -75,8 +75,10 @@ class TestOutlookPlugin:
 
         # Mock the entire _get_outlook_client to return a mock client directly
         mock_client = AsyncMock()
+        mock_client.headers = {"Authorization": "Bearer mock_token"}  # Add headers attribute
         mock_response = Mock()
-        mock_response.status_code = 201
+        mock_response.status_code = 202  # Microsoft Graph sendMail returns 202
+        mock_response.text = ""
         mock_response.raise_for_status = Mock()
         mock_response.json.return_value = {
             "id": "sent_message_id",
@@ -85,6 +87,7 @@ class TestOutlookPlugin:
         mock_client.post.return_value = mock_response
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
+        mock_client.aclose = AsyncMock()
 
         with patch("app.integrations.simple_plugins.outlook_plugin._get_outlook_client") as mock_get_client:
             mock_get_client.return_value = mock_client
@@ -130,13 +133,16 @@ class TestOutlookPlugin:
         event = {}
 
         mock_client = AsyncMock()
+        mock_client.headers = {"Authorization": "Bearer mock_token"}  # Add headers attribute
         mock_response = Mock()
-        mock_response.status_code = 201
+        mock_response.status_code = 202  # Microsoft Graph sendMail returns 202
+        mock_response.text = ""
         mock_response.raise_for_status = Mock()
         mock_response.json.return_value = {"id": "sent_message_id"}
         mock_client.post.return_value = mock_response
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
+        mock_client.aclose = AsyncMock()
 
         with patch("app.integrations.simple_plugins.outlook_plugin._get_outlook_client") as mock_get_client:
             mock_get_client.return_value = mock_client
