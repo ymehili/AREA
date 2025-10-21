@@ -10,6 +10,7 @@ from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
 from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
+from app.integrations.oauth.providers.google_calendar import GoogleCalendarOAuth2Provider
 
 
 class OAuth2ProviderFactory:
@@ -19,6 +20,7 @@ class OAuth2ProviderFactory:
         "github": GitHubOAuth2Provider,
         "gmail": GmailOAuth2Provider,
         "discord": DiscordOAuth2Provider,
+        "google_calendar": GoogleCalendarOAuth2Provider,
     }
 
     @classmethod
@@ -54,6 +56,7 @@ class OAuth2ProviderFactory:
             # - userinfo.email/profile: Get user identity for account linking
             # - gmail.modify: Read messages and modify labels (includes read, list, modify)
             # - gmail.send: Send emails on behalf of user
+            # - calendar: Full access to Google Calendar (read, write, delete events)
             return OAuth2Config(
                 client_id=settings.google_client_id,
                 client_secret=settings.google_client_secret,
@@ -64,6 +67,7 @@ class OAuth2ProviderFactory:
                     "https://www.googleapis.com/auth/userinfo.profile",
                     "https://www.googleapis.com/auth/gmail.modify",
                     "https://www.googleapis.com/auth/gmail.send",
+                    "https://www.googleapis.com/auth/calendar",
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/gmail",
             )
@@ -84,6 +88,22 @@ class OAuth2ProviderFactory:
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/discord",
             )
+        elif provider_name == "google_calendar":
+            # Google Calendar API scopes:
+            # - userinfo.email/profile: Get user identity for account linking
+            # - calendar: Full access to Google Calendar (read, write, delete events)
+            return OAuth2Config(
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+                authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+                token_url="https://oauth2.googleapis.com/token",
+                scopes=[
+                    "https://www.googleapis.com/auth/userinfo.email",
+                    "https://www.googleapis.com/auth/userinfo.profile",
+                    "https://www.googleapis.com/auth/calendar",
+                ],
+                redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/google_calendar",
+            )
 
         raise UnsupportedProviderError(f"No configuration for provider: {provider_name}")
 
@@ -101,6 +121,8 @@ class OAuth2ProviderFactory:
             return bool(settings.google_client_id and settings.google_client_secret)
         elif provider_name == "discord":
             return bool(settings.discord_client_id and settings.discord_client_secret)
+        elif provider_name == "google_calendar":
+            return bool(settings.google_client_id and settings.google_client_secret)
 
         return False
 
