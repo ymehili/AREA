@@ -350,9 +350,9 @@ def _build_outlook_filter(area: Area) -> str:
         # New unread emails
         return "isRead eq false"
 
-    elif trigger_action == "email_important":
-        # Important emails
-        return "importance eq 'high'"
+    elif trigger_action == "email_flagged":
+        # Flagged emails (marked for follow-up)
+        return "flag/flagStatus eq 'flagged'"
 
     # Default: fetch recent messages
     return "receivedDateTime ge 1900-01-01"

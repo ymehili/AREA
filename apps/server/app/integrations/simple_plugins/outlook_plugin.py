@@ -204,6 +204,16 @@ async def send_email_handler(area: Area, params: dict, event: dict) -> None:
         # Get authenticated client
         client = await _get_outlook_client(area)
 
+        # Add logging to debug token
+        logger.info(
+            "Got Outlook client, preparing to send email",
+            extra={
+                "area_id": str(area.id),
+                "user_id": str(area.user_id),
+                "has_auth_header": "Authorization" in client.headers,
+            },
+        )
+
         # Build message payload for Microsoft Graph API
         message_payload = {
             "message": {
@@ -213,7 +223,8 @@ async def send_email_handler(area: Area, params: dict, event: dict) -> None:
                     "content": body,
                 },
                 "toRecipients": [{"emailAddress": {"address": to_email}}],
-            }
+            },
+            "saveToSentItems": "true"
         }
 
         # Add CC recipients if provided
@@ -232,6 +243,18 @@ async def send_email_handler(area: Area, params: dict, event: dict) -> None:
 
         # Send email using Microsoft Graph API
         response = await client.post("/me/sendMail", json=message_payload)
+        
+        # Log response details for debugging
+        if response.status_code != 202:
+            logger.warning(
+                "Unexpected status code from Outlook sendMail",
+                extra={
+                    "area_id": str(area.id),
+                    "status_code": response.status_code,
+                    "response_text": response.text[:500] if response.text else None,
+                },
+            )
+        
         response.raise_for_status()
 
         logger.info(
@@ -248,6 +271,15 @@ async def send_email_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
     except httpx.HTTPStatusError as e:
+        error_detail = ""
+        if e.response:
+            try:
+                error_json = e.response.json()
+                error_detail = error_json.get("error", {}).get("message", "")
+                error_code = error_json.get("error", {}).get("code", "")
+            except:
+                error_detail = e.response.text[:500] if e.response.text else ""
+        
         logger.error(
             "Outlook API error sending email",
             extra={
@@ -255,10 +287,22 @@ async def send_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
                 "status_code": e.response.status_code if e.response else None,
+                "error_detail": error_detail,
+                "error_code": error_code if 'error_code' in locals() else None,
             },
             exc_info=True,
         )
-        raise OutlookAPIError(f"Failed to send email: {e}") from e
+        
+        # Provide helpful error message for common issues
+        if e.response and e.response.status_code == 401:
+            raise OutlookAPIError(
+                f"Failed to send email: Unauthorized (401). "
+                f"This usually means the Outlook OAuth token doesn't have the required 'Mail.Send' permission. "
+                f"Please reconnect your Outlook account and ensure the Mail.Send scope is granted. "
+                f"Details: {error_detail}"
+            ) from e
+        else:
+            raise OutlookAPIError(f"Failed to send email: {e}") from e
     except Exception as e:
         logger.error(
             "Error sending email via Outlook",

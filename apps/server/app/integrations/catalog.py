@@ -131,9 +131,9 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                 description="Triggers when a new unread email arrives in the inbox.",
             ),
             AutomationOption(
-                key="email_important",
-                name="Important Email",
-                description="Triggers when an email marked as important is received.",
+                key="email_flagged",
+                name="Email Flagged",
+                description="Triggers when an email is flagged/marked for follow-up.",
             ),
         ),
         reactions=(
