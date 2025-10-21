@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch, AsyncMock
 import pytest
+import httpx
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 
 from app.integrations.oauth.base import OAuth2Config
-from app.integrations.oauth.exceptions import OAuth2RefreshError
+from app.integrations.oauth.exceptions import (
+    OAuth2RefreshError,
+    OAuth2TokenExchangeError,
+    OAuth2ValidationError,
+)
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
 
@@ -312,8 +317,255 @@ class TestGmailOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
             mock_response = Mock()
-            mock_response.raise_for_status.side_effect = Exception("Bad Request")
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("Bad Request", request=Mock(), response=Mock())
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(OAuth2RefreshError):
+                await provider.refresh_tokens("invalid_refresh_token")
+
+    @pytest.mark.asyncio
+    async def test_github_provider_name(self):
+        """Test GitHub provider name property."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+        assert provider.provider_name == "github"
+
+    @pytest.mark.asyncio
+    async def test_gmail_provider_name(self):
+        """Test Gmail provider name property."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+        assert provider.provider_name == "gmail"
+
+    @pytest.mark.asyncio
+    async def test_github_exchange_with_error_in_response(self):
+        """Test GitHub token exchange with error in JSON response."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.github.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {"error": "invalid_grant"}
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(OAuth2TokenExchangeError):
+                await provider.exchange_code_for_tokens("bad_code")
+
+    @pytest.mark.asyncio
+    async def test_gmail_exchange_with_error_in_response(self):
+        """Test Gmail token exchange with error in JSON response."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {"error": "invalid_grant"}
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(OAuth2TokenExchangeError):
+                await provider.exchange_code_for_tokens("bad_code")
+
+    @pytest.mark.asyncio
+    async def test_gmail_refresh_with_error_in_response(self):
+        """Test Gmail token refresh with error in JSON response."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {"error": "invalid_grant"}
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(OAuth2RefreshError):
+                await provider.refresh_tokens("bad_refresh_token")
+
+    @pytest.mark.asyncio
+    async def test_github_validate_token_success(self):
+        """Test GitHub token validation success."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.github.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {"login": "testuser"}
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("valid_token")
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_github_validate_token_failure(self):
+        """Test GitHub token validation failure."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.github.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("Unauthorized", request=Mock(), response=Mock())
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("invalid_token")
+            assert result is False
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_gmail_validate_token_success(self):
+        """Test Gmail token validation success."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {"email": "test@example.com"}
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("valid_token")
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_gmail_validate_token_failure(self):
+        """Test Gmail token validation failure."""
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("Unauthorized", request=Mock(), response=Mock())
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("invalid_token")
+            assert result is False
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_github_http_error_handling(self):
+        """Test GitHub HTTP error handling."""
+        import httpx
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.github.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                side_effect=httpx.HTTPError("Network error")
+            )
+
+            with pytest.raises(OAuth2TokenExchangeError):
+                await provider.exchange_code_for_tokens("code")
+
+    @pytest.mark.asyncio
+    async def test_gmail_http_error_handling(self):
+        """Test Gmail HTTP error handling."""
+        import httpx
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                side_effect=httpx.HTTPError("Network error")
+            )
+
+            with pytest.raises(OAuth2TokenExchangeError):
+                await provider.exchange_code_for_tokens("code")
+
+    @pytest.mark.asyncio
+    async def test_gmail_user_info_http_error(self):
+        """Test Gmail user info HTTP error handling."""
+        import httpx
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+            token_url="https://oauth2.googleapis.com/token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GmailOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.gmail.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                side_effect=httpx.HTTPError("Network error")
+            )
+
+            with pytest.raises(OAuth2ValidationError):
+                await provider.get_user_info("token")
+
+    @pytest.mark.asyncio
+    async def test_github_user_info_http_error(self):
+        """Test GitHub user info HTTP error handling."""
+        import httpx
+        config = OAuth2Config(
+            client_id="test", client_secret="test",
+            authorization_url="https://github.com/login/oauth/authorize",
+            token_url="https://github.com/login/oauth/access_token",
+            scopes=[], redirect_uri="http://test"
+        )
+        provider = GitHubOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.github.httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                side_effect=httpx.HTTPError("Network error")
+            )
+
+            with pytest.raises(OAuth2ValidationError):
+                await provider.get_user_info("token")
 
             with pytest.raises(Exception):
                 await provider.refresh_tokens("invalid_refresh_token")
