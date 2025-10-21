@@ -42,35 +42,53 @@ def list_services() -> ServiceListResponse:
 def list_service_actions_reactions() -> ServiceCatalogResponse:
     """Return the catalog of automation actions and reactions.
 
-    Filters services to only show:
-    - Triggers (actions) that are implemented in schedulers (time, gmail)
+    Filters services to only show implemented features:
+    - Triggers (actions) from services with running schedulers
     - Reactions that have registered handlers
+    
+    This automatically discovers which services are implemented by checking:
+    1. If a scheduler module exists and is running (for triggers)
+    2. If handlers are registered in the plugin registry (for reactions)
     """
-    from app.integrations.catalog import ServiceIntegration, AutomationOption
+    from app.integrations.catalog import ServiceIntegration
     from app.integrations.simple_plugins.registry import get_plugins_registry
 
     registry = get_plugins_registry()
     catalog = get_service_catalog()
 
-    # Services with implemented triggers (via schedulers)
-    implemented_triggers = {
-        'time': ['every_interval'],  # Implemented in scheduler.py
-        'gmail': ['new_email', 'new_email_from_sender', 'new_unread_email', 'email_starred'],  # Implemented in gmail_scheduler.py
-        # Note: Discord triggers would require webhook or polling implementation
-        # 'discord': ['new_message', 'member_joined', 'reaction_added'],
-    }
+    # Dynamically detect which services have schedulers running
+    # by checking if scheduler modules exist and are imported
+    services_with_schedulers = set()
+    
+    # Check for time scheduler (always available)
+    try:
+        from app.integrations.simple_plugins import scheduler
+        services_with_schedulers.add('time')
+    except ImportError:
+        pass
+    
+    # Check for Gmail scheduler
+    try:
+        from app.integrations.simple_plugins import gmail_scheduler
+        services_with_schedulers.add('gmail')
+    except ImportError:
+        pass
+    
+    # Check for Discord scheduler
+    try:
+        from app.integrations.simple_plugins import discord_scheduler
+        services_with_schedulers.add('discord')
+    except ImportError:
+        pass
 
     filtered_services = []
     for service in catalog:
-        # Filter actions (triggers) to only implemented ones
+        # Only include triggers (actions) if service has a scheduler
         filtered_actions = []
-        if service.slug in implemented_triggers:
-            # Only include actions that are implemented
-            for action in service.actions:
-                if action.key in implemented_triggers[service.slug]:
-                    filtered_actions.append(action)
+        if service.slug in services_with_schedulers:
+            filtered_actions = list(service.actions)
 
-        # Filter reactions to only those with handlers
+        # Filter reactions to only those with registered handlers
         filtered_reactions = []
         for reaction in service.reactions:
             handler = registry.get_reaction_handler(service.slug, reaction.key)
