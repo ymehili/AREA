@@ -66,8 +66,10 @@ class TestFetchChannelMessages:
             
             mock_settings.discord_bot_token = "test_bot_token"
             
+            # Make the get method raise an HTTPError
+            import httpx
             mock_client.return_value.__enter__.return_value.get.side_effect = \
-                Exception("Network error")
+                httpx.HTTPError("Network error")
 
             messages = _fetch_channel_messages("123456789")
 
@@ -176,11 +178,13 @@ class TestProcessDiscordTrigger:
     @pytest.mark.asyncio
     async def test_process_trigger_success(self):
         """Test successful processing of Discord trigger."""
+        from uuid import uuid4
+        
         mock_db = Mock()
         mock_area = Mock(spec=Area)
-        mock_area.id = 1
+        mock_area.id = uuid4()
         mock_area.name = "Test Area"
-        mock_area.user_id = "user123"
+        mock_area.user_id = uuid4()
         
         mock_db.merge.return_value = mock_area
         
@@ -224,11 +228,13 @@ class TestProcessDiscordTrigger:
     @pytest.mark.asyncio
     async def test_process_trigger_execution_failure(self):
         """Test processing trigger when area execution fails."""
+        from uuid import uuid4
+        
         mock_db = Mock()
         mock_area = Mock(spec=Area)
-        mock_area.id = 1
+        mock_area.id = uuid4()
         mock_area.name = "Test Area"
-        mock_area.user_id = "user123"
+        mock_area.user_id = uuid4()
         
         mock_db.merge.return_value = mock_area
         
@@ -287,7 +293,7 @@ class TestDiscordSchedulerTask:
     @pytest.mark.asyncio
     async def test_scheduler_task_cancellation(self):
         """Test that scheduler task handles cancellation gracefully."""
-        with patch("app.integrations.simple_plugins.discord_scheduler.SessionLocal") as mock_session, \
+        with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             
             # Make sleep raise CancelledError after first call
@@ -302,13 +308,14 @@ class TestDiscordSchedulerTask:
     @pytest.mark.asyncio
     async def test_scheduler_task_handles_errors(self):
         """Test that scheduler task handles errors and continues."""
-        with patch("app.integrations.simple_plugins.discord_scheduler.SessionLocal") as mock_session, \
+        with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             
-            # First call raises error, second call raises CancelledError to stop
+            # Setup sleep side effects: first for regular polling, second for error backoff, third to cancel
             mock_sleep.side_effect = [
-                None,  # First sleep succeeds
-                asyncio.CancelledError()  # Second sleep stops the loop
+                None,  # First sleep (regular polling interval)
+                None,  # Second sleep (error backoff)
+                asyncio.CancelledError()  # Third sleep stops the loop
             ]
             
             mock_db = Mock()
@@ -323,5 +330,5 @@ class TestDiscordSchedulerTask:
                 # Should not raise exception
                 await discord_scheduler_task()
 
-                # Verify error was handled
-                assert mock_sleep.call_count == 2
+                # Verify error was handled and backoff was called
+                assert mock_sleep.call_count == 3
