@@ -326,6 +326,122 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 <p className="text-xs text-gray-500 mt-1">The Discord channel ID to monitor for new messages.</p>
                               </div>
                             )}
+
+                            {/* Trigger params: Weather temperature_threshold requires location, threshold, and operator */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'temperature_threshold' && (
+                              <>
+                                <div>
+                                  <Label htmlFor="weather_location">Location</Label>
+                                  <Input
+                                    id="weather_location"
+                                    type="text"
+                                    placeholder="London,UK or Paris,FR"
+                                    value={(nodeConfig as TriggerNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, location: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., "London,UK")</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_threshold">Temperature Threshold (°C)</Label>
+                                  <Input
+                                    id="weather_threshold"
+                                    type="number"
+                                    placeholder="25"
+                                    value={(nodeConfig as TriggerNodeData).params?.threshold as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, threshold: parseFloat(e.target.value) }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Temperature in Celsius</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_operator">Condition</Label>
+                                  <Select
+                                    value={(nodeConfig as TriggerNodeData).params?.operator as string || 'above'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, operator: value }
+                                      } as TriggerNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="weather_operator">
+                                      <SelectValue placeholder="Select condition" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="above">Goes above threshold</SelectItem>
+                                      <SelectItem value="below">Goes below threshold</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Trigger when temperature crosses the threshold</p>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Trigger params: Weather weather_condition requires location and condition */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'weather_condition' && (
+                              <>
+                                <div>
+                                  <Label htmlFor="weather_condition_location">Location</Label>
+                                  <Input
+                                    id="weather_condition_location"
+                                    type="text"
+                                    placeholder="London,UK or Paris,FR"
+                                    value={(nodeConfig as TriggerNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, location: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., "London,UK")</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_condition_type">Weather Condition</Label>
+                                  <Select
+                                    value={(nodeConfig as TriggerNodeData).params?.condition as string || ''}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, condition: value }
+                                      } as TriggerNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="weather_condition_type">
+                                      <SelectValue placeholder="Select condition" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="clear">Clear</SelectItem>
+                                      <SelectItem value="clouds">Cloudy</SelectItem>
+                                      <SelectItem value="rain">Rain</SelectItem>
+                                      <SelectItem value="drizzle">Drizzle</SelectItem>
+                                      <SelectItem value="thunderstorm">Thunderstorm</SelectItem>
+                                      <SelectItem value="snow">Snow</SelectItem>
+                                      <SelectItem value="mist">Mist</SelectItem>
+                                      <SelectItem value="fog">Fog</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Trigger when weather changes to this condition</p>
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                       </div>

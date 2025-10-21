@@ -140,3 +140,49 @@ When a Discord message trigger fires, the following variables are available for 
 - Scheduler runs as an async background task
 - Each area is processed with its own database session
 - Graceful shutdown handling with proper cleanup
+
+---
+
+## Weather Triggers (Bonus Feature)
+
+In addition to Discord triggers, weather triggers have also been implemented:
+
+### Available Weather Triggers
+
+#### 1. Temperature Threshold
+Triggers when temperature crosses a specified threshold (goes above or below).
+
+**Parameters:**
+- `location`: City name (e.g., "London,UK")
+- `threshold`: Temperature in Celsius (e.g., 25)
+- `operator`: "above" or "below"
+
+**Example:** Trigger when temperature in Paris goes above 30°C
+
+#### 2. Weather Condition
+Triggers when weather changes to a specific condition.
+
+**Parameters:**
+- `location`: City name (e.g., "Tokyo,JP")
+- `condition`: Weather condition (clear, clouds, rain, drizzle, thunderstorm, snow, mist, fog)
+
+**Example:** Trigger when it starts raining in London
+
+### How Weather Triggers Work
+
+1. **Polling**: Checks weather every 5 minutes (weather doesn't change frequently)
+2. **API Integration**: Uses OpenWeatherMap API (requires user API key)
+3. **State Tracking**: Remembers previous temperature/condition to detect changes
+4. **Smart Triggering**: Only triggers when threshold is crossed or condition changes (not continuously)
+
+### Available Weather Variables
+
+When a weather trigger fires, these variables are available:
+
+- `{{weather.temperature}}` - Current temperature
+- `{{weather.feels_like}}` - Feels like temperature  
+- `{{weather.condition}}` - Weather condition (Rain, Clear, etc.)
+- `{{weather.description}}` - Detailed description
+- `{{weather.humidity}}` - Humidity percentage
+- `{{weather.wind_speed}}` - Wind speed
+- `{{weather.location}}` - Location name
