@@ -36,7 +36,7 @@ export default function SimpleWizardPage() {
     },
     'weather_condition': {
       location: { type: 'text', label: 'Location', placeholder: 'City or coordinates' },
-      condition: { type: 'select', label: 'Condition', options: ['rain', 'snow', 'clear', 'cloudy'] },
+      condition: { type: 'select', label: 'Condition', options: ['clear', 'clouds', 'rain', 'drizzle', 'thunderstorm', 'snow', 'mist', 'fog'] },
     },
     'new_email_from_sender': {
       sender: { type: 'text', label: 'Sender Email', placeholder: 'example@gmail.com' },
@@ -396,23 +396,17 @@ export default function SimpleWizardPage() {
                       </Button>
                     ))}
                   </div>
-                  {/* Custom fields for trigger - always show if trigger selected */}
-                  {trigger && (
-                    <div className="mt-2">
-                      <h4 className="font-semibold text-sm mb-2">Trigger Parameters</h4>
-                      {renderParamsFields(
-                        getParamsDef('trigger', trigger, selectedTriggerService?.actions.find(a => a.key === trigger)?.params),
-                        triggerParams,
-                        setTriggerParams
-                      )}
-                      {(() => {
-                        const selectedAction = selectedTriggerService?.actions.find(a => a.key === trigger);
-                        return selectedAction?.params && Object.keys(selectedAction.params).length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No additional parameters required</p>
-                        ) : null;
-                      })()}
-                    </div>
-                  )}
+                  {/* Custom fields for trigger - only show if trigger has parameters */}
+                  {trigger && (() => {
+                    const selectedAction = selectedTriggerService?.actions.find(a => a.key === trigger);
+                    const paramsDef = getParamsDef('trigger', trigger, selectedAction?.params);
+                    return paramsDef && Object.keys(paramsDef).length > 0 ? (
+                      <div className="mt-2">
+                        <h4 className="font-semibold text-sm mb-2">Trigger Parameters</h4>
+                        {renderParamsFields(paramsDef, triggerParams, setTriggerParams)}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
 
@@ -488,23 +482,17 @@ export default function SimpleWizardPage() {
                       </Button>
                     ))}
                   </div>
-                  {/* Custom fields for action - always show if action selected */}
-                  {action && (
-                    <div className="mt-2">
-                      <h4 className="font-semibold text-sm mb-2">Action Parameters</h4>
-                      {renderParamsFields(
-                        getParamsDef('action', action, selectedActionService?.reactions.find(a => a.key === action)?.params),
-                        actionParams,
-                        setActionParams
-                      )}
-                      {(() => {
-                        const selectedReaction = selectedActionService?.reactions.find(a => a.key === action);
-                        return selectedReaction?.params && Object.keys(selectedReaction.params).length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No additional parameters required</p>
-                        ) : null;
-                      })()}
-                    </div>
-                  )}
+                  {/* Custom fields for action - only show if action has parameters */}
+                  {action && (() => {
+                    const selectedReaction = selectedActionService?.reactions.find(a => a.key === action);
+                    const paramsDef = getParamsDef('action', action, selectedReaction?.params);
+                    return paramsDef && Object.keys(paramsDef).length > 0 ? (
+                      <div className="mt-2">
+                        <h4 className="font-semibold text-sm mb-2">Action Parameters</h4>
+                        {renderParamsFields(paramsDef, actionParams, setActionParams)}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
 

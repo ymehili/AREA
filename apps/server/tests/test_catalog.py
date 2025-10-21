@@ -31,6 +31,7 @@ def test_service_catalog_payload_shape_matches_dataclasses():
                 "key": option.key,
                 "name": option.name,
                 "description": option.description,
+                "params": option.params,
             }
 
         for option_index, option in enumerate(service_dataclass.reactions):
@@ -39,6 +40,7 @@ def test_service_catalog_payload_shape_matches_dataclasses():
                 "key": option.key,
                 "name": option.name,
                 "description": option.description,
+                "params": option.params,
             }
 
         # Ensure the original dataclasses remain tuples of dataclass instances
