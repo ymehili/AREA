@@ -64,8 +64,8 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
             if handler is not None:
                 filtered_reactions.append(reaction)
 
-        # Only include service if it has at least one trigger or reaction
-        if filtered_actions or filtered_reactions:
+        # Only include service if it has at least one trigger (action)
+        if filtered_actions:
             filtered_service = ServiceIntegration(
                 slug=service.slug,
                 name=service.name,
