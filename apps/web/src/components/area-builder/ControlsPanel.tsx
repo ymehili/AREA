@@ -279,6 +279,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       value={nodeConfig.description || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                       onFocus={handleInputFocus}
+                      placeholder="Enter a description for this step"
                     />
                   </div>
 
@@ -388,6 +389,30 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Trigger params: Google Calendar event_starting_soon requires minutes_before */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'event_starting_soon' && (
+                              <div>
+                                <Label htmlFor="calendar_minutes_before">Minutes Before Event</Label>
+                                <Input
+                                  id="calendar_minutes_before"
+                                  type="number"
+                                  min="1"
+                                  max="1440"
+                                  placeholder="15"
+                                  value={(nodeConfig as TriggerNodeData).params?.minutes_before as number || 15}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, minutes_before: parseInt(e.target.value) || 15 }
+                                    } as TriggerNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Trigger X minutes before the event starts (default: 15).</p>
+                              </div>
+                            )}
+
                             {/* Trigger params: GitHub triggers require repo_owner and repo_name */}
                             {nodeConfig.serviceId === 'github' && ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'].includes(nodeConfig.actionId || '') && (
                               <div className="space-y-3">
@@ -427,30 +452,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   />
                                   <p className="text-xs text-gray-500 mt-1">Name of the repository to monitor</p>
                                 </div>
-                              </div>
-                            )}
-
-                            {/* Trigger params: Google Calendar event_starting_soon requires minutes_before */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'event_starting_soon' && (
-                              <div>
-                                <Label htmlFor="calendar_minutes_before">Minutes Before Event</Label>
-                                <Input
-                                  id="calendar_minutes_before"
-                                  type="number"
-                                  min="1"
-                                  max="1440"
-                                  placeholder="15"
-                                  value={(nodeConfig as TriggerNodeData).params?.minutes_before as number || 15}
-                                  onChange={(e) => {
-                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
-                                    onNodeConfigChange(selectedNodeId, {
-                                      ...nodeConfig,
-                                      params: { ...currentParams, minutes_before: parseInt(e.target.value) || 15 }
-                                    } as TriggerNodeData);
-                                  }}
-                                  onFocus={handleInputFocus}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Trigger X minutes before the event starts (default: 15).</p>
                               </div>
                             )}
                           </>
@@ -2011,6 +2012,17 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
                                   { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
                                 ] : []),
+                                ...(nodeConfig.serviceId === 'google_calendar' ? [
+                                  { id: 'calendar.event_id', name: 'Event ID', description: 'The unique event identifier', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.title', name: 'Event Title', description: 'The event title/summary', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.description', name: 'Description', description: 'Event description/details', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.location', name: 'Location', description: 'Event location', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.start_time', name: 'Start Time', description: 'Event start time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.end_time', name: 'End Time', description: 'Event end time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.attendees', name: 'Attendees', description: 'Comma-separated attendee emails', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.organizer', name: 'Organizer', description: 'Event organizer email', category: 'Google Calendar', type: 'text' as const },
+                                  { id: 'calendar.link', name: 'Event Link', description: 'Google Calendar web link', category: 'Google Calendar', type: 'text' as const },
+                                ] : []),
                                 ...(nodeConfig.serviceId === 'github' ? [
                                   { id: 'github.repo', name: 'Repository Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
                                   { id: 'github.repo_full_name', name: 'Repository Full Name', description: 'The full name of the repository (owner/repo)', category: 'GitHub', type: 'text' as const },
@@ -2026,17 +2038,6 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'github.pull_request_author', name: 'PR Author', description: 'The author of the pull request', category: 'GitHub', type: 'text' as const },
                                   { id: 'github.branch', name: 'Branch', description: 'The branch name', category: 'GitHub', type: 'text' as const },
                                   { id: 'github.action', name: 'Action', description: 'The action that occurred (opened, closed, etc.)', category: 'GitHub', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'google_calendar' ? [
-                                  { id: 'calendar.event_id', name: 'Event ID', description: 'The unique event identifier', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.title', name: 'Event Title', description: 'The event title/summary', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.description', name: 'Description', description: 'Event description/details', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.location', name: 'Location', description: 'Event location', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.start_time', name: 'Start Time', description: 'Event start time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.end_time', name: 'End Time', description: 'Event end time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.attendees', name: 'Attendees', description: 'Comma-separated attendee emails', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.organizer', name: 'Organizer', description: 'Event organizer email', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.link', name: 'Event Link', description: 'Google Calendar web link', category: 'Google Calendar', type: 'text' as const },
                                 ] : []),
                               ]}
                               onInsertVariable={handleInsertVariable}
