@@ -10,8 +10,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("area")
 
-# Handler type: callable that takes (area, params, event) and returns None or Awaitable[None]
-PluginHandler = Callable[["Area", dict, dict], None | Awaitable[None]]
+# Handler type: callable that takes (area, params, event, db) and returns None or Awaitable[None]
+# db parameter is optional for backward compatibility but recommended for all new handlers
+PluginHandler = Callable[..., None | Awaitable[None]]
 
 
 class PluginsRegistry:
