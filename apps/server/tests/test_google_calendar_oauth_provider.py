@@ -60,9 +60,11 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             mock_response.raise_for_status.return_value = None
-            mock_response.json = AsyncMock(return_value=mock_response_data)
+            mock_response.json.return_value = mock_response_data
             mock_response.content = b"{}"
 
             mock_client.post = AsyncMock(return_value=mock_response)
@@ -70,8 +72,6 @@ class TestGoogleCalendarOAuth2Provider:
             mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
             result = await provider.exchange_code_for_tokens("test_code")
-            if hasattr(result, '__await__'):
-                result = await result
             # Verify the result
             assert result.access_token == "test_access_token"
             assert result.refresh_token == "test_refresh_token"
@@ -85,7 +85,9 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Properly mock the response methods
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = mock_response_data
@@ -102,7 +104,9 @@ class TestGoogleCalendarOAuth2Provider:
         """Test handling HTTP errors during token exchange."""
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Use AsyncMock for the raise_for_status method to handle the error properly
             mock_response.raise_for_status.side_effect = HTTPStatusError(
                 "Request failed", request=MagicMock(), response=MagicMock()
@@ -125,7 +129,9 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Properly mock the response methods
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = mock_response_data
@@ -150,7 +156,9 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Properly mock the response methods
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = mock_response_data
@@ -167,7 +175,9 @@ class TestGoogleCalendarOAuth2Provider:
         """Test handling HTTP errors during token refresh."""
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Use AsyncMock for the raise_for_status method to handle the error properly
             mock_response.raise_for_status.side_effect = HTTPStatusError(
                 "Request failed", request=MagicMock(), response=MagicMock()
@@ -191,7 +201,9 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Properly mock the response methods
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = mock_user_data
@@ -211,7 +223,9 @@ class TestGoogleCalendarOAuth2Provider:
         """Test handling HTTP errors when getting user info."""
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Use AsyncMock for the raise_for_status method to handle the error properly
             mock_response.raise_for_status.side_effect = HTTPStatusError(
                 "Request failed", request=MagicMock(), response=MagicMock()
@@ -235,7 +249,9 @@ class TestGoogleCalendarOAuth2Provider:
 
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Properly mock the response methods
             mock_response.raise_for_status.return_value = None
             mock_response.json.return_value = mock_user_data
@@ -284,21 +300,27 @@ class TestGoogleCalendarOAuth2Provider:
             # Create different responses for different requests
             async def get_side_effect(*args, **kwargs):
                 if "calendarList" in str(args[0]) if args else False:
-                    mock_response = AsyncMock()
+                    # Create a mock response that behaves like a real httpx response
+                    # where json() is a synchronous method
+                    mock_response = MagicMock()
                     # Properly mock the response methods
                     mock_response.raise_for_status.return_value = None
                     mock_response.json.return_value = mock_calendar_data
                     mock_response.content = b"{}"
                     return mock_response
                 elif "calendars/primary" in str(args[0]) if args else False:
-                    mock_response = AsyncMock()
+                    # Create a mock response that behaves like a real httpx response
+                    # where json() is a synchronous method
+                    mock_response = MagicMock()
                     # Properly mock the response methods
                     mock_response.raise_for_status.return_value = None
                     mock_response.json.return_value = mock_primary_data
                     mock_response.content = b"{}"
                     return mock_response
                 else:
-                    mock_response = AsyncMock()
+                    # Create a mock response that behaves like a real httpx response
+                    # where json() is a synchronous method
+                    mock_response = MagicMock()
                     # Properly mock the response methods
                     mock_response.raise_for_status.return_value = None
                     mock_response.json.return_value = {}
@@ -321,7 +343,9 @@ class TestGoogleCalendarOAuth2Provider:
         """Test handling HTTP errors during API access test."""
         with patch("app.integrations.oauth.providers.google_calendar.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            # Create a mock response that behaves like a real httpx response
+            # where json() is a synchronous method
+            mock_response = MagicMock()
             # Use AsyncMock for the raise_for_status method to handle the error properly
             mock_response.raise_for_status.side_effect = HTTPStatusError(
                 "Request failed", request=MagicMock(), response=MagicMock()
