@@ -332,3 +332,169 @@ class TestDiscordSchedulerTask:
 
                 # Verify error was handled and backoff was called
                 assert mock_sleep.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_scheduler_processes_areas_with_new_message(self):
+        """Test that scheduler processes Discord areas with new messages."""
+        from uuid import uuid4
+        from app.integrations.simple_plugins import discord_scheduler
+        
+        mock_area = Mock(spec=Area)
+        area_id = uuid4()
+        mock_area.id = area_id
+        mock_area.user_id = uuid4()
+        mock_area.trigger_action = "new_message_in_channel"
+        mock_area.trigger_params = {"channel_id": "123456789"}
+
+        message = {
+            "id": "msg123",
+            "channel_id": "123456789",
+            "content": "Test message",
+            "timestamp": "2023-01-01T00:00:00.000000+00:00",
+            "author": {
+                "id": "user789",
+                "username": "testuser",
+                "discriminator": "1234",
+                "global_name": "Test User"
+            },
+            "mentions": [],
+            "attachments": [],
+            "embeds": []
+        }
+
+        # Reset the seen messages state - make sure the message is already in the seen set
+        # so we can add a NEW message that will trigger processing
+        area_id_str = str(area_id)
+        discord_scheduler._last_seen_messages[area_id_str] = set()
+
+        with patch("app.db.session.SessionLocal") as mock_session, \
+             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_due_discord_areas") as mock_fetch, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_channel_messages") as mock_messages, \
+             patch("app.integrations.simple_plugins.discord_scheduler._process_discord_trigger") as mock_process:
+            
+            # First sleep returns immediately, second sleep cancels
+            mock_sleep.side_effect = [None, asyncio.CancelledError()]
+            
+            mock_db = Mock()
+            mock_db.__enter__ = Mock(return_value=mock_db)
+            mock_db.__exit__ = Mock(return_value=None)
+            mock_session.return_value = mock_db
+            
+            mock_fetch.return_value = [mock_area]
+            # Return empty list first time (to initialize seen set), then return the message on second call
+            # But since we cancel on second sleep, we need to return the message on first call
+            # and ensure it's NOT in the seen set initially (which we did above)
+            # However, the scheduler initializes the seen set with ALL messages on first run
+            # So we need to mock it differently - return the message AFTER seen set is initialized
+            
+            # Solution: Pre-populate the seen set with an old message, then return a new one
+            old_message_id = "old_msg_id"
+            discord_scheduler._last_seen_messages[area_id_str] = {old_message_id}
+            mock_messages.return_value = [message]
+
+            await discord_scheduler_task()
+
+            # Verify area was processed
+            mock_process.assert_called_once()
+            
+            # Clean up
+            if area_id_str in discord_scheduler._last_seen_messages:
+                del discord_scheduler._last_seen_messages[area_id_str]
+
+    @pytest.mark.asyncio
+    async def test_scheduler_skips_areas_without_channel_id(self):
+        """Test that scheduler skips areas without channel_id."""
+        from uuid import uuid4
+        
+        mock_area = Mock(spec=Area)
+        mock_area.id = uuid4()
+        mock_area.user_id = uuid4()
+        mock_area.trigger_action = "new_message_in_channel"
+        mock_area.trigger_params = {}  # Missing channel_id
+
+        with patch("app.db.session.SessionLocal") as mock_session, \
+             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_due_discord_areas") as mock_fetch, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_channel_messages") as mock_messages, \
+             patch("app.integrations.simple_plugins.discord_scheduler._process_discord_trigger") as mock_process:
+            
+            mock_sleep.side_effect = [None, asyncio.CancelledError()]
+            
+            mock_db = Mock()
+            mock_db.__enter__ = Mock(return_value=mock_db)
+            mock_db.__exit__ = Mock(return_value=None)
+            mock_session.return_value = mock_db
+            
+            mock_fetch.return_value = [mock_area]
+
+            await discord_scheduler_task()
+
+            # Verify messages were not fetched and area was not processed
+            mock_messages.assert_not_called()
+            mock_process.assert_not_called()
+
+
+class TestExtractMessageData:
+    """Tests for _extract_message_data function."""
+
+    def test_extract_full_message_data(self):
+        """Test extracting all data from a complete Discord message."""
+        from app.integrations.simple_plugins.discord_scheduler import _extract_message_data
+        
+        message = {
+            "id": "msg123",
+            "channel_id": "channel456",
+            "content": "Test message content",
+            "timestamp": "2023-01-01T00:00:00.000000+00:00",
+            "author": {
+                "id": "user789",
+                "username": "testuser",
+                "discriminator": "1234",
+                "global_name": "Test User"
+            },
+            "mentions": [{"id": "mentioned_user_1"}, {"id": "mentioned_user_2"}],
+            "attachments": [
+                {
+                    "id": "att1",
+                    "filename": "image.png",
+                    "url": "https://cdn.discord.com/image.png",
+                    "content_type": "image/png"
+                }
+            ],
+            "embeds": [{"title": "Embed Title"}]
+        }
+
+        result = _extract_message_data(message)
+
+        assert result["id"] == "msg123"
+        assert result["channel_id"] == "channel456"
+        assert result["content"] == "Test message content"
+        assert result["timestamp"] == "2023-01-01T00:00:00.000000+00:00"
+        assert result["author_id"] == "user789"
+        assert result["author_username"] == "testuser"
+        assert result["author_discriminator"] == "1234"
+        assert result["author_global_name"] == "Test User"
+        assert len(result["mentions"]) == 2
+        assert len(result["attachments"]) == 1
+        assert result["attachments"][0]["filename"] == "image.png"
+        assert len(result["embeds"]) == 1
+
+    def test_extract_minimal_message_data(self):
+        """Test extracting data from a minimal Discord message."""
+        from app.integrations.simple_plugins.discord_scheduler import _extract_message_data
+        
+        message = {
+            "id": "msg123",
+        }
+
+        result = _extract_message_data(message)
+
+        assert result["id"] == "msg123"
+        assert result["channel_id"] is None
+        assert result["content"] == ""
+        assert result["timestamp"] == ""
+        assert result["author_id"] == ""
+        assert result["mentions"] == []
+        assert result["attachments"] == []
+        assert result["embeds"] == []
