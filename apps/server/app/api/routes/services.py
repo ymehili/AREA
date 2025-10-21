@@ -80,6 +80,13 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
         services_with_schedulers.add('discord')
     except ImportError:
         pass
+    
+    # Check for Weather scheduler
+    try:
+        from app.integrations.simple_plugins import weather_scheduler
+        services_with_schedulers.add('weather')
+    except ImportError:
+        pass
 
     filtered_services = []
     for service in catalog:
