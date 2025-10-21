@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import VariablePicker from '@/components/VariablePicker';
-import { AreaStepNodeData, NodeData, ConditionNodeData, TriggerNodeData, ActionNodeData, isDelayNode, isActionNode, isTriggerNode } from './node-types';
+import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, isActionNode, isTriggerNode } from './node-types';
 import { requestJson } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-auth';
 
@@ -279,6 +279,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       value={nodeConfig.description || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                       onFocus={handleInputFocus}
+                      placeholder="Enter a description for this step"
                     />
                   </div>
 

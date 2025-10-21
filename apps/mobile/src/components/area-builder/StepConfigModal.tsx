@@ -6,12 +6,52 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { NodeData, isTriggerNode, isActionNode, isConditionNode, isDelayNode } from '../../types/area-builder';
 import { Colors } from '../../constants/colors';
 import { TextStyles, FontFamilies } from '../../constants/typography';
 import CustomButton from '../ui/Button';
 import Input from '../ui/Input';
+import { useAuth } from '../../contexts/AuthContext';
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+
+async function requestJson<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string | null,
+): Promise<T> {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = new Headers(options.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const bodyIsJson = options.body && !(options.body instanceof FormData) && !headers.has('Content-Type');
+  if (bodyIsJson) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized');
+  }
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(errorData.detail || `Request failed with status ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+type CatalogService = {
+  slug: string;
+  name: string;
+  description: string;
+  actions: Array<{ key: string; name: string; description: string }>;
+  reactions: Array<{ key: string; name: string; description: string }>;
+};
 
 interface StepConfigModalProps {
   visible: boolean;
@@ -21,32 +61,6 @@ interface StepConfigModalProps {
   onSave: (updatedStep: NodeData) => void;
 }
 
-const SERVICES = ['Gmail', 'Google Drive', 'Slack', 'GitHub', 'Discord', 'Time', 'Debug', 'Delay', 'Weather', 'OpenAI'];
-const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ['New Email', 'New Email w/ Attachment'],
-  'Google Drive': ['New File in Folder'],
-  Slack: ['New Message in Channel'],
-  GitHub: ['New Pull Request'],
-  Discord: ['New Message in Channel', 'Reaction Added to Message'],
-  Time: ['Every Interval'],
-  Debug: [],
-  Delay: [],
-  Weather: ['Temperature Threshold', 'Weather Condition'],
-  OpenAI: ['Text/Chat Completion Trigger'],
-};
-const ACTIONS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ['Send Email'],
-  'Google Drive': ['Upload File', 'Create Folder'],
-  Slack: ['Send Message'],
-  GitHub: ['Create Issue'],
-  Discord: ['Send Message', 'Send Direct Message', 'Add Role to Member', 'Create Channel'],
-  Time: [],
-  Debug: ['Log Message'],
-  Delay: ['Wait for Duration'],
-  Weather: ['Get Current Weather', 'Get Weather Forecast'],
-  OpenAI: ['Generate Text Completion', 'Chat with GPT', 'Create Image with DALL-E', 'Analyze/Moderate Content'],
-};
-
 const StepConfigModal: React.FC<StepConfigModalProps> = ({
   visible,
   step,
@@ -54,6 +68,7 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const auth = useAuth();
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -63,6 +78,49 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
   const [duration, setDuration] = useState('1');
   const [unit, setUnit] = useState<'seconds' | 'minutes' | 'hours'>('seconds');
   const [connections, setConnections] = useState<string[]>([]);
+  const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [params, setParams] = useState<Record<string, any>>({});
+
+  // Load catalog services when modal opens
+  useEffect(() => {
+    if (visible && auth.token && catalogServices.length === 0) {
+      setLoadingCatalog(true);
+      requestJson<{ services: CatalogService[] }>(
+        '/services/actions-reactions',
+        { method: 'GET' },
+        auth.token
+      )
+        .then((data) => {
+          console.log(`[StepConfigModal] Loaded ${data.services.length} services from catalog`);
+          setCatalogServices(data.services);
+        })
+        .catch((err) => {
+          console.error('[StepConfigModal] Failed to load catalog:', err.message);
+          Alert.alert('Error', 'Failed to load services catalog');
+        })
+        .finally(() => setLoadingCatalog(false));
+    }
+  }, [visible, auth.token, catalogServices.length]);
+
+  // Get services with actions (for triggers)
+  const servicesWithActions = catalogServices.filter((service) => service.actions && service.actions.length > 0);
+
+  // Get services with reactions (for actions)
+  const servicesWithReactions = catalogServices.filter((service) => service.reactions && service.reactions.length > 0);
+
+  // Get available actions/reactions for selected service
+  const availableOptions = React.useMemo(() => {
+    const service = catalogServices.find((s) => s.slug === serviceId);
+    if (!service) return [];
+    
+    if (step && isTriggerNode(step)) {
+      return service.actions || [];
+    } else if (step && isActionNode(step)) {
+      return service.reactions || [];
+    }
+    return [];
+  }, [catalogServices, serviceId, step]);
 
   useEffect(() => {
     if (step) {
@@ -73,6 +131,7 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
       if (isTriggerNode(step) || isActionNode(step)) {
         setServiceId(step.serviceId || '');
         setActionId(step.actionId || '');
+        setParams(step.params || {});
       } else if (isConditionNode(step)) {
         setConditionType(step.conditionType || 'simple');
         setConditionValue(step.conditionValue || '');
@@ -97,6 +156,7 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
         ...updatedStep,
         serviceId,
         actionId,
+        params,
       } as any;
     } else if (isConditionNode(step)) {
       updatedStep = {
@@ -157,64 +217,354 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
 
           {(isTriggerNode(step) || isActionNode(step)) && (
             <>
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Service *</Text>
-                <View style={styles.buttonGroup}>
-                  {SERVICES.map((service) => (
-                    <TouchableOpacity
-                      key={service}
-                      style={[
-                        styles.optionButton,
-                        serviceId === service && styles.optionButtonSelected,
-                      ]}
-                      onPress={() => {
-                        setServiceId(service);
-                        setActionId(''); // Reset action when service changes
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.optionButtonText,
-                          serviceId === service && styles.optionButtonTextSelected,
-                        ]}
-                      >
-                        {service}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+              {loadingCatalog ? (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={[styles.label, { marginTop: 8 }]}>Loading services...</Text>
                 </View>
-              </View>
-
-              {serviceId && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>
-                    {isTriggerNode(step) ? 'Trigger' : 'Action'} *
-                  </Text>
-                  <View style={styles.buttonGroup}>
-                    {(isTriggerNode(step)
-                      ? TRIGGERS_BY_SERVICE[serviceId] || []
-                      : ACTIONS_BY_SERVICE[serviceId] || []
-                    ).map((action) => (
-                      <TouchableOpacity
-                        key={action}
-                        style={[
-                          styles.optionButton,
-                          actionId === action && styles.optionButtonSelected,
-                        ]}
-                        onPress={() => setActionId(action)}
-                      >
-                        <Text
-                          style={[
-                            styles.optionButtonText,
-                            actionId === action && styles.optionButtonTextSelected,
-                          ]}
-                        >
-                          {action}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+              ) : (
+                <>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>
+                      Service * ({isTriggerNode(step) ? servicesWithActions.length : servicesWithReactions.length} available)
+                    </Text>
+                    {(isTriggerNode(step) ? servicesWithActions : servicesWithReactions).length === 0 ? (
+                      <Text style={styles.smallText}>No services available. Please check your server connection.</Text>
+                    ) : (
+                      <ScrollView style={{ maxHeight: 200 }}>
+                        <View style={styles.buttonGroup}>
+                          {(isTriggerNode(step) ? servicesWithActions : servicesWithReactions).map((service) => (
+                          <TouchableOpacity
+                            key={service.slug}
+                            style={[
+                              styles.optionButton,
+                              serviceId === service.slug && styles.optionButtonSelected,
+                            ]}
+                            onPress={() => {
+                              setServiceId(service.slug);
+                              setActionId(''); // Reset action when service changes
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.optionButtonText,
+                                serviceId === service.slug && styles.optionButtonTextSelected,
+                              ]}
+                            >
+                              {service.name}
+                            </Text>
+                            {service.description && (
+                              <Text
+                                style={[
+                                  styles.smallText,
+                                  serviceId === service.slug && { color: 'rgba(255, 255, 255, 0.8)' },
+                                ]}
+                              >
+                                {service.description}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                        </View>
+                      </ScrollView>
+                    )}
                   </View>
-                </View>
+
+                  {serviceId && availableOptions.length > 0 && (
+                    <View style={styles.formGroup}>
+                      <Text style={styles.label}>
+                        {isTriggerNode(step) ? 'Trigger' : 'Action'} * ({availableOptions.length} available)
+                      </Text>
+                      <ScrollView style={{ maxHeight: 200 }}>
+                        <View style={styles.buttonGroup}>
+                          {availableOptions.map((option) => (
+                            <TouchableOpacity
+                              key={option.key}
+                              style={[
+                                styles.optionButton,
+                                actionId === option.key && styles.optionButtonSelected,
+                              ]}
+                              onPress={() => setActionId(option.key)}
+                            >
+                              <Text
+                                style={[
+                                  styles.optionButtonText,
+                                  actionId === option.key && styles.optionButtonTextSelected,
+                                ]}
+                              >
+                                {option.name}
+                              </Text>
+                              {option.description && (
+                                <Text
+                                  style={[
+                                    styles.smallText,
+                                    actionId === option.key && { color: 'rgba(255, 255, 255, 0.8)' },
+                                  ]}
+                                >
+                                  {option.description}
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Parameter inputs for actions and triggers */}
+                  {serviceId && actionId && (
+                    <View style={styles.formGroup}>
+                      <Text style={[styles.label, { marginBottom: 12, fontSize: 16, fontWeight: 'bold' }]}>
+                        Parameters
+                      </Text>
+
+                      {/* Weather - Get Current Weather */}
+                      {serviceId === 'weather' && actionId === 'get_current_weather' && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>Location (City)</Text>
+                            <Input
+                              value={params.location || ''}
+                              onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                              placeholder="e.g., Paris,FR or London,UK"
+                            />
+                            <Text style={styles.smallText}>City name with country code or leave empty to use coordinates below</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', gap: 8 }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.label}>Latitude</Text>
+                              <Input
+                                value={params.lat?.toString() || ''}
+                                onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                                placeholder="e.g., 48.8566"
+                                keyboardType="decimal-pad"
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.label}>Longitude</Text>
+                              <Input
+                                value={params.lon?.toString() || ''}
+                                onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                                placeholder="e.g., 2.3522"
+                                keyboardType="decimal-pad"
+                              />
+                            </View>
+                          </View>
+                          <Text style={styles.smallText}>Use either city name OR coordinates (not both)</Text>
+                        </View>
+                      )}
+
+                      {/* Gmail - Send Email */}
+                      {serviceId === 'gmail' && actionId === 'send_email' && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>To *</Text>
+                            <Input
+                              value={params.to || ''}
+                              onChangeText={(value) => setParams({...params, to: value})}
+                              placeholder="recipient@example.com"
+                              keyboardType="email-address"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Subject *</Text>
+                            <Input
+                              value={params.subject || ''}
+                              onChangeText={(value) => setParams({...params, subject: value})}
+                              placeholder="Email subject"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Body *</Text>
+                            <Input
+                              value={params.body || ''}
+                              onChangeText={(value) => setParams({...params, body: value})}
+                              placeholder="Message body (supports variables)"
+                              multiline
+                              numberOfLines={4}
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Gmail - New Email from Sender */}
+                      {serviceId === 'gmail' && actionId === 'new_email_from_sender' && (
+                        <View>
+                          <Text style={styles.label}>Sender Email *</Text>
+                          <Input
+                            value={params.sender_email || ''}
+                            onChangeText={(value) => setParams({...params, sender_email: value})}
+                            placeholder="name@example.com"
+                            keyboardType="email-address"
+                          />
+                          <Text style={styles.smallText}>Only trigger for emails from this sender</Text>
+                        </View>
+                      )}
+
+                      {/* OpenAI - Generate Text */}
+                      {serviceId === 'openai' && actionId === 'generate_text' && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>Prompt *</Text>
+                            <Input
+                              value={params.prompt || ''}
+                              onChangeText={(value) => setParams({...params, prompt: value})}
+                              placeholder="Enter your prompt (supports variables)"
+                              multiline
+                              numberOfLines={4}
+                            />
+                            <Text style={styles.smallText}>You can use variables like {`{{weather.temperature}}`}</Text>
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Max Tokens</Text>
+                            <Input
+                              value={params.max_tokens?.toString() || ''}
+                              onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
+                              placeholder="e.g., 100"
+                              keyboardType="numeric"
+                            />
+                            <Text style={styles.smallText}>Maximum length of the response (default: 100)</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* GitHub - Create Issue */}
+                      {serviceId === 'github' && actionId === 'create_issue' && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>Repository Owner *</Text>
+                            <Input
+                              value={params.repo_owner || ''}
+                              onChangeText={(value) => setParams({...params, repo_owner: value})}
+                              placeholder="e.g., octocat"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Repository Name *</Text>
+                            <Input
+                              value={params.repo_name || ''}
+                              onChangeText={(value) => setParams({...params, repo_name: value})}
+                              placeholder="e.g., Hello-World"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Issue Title *</Text>
+                            <Input
+                              value={params.title || ''}
+                              onChangeText={(value) => setParams({...params, title: value})}
+                              placeholder="Issue title"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Issue Body</Text>
+                            <Input
+                              value={params.body || ''}
+                              onChangeText={(value) => setParams({...params, body: value})}
+                              placeholder="Issue description (supports variables)"
+                              multiline
+                              numberOfLines={4}
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {/* GitHub - Triggers (new_issue, pull_request_opened, etc.) */}
+                      {serviceId === 'github' && ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'].includes(actionId) && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>Repository Owner *</Text>
+                            <Input
+                              value={params.repo_owner || ''}
+                              onChangeText={(value) => setParams({...params, repo_owner: value})}
+                              placeholder="e.g., octocat"
+                            />
+                            <Text style={styles.smallText}>GitHub username or organization name</Text>
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Repository Name *</Text>
+                            <Input
+                              value={params.repo_name || ''}
+                              onChangeText={(value) => setParams({...params, repo_name: value})}
+                              placeholder="e.g., Hello-World"
+                            />
+                            <Text style={styles.smallText}>Name of the repository to monitor</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Google Calendar - Event Starting Soon */}
+                      {serviceId === 'google_calendar' && actionId === 'event_starting_soon' && (
+                        <View>
+                          <Text style={styles.label}>Minutes Before Event</Text>
+                          <Input
+                            value={params.minutes_before?.toString() || '15'}
+                            onChangeText={(value) => setParams({...params, minutes_before: parseInt(value) || 15})}
+                            placeholder="15"
+                            keyboardType="numeric"
+                          />
+                          <Text style={styles.smallText}>Trigger X minutes before the event starts (default: 15)</Text>
+                        </View>
+                      )}
+
+                      {/* Google Calendar - Create Event */}
+                      {serviceId === 'google_calendar' && actionId === 'create_event' && (
+                        <View style={{ gap: 12 }}>
+                          <View>
+                            <Text style={styles.label}>Event Title *</Text>
+                            <Input
+                              value={params.summary || ''}
+                              onChangeText={(value) => setParams({...params, summary: value})}
+                              placeholder="Meeting with team"
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Description</Text>
+                            <Input
+                              value={params.description || ''}
+                              onChangeText={(value) => setParams({...params, description: value})}
+                              placeholder="Event description (supports variables)"
+                              multiline
+                              numberOfLines={3}
+                            />
+                          </View>
+                          <View>
+                            <Text style={styles.label}>Start Time *</Text>
+                            <Input
+                              value={params.start_time || ''}
+                              onChangeText={(value) => setParams({...params, start_time: value})}
+                              placeholder="2024-01-15T10:00:00"
+                            />
+                            <Text style={styles.smallText}>ISO 8601 format or use a variable</Text>
+                          </View>
+                          <View>
+                            <Text style={styles.label}>End Time *</Text>
+                            <Input
+                              value={params.end_time || ''}
+                              onChangeText={(value) => setParams({...params, end_time: value})}
+                              placeholder="2024-01-15T11:00:00"
+                            />
+                            <Text style={styles.smallText}>ISO 8601 format or use a variable</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Debug - Log Message */}
+                      {serviceId === 'debug' && actionId === 'log' && (
+                        <View>
+                          <Text style={styles.label}>Log Message *</Text>
+                          <Input
+                            value={params.message || ''}
+                            onChangeText={(value) => setParams({...params, message: value})}
+                            placeholder="e.g., Weather: {{weather.temperature}}°C"
+                            multiline
+                            numberOfLines={4}
+                          />
+                          <Text style={styles.smallText}>Use variables like {`{{service.variable}}`}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </>
               )}
             </>
           )}

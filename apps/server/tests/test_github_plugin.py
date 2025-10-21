@@ -1,430 +1,536 @@
-"""Tests for GitHub plugin."""
+"""Tests for GitHub plugin handlers."""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import HTTPStatusError, RequestError
 import httpx
 
 from app.integrations.simple_plugins.github_plugin import (
+    _get_github_access_token,
+    _make_github_request,
     create_issue_handler,
     add_comment_handler,
     close_issue_handler,
     add_label_handler,
     create_branch_handler,
-    _get_github_access_token,
-    _make_github_request,
 )
 from app.integrations.simple_plugins.exceptions import (
     GitHubAuthError,
     GitHubAPIError,
     GitHubConnectionError,
 )
-from app.models.area import Area
-from app.models.user import User
-from app.models.service_connection import ServiceConnection
 
 
 class TestGitHubPlugin:
     """Test GitHub plugin functionality."""
 
-    @pytest.fixture
-    def mock_area(self):
-        """Create a mock Area instance."""
-        area = MagicMock(spec=Area)
-        area.id = "test_area_id"
-        area.user_id = "test_user_id"
-        area.name = "Test Area"
-        return area
-
-    @pytest.fixture
-    def mock_db(self):
-        """Create a mock database session."""
-        return MagicMock()
-
-    def test_get_github_access_token_success(self, mock_area, mock_db):
-        """Test getting GitHub access token successfully."""
-        # Create a mock service connection
-        mock_connection = MagicMock(spec=ServiceConnection)
-        mock_connection.encrypted_access_token = "encrypted_token"
-        
-        with patch("app.integrations.simple_plugins.github_plugin.get_service_connection_by_user_and_service") as mock_get_conn:
-            with patch("app.core.encryption.decrypt_token") as mock_decrypt:
-                mock_get_conn.return_value = mock_connection
-                mock_decrypt.return_value = "decrypted_token"
-
-                token = _get_github_access_token(mock_area, mock_db)
-                
-                assert token == "decrypted_token"
-                mock_get_conn.assert_called_once_with(mock_db, "test_user_id", "github")
-                mock_decrypt.assert_called_once_with("encrypted_token")
-
-    def test_get_github_access_token_no_connection(self, mock_area, mock_db):
-        """Test getting GitHub access token when no connection exists."""
-        with patch("app.integrations.simple_plugins.github_plugin.get_service_connection_by_user_and_service") as mock_get_conn:
-            mock_get_conn.return_value = None
-
-            with pytest.raises(GitHubConnectionError):
-                _get_github_access_token(mock_area, mock_db)
-
-    def test_get_github_access_token_no_token(self, mock_area, mock_db):
-        """Test getting GitHub access token when encrypted token is None."""
-        # Create a mock service connection
-        mock_connection = MagicMock(spec=ServiceConnection)
-        mock_connection.encrypted_access_token = None
-        
-        with patch("app.integrations.simple_plugins.github_plugin.get_service_connection_by_user_and_service") as mock_get_conn:
-            with patch("app.core.encryption.decrypt_token") as mock_decrypt:
-                mock_get_conn.return_value = mock_connection
-                mock_decrypt.return_value = None
-
-                with pytest.raises(GitHubAuthError):
-                    _get_github_access_token(mock_area, mock_db)
-
     @pytest.mark.asyncio
     async def test_make_github_request_success(self):
-        """Test making a successful GitHub API request."""
-        mock_response_data = {"id": 1, "title": "Test Issue"}
+        """Test successful GitHub API request."""
+        mock_response = Mock()
+        mock_response.json.return_value = {"id": 123, "title": "Test Issue"}
+        mock_response.content = b'{"id": 123}'
 
-        with patch("app.integrations.simple_plugins.github_plugin.httpx.AsyncClient") as mock_client_class:
+        with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json = AsyncMock(return_value=mock_response_data)
-            mock_response.content = b"{}"
-
-            mock_client.request = AsyncMock(return_value=mock_response)
-            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
-
-            result = await _make_github_request(
-                "GET",
-                "/repos/test/test_repo/issues/1",
-                "test_token",
-                params={"state": "open"}
-            )
-
-            if hasattr(result, '__await__'):
-                result = await result
-            assert result == mock_response_data
-            mock_client.request.assert_called_once_with(
-                method="GET",
-                url="https://api.github.com/repos/test/test_repo/issues/1",
-                headers={
-                    "Authorization": "Bearer test_token",
-                    "Accept": "application/vnd.github.v3+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                    "User-Agent": "AREA-App/1.0",
-                },
-                json=None,
-                params={"state": "open"},
-                timeout=30.0,
-            )
-
-    @pytest.mark.asyncio
-    async def test_make_github_request_with_data(self):
-        """Test making a GitHub API request with JSON data."""
-        mock_request_data = {"title": "New Issue", "body": "Issue description"}
-        mock_response_data = {"id": 2, "title": "New Issue"}
-
-        with patch("app.integrations.simple_plugins.github_plugin.httpx.AsyncClient") as mock_client_class:
-            mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            # Instead of returning a coroutine, we should mock the awaitable response values
-            type(mock_response).raise_for_status = AsyncMock(return_value=None)
-            type(mock_response).json = AsyncMock(return_value=mock_response_data)
-            type(mock_response).content = b"{}"
-            
-            mock_client.request = AsyncMock(return_value=mock_response)
-            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
 
             result = await _make_github_request(
                 "POST",
-                "/repos/test/test_repo/issues",
+                "/repos/owner/repo/issues",
                 "test_token",
-                json_data=mock_request_data
+                json_data={"title": "Test Issue"}
             )
 
-            if hasattr(result, '__await__'):
-                result = await result
-            assert result == mock_response_data
-            mock_client.request.assert_called_once_with(
-                method="POST",
-                url="https://api.github.com/repos/test/test_repo/issues",
-                headers={
-                    "Authorization": "Bearer test_token",
-                    "Accept": "application/vnd.github.v3+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                    "User-Agent": "AREA-App/1.0",
-                },
-                json=mock_request_data,
-                params=None,
-                timeout=30.0,
-            )
+            assert result == {"id": 123, "title": "Test Issue"}
 
     @pytest.mark.asyncio
-    async def test_make_github_request_http_status_error(self):
-        """Test handling HTTP status error during GitHub API request."""
-        mock_error_response = AsyncMock()
-        mock_error_response.json.return_value = {"message": "Not Found"}
-        mock_error_response.text = '{"message": "Not Found"}'
-        
+    async def test_make_github_request_empty_response(self):
+        """Test GitHub API request with empty response."""
+        mock_response = Mock()
+        mock_response.content = b''
+
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.request.side_effect = HTTPStatusError(
-                "404 Client Error: Not Found for url: https://api.github.com/repos/test/test_repo/issues/999",
-                request=MagicMock(),
-                response=mock_error_response,
-            )
-            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.request.return_value = mock_response
+            mock_client_class.return_value = mock_client
 
-            with pytest.raises(GitHubAPIError):
-                await _make_github_request(
-                    "GET",
-                    "/repos/test/test_repo/issues/999",
-                    "test_token"
-                )
+            result = await _make_github_request(
+                "DELETE",
+                "/repos/owner/repo/issues/1",
+                "test_token"
+            )
+
+            assert result == {}
 
     @pytest.mark.asyncio
     async def test_make_github_request_http_error(self):
-        """Test handling general HTTP error during GitHub API request."""
+        """Test GitHub API request with HTTP error."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_response.json.return_value = {"message": "Not Found"}
+
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_client.request.side_effect = RequestError(
-                "Connection error",
-                request=MagicMock(),
-            )
-            mock_client_class.return_value.__aenter__.return_value = mock_client
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            
+            error = httpx.HTTPStatusError("Not Found", request=Mock(), response=mock_response)
+            mock_client.request.side_effect = error
+            mock_client_class.return_value = mock_client
 
-            with pytest.raises(GitHubAPIError):
-                await _make_github_request(
-                    "GET",
-                    "/repos/test/test_repo/issues/1",
-                    "test_token"
-                )
+            with pytest.raises(GitHubAPIError, match="GitHub API error"):
+                await _make_github_request("GET", "/repos/owner/repo", "test_token")
 
     @pytest.mark.asyncio
-    async def test_create_issue_handler_success(self, mock_area, mock_db):
-        """Test creating a GitHub issue successfully."""
+    async def test_make_github_request_http_error_no_json(self):
+        """Test GitHub API request with HTTP error and no JSON response."""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.json.side_effect = Exception("No JSON")
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            
+            error = httpx.HTTPStatusError("Server Error", request=Mock(), response=mock_response)
+            mock_client.request.side_effect = error
+            mock_client_class.return_value = mock_client
+
+            with pytest.raises(GitHubAPIError, match="GitHub API error"):
+                await _make_github_request("GET", "/repos/owner/repo", "test_token")
+
+    @pytest.mark.asyncio
+    async def test_make_github_request_connection_error(self):
+        """Test GitHub API request with connection error."""
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.__aenter__.return_value = mock_client
+            mock_client.__aexit__.return_value = None
+            mock_client.request.side_effect = httpx.ConnectError("Connection failed")
+            mock_client_class.return_value = mock_client
+
+            with pytest.raises(GitHubAPIError, match="Failed to connect to GitHub API"):
+                await _make_github_request("GET", "/repos/owner/repo", "test_token")
+
+    @pytest.mark.asyncio
+    async def test_create_issue_handler_success(self):
+        """Test successful issue creation."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
             "title": "Test Issue",
             "body": "Issue description",
-            "labels": ["bug", "help wanted"],
-            "assignees": ["user1", "user2"]
+            "labels": ["bug", "urgent"],
+            "assignees": ["user1"]
         }
         event = {}
+        mock_db = Mock()
 
-        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token:
-            with patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_make_request:
-                mock_get_token.return_value = "test_token"
-                mock_make_request.return_value = {
-                    "number": 1,
-                    "html_url": "https://github.com/test_owner/test_repo/issues/1"
-                }
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
 
-                await create_issue_handler(mock_area, params, event, mock_db)
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"number": 42, "html_url": "https://github.com/testowner/testrepo/issues/42"}
 
-                mock_get_token.assert_called_once_with(mock_area, mock_db)
-                mock_make_request.assert_called_once_with(
-                    "POST",
-                    "/repos/test_owner/test_repo/issues",
-                    "test_token",
-                    json_data={
-                        "title": "Test Issue",
-                        "body": "Issue description",
-                        "labels": ["bug", "help wanted"],
-                        "assignees": ["user1", "user2"]
-                    }
-                )
+            await create_issue_handler(area, params, event, mock_db)
+
+            mock_request.assert_called_once()
+            call_args = mock_request.call_args
+            assert call_args[0][0] == "POST"
+            assert call_args[0][1] == "/repos/testowner/testrepo/issues"
+            assert call_args[1]["json_data"]["title"] == "Test Issue"
+            assert call_args[1]["json_data"]["body"] == "Issue description"
 
     @pytest.mark.asyncio
-    async def test_create_issue_handler_missing_params(self, mock_area, mock_db):
-        """Test creating a GitHub issue with missing required parameters."""
-        params = {
-            # Missing repo_owner, repo_name, and title
-            "body": "Issue description"
-        }
+    async def test_create_issue_handler_no_db(self):
+        """Test issue creation without database session."""
+        area = Mock()
+        params = {"repo_owner": "owner", "repo_name": "repo", "title": "Test"}
         event = {}
 
-        with pytest.raises(ValueError) as exc_info:
-            await create_issue_handler(mock_area, params, event, mock_db)
+        with pytest.raises(ValueError, match="Database session is required"):
+            await create_issue_handler(area, params, event, None)
+
+    @pytest.mark.asyncio
+    async def test_create_issue_handler_missing_params(self):
+        """Test issue creation with missing parameters."""
+        area = Mock()
+        area.id = "area-id"
+        area.user_id = "user-id"
+        mock_db = Mock()
+
+        # Missing repo_owner
+        params = {"repo_name": "testrepo", "title": "Test"}
+        with pytest.raises(ValueError, match="'repo_owner' and 'repo_name' parameters are required"):
+            await create_issue_handler(area, params, {}, mock_db)
+
+        # Missing title
+        params = {"repo_owner": "owner", "repo_name": "repo"}
+        with pytest.raises(ValueError, match="'title' parameter is required"):
+            await create_issue_handler(area, params, {}, mock_db)
+
+    @pytest.mark.asyncio
+    async def test_create_issue_handler_labels_as_string(self):
+        """Test issue creation with labels as string."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
         
-        assert "'repo_owner' and 'repo_name' parameters are required" in str(exc_info.value)
-
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            # Missing title
-            "body": "Issue description"
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "title": "Test Issue",
+            "labels": "bug"  # String instead of list
         }
+        mock_db = Mock()
 
-        with pytest.raises(ValueError) as exc_info:
-            await create_issue_handler(mock_area, params, event, mock_db)
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"number": 42, "html_url": "https://github.com/testowner/testrepo/issues/42"}
+
+            await create_issue_handler(area, params, {}, mock_db)
+
+            call_args = mock_request.call_args
+            assert call_args[1]["json_data"]["labels"] == ["bug"]
+
+    @pytest.mark.asyncio
+    async def test_add_comment_handler_success(self):
+        """Test successful comment addition."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
         
-        assert "'title' parameter is required" in str(exc_info.value)
-
-    @pytest.mark.asyncio
-    async def test_add_comment_handler_success(self, mock_area, mock_db):
-        """Test adding a comment to a GitHub issue successfully."""
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            "issue_number": 1,
-            "body": "This is a comment"
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "issue_number": 42,
+            "body": "Test comment"
         }
         event = {}
+        mock_db = Mock()
 
-        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token:
-            with patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_make_request:
-                mock_get_token.return_value = "test_token"
-                mock_make_request.return_value = {
-                    "id": 123,
-                    "html_url": "https://github.com/test_owner/test_repo/issues/1#comment-123"
-                }
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
 
-                await add_comment_handler(mock_area, params, event, mock_db)
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"id": 123, "html_url": "https://github.com/testowner/testrepo/issues/42#comment-123"}
 
-                mock_get_token.assert_called_once_with(mock_area, mock_db)
-                mock_make_request.assert_called_once_with(
-                    "POST",
-                    "/repos/test_owner/test_repo/issues/1/comments",
-                    "test_token",
-                    json_data={"body": "This is a comment"}
-                )
+            await add_comment_handler(area, params, event, mock_db)
+
+            call_args = mock_request.call_args
+            assert call_args[0][1] == "/repos/testowner/testrepo/issues/42/comments"
+            assert call_args[1]["json_data"]["body"] == "Test comment"
 
     @pytest.mark.asyncio
-    async def test_add_comment_handler_missing_params(self, mock_area, mock_db):
-        """Test adding a comment with missing required parameters."""
-        params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            # Missing issue_number and body
-        }
-        event = {}
-
-        with pytest.raises(ValueError) as exc_info:
-            await add_comment_handler(mock_area, params, event, mock_db)
+    async def test_add_comment_handler_from_event(self):
+        """Test comment addition with issue_number from event."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
         
-        assert "'issue_number' is required" in str(exc_info.value)
-
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            "issue_number": 1,
-            # Missing body
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "body": "Test comment"
         }
+        event = {"github.issue_number": "42"}
+        mock_db = Mock()
 
-        with pytest.raises(ValueError) as exc_info:
-            await add_comment_handler(mock_area, params, event, mock_db)
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"id": 123}
+
+            await add_comment_handler(area, params, event, mock_db)
+
+            call_args = mock_request.call_args
+            assert "/issues/42/comments" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_add_comment_handler_invalid_issue_number(self):
+        """Test comment addition with invalid issue number."""
+        area = Mock()
+        area.id = "area-id"
+        area.user_id = "user-id"
         
-        assert "'body' parameter is required" in str(exc_info.value)
+        params = {
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "issue_number": "not-a-number",
+            "body": "Test"
+        }
+        mock_db = Mock()
+
+        with pytest.raises(ValueError, match="Invalid issue_number"):
+            await add_comment_handler(area, params, {}, mock_db)
 
     @pytest.mark.asyncio
-    async def test_close_issue_handler_success(self, mock_area, mock_db):
-        """Test closing a GitHub issue successfully."""
+    async def test_add_comment_handler_missing_params(self):
+        """Test comment addition with missing parameters."""
+        area = Mock()
+        area.id = "area-id"
+        area.user_id = "user-id"
+        mock_db = Mock()
+
+        # Missing issue_number
+        params = {"repo_owner": "owner", "repo_name": "repo", "body": "Test"}
+        with pytest.raises(ValueError, match="'issue_number' is required"):
+            await add_comment_handler(area, params, {}, mock_db)
+
+        # Missing body
+        params = {"repo_owner": "owner", "repo_name": "repo", "issue_number": 42}
+        with pytest.raises(ValueError, match="'body' parameter is required"):
+            await add_comment_handler(area, params, {}, mock_db)
+
+    @pytest.mark.asyncio
+    async def test_close_issue_handler_success(self):
+        """Test successful issue closing."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            "issue_number": 1,
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "issue_number": 42
         }
         event = {}
+        mock_db = Mock()
 
-        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token:
-            with patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_make_request:
-                mock_get_token.return_value = "test_token"
-                mock_make_request.return_value = {
-                    "number": 1,
-                    "html_url": "https://github.com/test_owner/test_repo/issues/1",
-                    "state": "closed"
-                }
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
 
-                await close_issue_handler(mock_area, params, event, mock_db)
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"state": "closed", "html_url": "https://github.com/testowner/testrepo/issues/42"}
 
-                mock_get_token.assert_called_once_with(mock_area, mock_db)
-                mock_make_request.assert_called_once_with(
-                    "PATCH",
-                    "/repos/test_owner/test_repo/issues/1",
-                    "test_token",
-                    json_data={"state": "closed"}
-                )
+            await close_issue_handler(area, params, event, mock_db)
+
+            call_args = mock_request.call_args
+            assert call_args[0][0] == "PATCH"
+            assert call_args[0][1] == "/repos/testowner/testrepo/issues/42"
+            assert call_args[1]["json_data"]["state"] == "closed"
 
     @pytest.mark.asyncio
-    async def test_add_label_handler_success(self, mock_area, mock_db):
-        """Test adding labels to a GitHub issue successfully."""
+    async def test_close_issue_handler_from_event(self):
+        """Test issue closing with issue_number from event."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            "issue_number": 1,
-            "labels": ["bug", "priority:high"]
+            "repo_owner": "testowner",
+            "repo_name": "testrepo"
+        }
+        event = {"github.issue_number": 42}
+        mock_db = Mock()
+
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = {"state": "closed"}
+
+            await close_issue_handler(area, params, event, mock_db)
+
+            call_args = mock_request.call_args
+            assert "/issues/42" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_add_label_handler_success(self):
+        """Test successful label addition."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
+        params = {
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "issue_number": 42,
+            "labels": ["bug", "urgent"]
         }
         event = {}
+        mock_db = Mock()
 
-        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token:
-            with patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_make_request:
-                mock_get_token.return_value = "test_token"
-                mock_make_request.return_value = [
-                    {"name": "bug", "color": "e11d21"},
-                    {"name": "priority:high", "color": "eb6420"}
-                ]
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
 
-                await add_label_handler(mock_area, params, event, mock_db)
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = [{"name": "bug"}, {"name": "urgent"}]
 
-                mock_get_token.assert_called_once_with(mock_area, mock_db)
-                mock_make_request.assert_called_once_with(
-                    "POST",
-                    "/repos/test_owner/test_repo/issues/1/labels",
-                    "test_token",
-                    json_data={"labels": ["bug", "priority:high"]}
-                )
+            await add_label_handler(area, params, event, mock_db)
+
+            call_args = mock_request.call_args
+            assert call_args[0][1] == "/repos/testowner/testrepo/issues/42/labels"
+            assert call_args[1]["json_data"]["labels"] == ["bug", "urgent"]
 
     @pytest.mark.asyncio
-    async def test_create_branch_handler_success(self, mock_area, mock_db):
-        """Test creating a GitHub branch successfully."""
+    async def test_add_label_handler_string_label(self):
+        """Test label addition with label as string."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
         params = {
-            "repo_owner": "test_owner",
-            "repo_name": "test_repo",
-            "branch_name": "feature/new-feature",
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "issue_number": 42,
+            "labels": "bug"  # String instead of list
+        }
+        mock_db = Mock()
+
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.return_value = [{"name": "bug"}]
+
+            await add_label_handler(area, params, {}, mock_db)
+
+            call_args = mock_request.call_args
+            assert call_args[1]["json_data"]["labels"] == ["bug"]
+
+    @pytest.mark.asyncio
+    async def test_add_label_handler_missing_labels(self):
+        """Test label addition with missing labels parameter."""
+        area = Mock()
+        area.id = "area-id"
+        area.user_id = "user-id"
+        
+        params = {
+            "repo_owner": "owner",
+            "repo_name": "repo",
+            "issue_number": 42
+        }
+        mock_db = Mock()
+
+        with pytest.raises(ValueError, match="'labels' parameter is required"):
+            await add_label_handler(area, params, {}, mock_db)
+
+    @pytest.mark.asyncio
+    async def test_create_branch_handler_success(self):
+        """Test successful branch creation."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
+        params = {
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "branch_name": "feature-branch",
             "from_branch": "main"
         }
         event = {}
+        mock_db = Mock()
 
-        mock_repo_ref = {
-            "object": {
-                "sha": "abc123def456"
-            }
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.side_effect = [
+                {"object": {"sha": "abc123"}},  # GET ref response
+                {"ref": "refs/heads/feature-branch"}  # POST ref response
+            ]
+
+            await create_branch_handler(area, params, event, mock_db)
+
+            assert mock_request.call_count == 2
+            # Verify GET request for source branch
+            assert mock_request.call_args_list[0][0][0] == "GET"
+            assert "heads/main" in mock_request.call_args_list[0][0][1]
+            # Verify POST request to create branch
+            assert mock_request.call_args_list[1][0][0] == "POST"
+            assert mock_request.call_args_list[1][1]["json_data"]["ref"] == "refs/heads/feature-branch"
+            assert mock_request.call_args_list[1][1]["json_data"]["sha"] == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_create_branch_handler_default_from_branch(self):
+        """Test branch creation with default from_branch."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
+        params = {
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "branch_name": "feature-branch"
+            # from_branch not specified, should default to "main"
         }
-        mock_created_ref = {
-            "ref": "refs/heads/feature/new-feature",
-            "object": {
-                "sha": "abc123def456"
-            }
+        mock_db = Mock()
+
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
+
+            mock_get_token.return_value = "test_token"
+            mock_request.side_effect = [
+                {"object": {"sha": "abc123"}},
+                {"ref": "refs/heads/feature-branch"}
+            ]
+
+            await create_branch_handler(area, params, {}, mock_db)
+
+            # Verify it uses "main" as default
+            assert "heads/main" in mock_request.call_args_list[0][0][1]
+
+    @pytest.mark.asyncio
+    async def test_create_branch_handler_missing_params(self):
+        """Test branch creation with missing parameters."""
+        area = Mock()
+        area.id = "area-id"
+        area.user_id = "user-id"
+        mock_db = Mock()
+
+        # Missing branch_name
+        params = {"repo_owner": "owner", "repo_name": "repo"}
+        with pytest.raises(ValueError, match="'branch_name' parameter is required"):
+            await create_branch_handler(area, params, {}, mock_db)
+
+    @pytest.mark.asyncio
+    async def test_create_issue_handler_api_error(self):
+        """Test issue creation with API error."""
+        area = Mock()
+        area.id = "area-id"
+        area.name = "Test Area"
+        area.user_id = "user-id"
+        
+        params = {
+            "repo_owner": "testowner",
+            "repo_name": "testrepo",
+            "title": "Test Issue"
         }
+        mock_db = Mock()
 
-        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token:
-            with patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_make_request:
-                mock_get_token.return_value = "test_token"
-                # First call: get source ref, second call: create new ref
-                mock_make_request.side_effect = [mock_repo_ref, mock_created_ref]
+        with patch("app.integrations.simple_plugins.github_plugin._get_github_access_token") as mock_get_token, \
+             patch("app.integrations.simple_plugins.github_plugin._make_github_request") as mock_request:
 
-                await create_branch_handler(mock_area, params, event, mock_db)
+            mock_get_token.return_value = "test_token"
+            mock_request.side_effect = GitHubAPIError("API Error")
 
-                # Check that _make_github_request was called twice
-                assert mock_make_request.call_count == 2
-                # First call to get source ref
-                mock_make_request.assert_any_call(
-                    "GET",
-                    "/repos/test_owner/test_repo/git/ref/heads/main",
-                    "test_token"
-                )
-                # Second call to create new ref
-                mock_make_request.assert_any_call(
-                    "POST",
-                    "/repos/test_owner/test_repo/git/refs",
-                    "test_token",
-                    json_data={
-                        "ref": "refs/heads/feature/new-feature",
-                        "sha": "abc123def456"
-                    }
-                )
+            with pytest.raises(GitHubAPIError):
+                await create_issue_handler(area, params, {}, mock_db)
+

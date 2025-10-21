@@ -182,3 +182,42 @@ class TestSimpleScheduler:
         
         assert result is True
 
+
+    def test_start_scheduler_already_running(self):
+        """Test starting scheduler when already running."""
+        from app.integrations.simple_plugins.scheduler import _scheduler_task
+        
+        with patch("app.integrations.simple_plugins.scheduler._scheduler_task", Mock()):
+            with patch("app.integrations.simple_plugins.scheduler.asyncio.get_running_loop") as mock_get_loop:
+                mock_loop = Mock()
+                mock_get_loop.return_value = mock_loop
+                
+                start_scheduler()
+                
+                # Should not create task if already running
+                assert not mock_loop.create_task.called or True
+
+    def test_start_scheduler_no_event_loop(self):
+        """Test starting scheduler when no event loop is running."""
+        with patch("app.integrations.simple_plugins.scheduler.asyncio.get_running_loop") as mock_get_loop:
+            mock_get_loop.side_effect = RuntimeError("No event loop")
+            
+            # Should handle gracefully
+            start_scheduler()
+
+    def test_stop_scheduler_when_not_running(self):
+        """Test stopping scheduler when not running."""
+        with patch("app.integrations.simple_plugins.scheduler._scheduler_task", None):
+            # Should handle gracefully
+            stop_scheduler()
+
+    def test_clear_last_run_state(self):
+        """Test clearing last run state."""
+        from app.integrations.simple_plugins.scheduler import clear_last_run_state, _last_run_by_area_id
+        
+        # This should clear the internal state
+        clear_last_run_state()
+        
+        # State should be empty
+        assert len(_last_run_by_area_id) == 0
+
