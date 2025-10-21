@@ -99,6 +99,30 @@ class GitHubConnectionError(GitHubError):
     pass
 
 
+class CalendarError(Exception):
+    """Base exception for Calendar operations."""
+
+    pass
+
+
+class CalendarAuthError(CalendarError):
+    """Calendar authentication/authorization failed."""
+
+    pass
+
+
+class CalendarAPIError(CalendarError):
+    """Calendar API request failed."""
+
+    pass
+
+
+class CalendarConnectionError(CalendarError):
+    """Calendar service connection not found or invalid."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
@@ -116,4 +140,8 @@ __all__ = [
     "GitHubAuthError",
     "GitHubAPIError",
     "GitHubConnectionError",
+    "CalendarError",
+    "CalendarAuthError",
+    "CalendarAPIError",
+    "CalendarConnectionError",
 ]
