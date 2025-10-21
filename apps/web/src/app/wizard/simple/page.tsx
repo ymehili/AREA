@@ -25,10 +25,17 @@ interface Service {
   reactions: AutomationOption[];
 }
 
+interface ParamDefinition {
+  type: string;
+  label?: string;
+  options?: string[];
+  placeholder?: string;
+}
+
 export default function SimpleWizardPage() {
   // Helper to render custom fields
   // Fallback param definitions for demo/testing if backend does not provide them
-  const mockParams: Record<string, any> = {
+  const mockParams: Record<string, Record<string, ParamDefinition>> = {
     'temperature_threshold': {
       location: { type: 'text', label: 'Location', placeholder: 'City or coordinates' },
       threshold: { type: 'number', label: 'Temperature Threshold', placeholder: 'e.g. 20' },
@@ -51,7 +58,7 @@ export default function SimpleWizardPage() {
     },
   };
 
-  function getParamsDef(type: 'trigger' | 'action', key: string, params: any) {
+  function getParamsDef(type: 'trigger' | 'action', key: string, params: Record<string, ParamDefinition> | undefined) {
     // First, use the params from the API if they exist and have fields
     if (params && typeof params === 'object' && Object.keys(params).length > 0) return params;
     // Then, try the mock params as fallback
@@ -60,10 +67,14 @@ export default function SimpleWizardPage() {
     return null;
   }
 
-  function renderParamsFields(paramsDef: any, values: any, setValues: (v: any) => void) {
+  function renderParamsFields(
+    paramsDef: Record<string, ParamDefinition> | null, 
+    values: Record<string, string | number>, 
+    setValues: (v: Record<string, string | number>) => void
+  ) {
     if (!paramsDef || typeof paramsDef !== 'object') return null;
     return Object.entries(paramsDef).map(([key, def]) => {
-      const d = def as any;
+      const d = def;
       return (
         <div key={key} className="mb-3">
           <label className="block text-xs font-medium mb-1 text-foreground">{d.label || key}</label>
@@ -82,7 +93,7 @@ export default function SimpleWizardPage() {
               className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
             >
               <option value="">Select...</option>
-              {d.options.map((opt: any) => (
+              {d.options.map((opt) => (
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
@@ -110,8 +121,8 @@ export default function SimpleWizardPage() {
   const [action, setAction] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // Params for trigger/action
-  const [triggerParams, setTriggerParams] = useState<any>({});
-  const [actionParams, setActionParams] = useState<any>({});
+  const [triggerParams, setTriggerParams] = useState<Record<string, string | number>>({});
+  const [actionParams, setActionParams] = useState<Record<string, string | number>>({});
   const [areaName, setAreaName] = useState('');
   const [areaDescription, setAreaDescription] = useState('');
 
@@ -144,9 +155,9 @@ export default function SimpleWizardPage() {
   const selectedTriggerService = services.find(s => s.slug === triggerService);
   const selectedActionService = services.find(s => s.slug === actionService);
 
-  function areParamsFilled(paramsDef: any, values: any) {
+  function areParamsFilled(paramsDef: Record<string, ParamDefinition> | null | undefined, values: Record<string, string | number>) {
     if (!paramsDef || !Object.keys(paramsDef).length) return true;
-    return Object.entries(paramsDef).every(([key, def]) => {
+    return Object.entries(paramsDef).every(([key]) => {
       return values[key] !== undefined && values[key] !== '';
     });
   }
@@ -186,8 +197,8 @@ export default function SimpleWizardPage() {
     }
     setSubmitting(true);
     try {
-      const selectedTriggerObj = selectedTriggerService?.actions.find(a => a.key === trigger);
-      const selectedActionObj = selectedActionService?.reactions.find(r => r.key === action);
+      const selectedTriggerObj = selectedTriggerService?.actions.find(a => a.key === trigger); // Used for debugging if needed
+      const selectedActionObj = selectedActionService?.reactions.find(r => r.key === action); // Used for debugging if needed
       
       const areaData = {
         name: areaName,
@@ -255,7 +266,7 @@ export default function SimpleWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [auth, triggerService, trigger, actionService, action, router, selectedTriggerService, selectedActionService, areaName, areaDescription]);
+  }, [auth, triggerService, trigger, actionService, action, router, selectedTriggerService, selectedActionService, areaName, areaDescription, triggerParams, actionParams]);
 
   if (loading) {
     return (

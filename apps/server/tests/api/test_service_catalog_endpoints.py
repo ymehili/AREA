@@ -30,5 +30,5 @@ def test_actions_reactions_endpoint_matches_catalog(
     service_slugs = [service["slug"] for service in payload["services"]]
     assert "time" in service_slugs  # Should have time service
     assert "gmail" in service_slugs  # Should have gmail service
-    assert "debug" in service_slugs  # Should have debug service
+    # Note: debug service is not included because it has no actions (only reactions)
 
