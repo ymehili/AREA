@@ -51,8 +51,8 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         "grant_type": "authorization_code",
                     },
                 )
-                response.raise_for_status()
-                data = response.json()
+                await response.raise_for_status()
+                data = await response.json()
 
                 if "error" in data:
                     raise OAuth2TokenExchangeError(f"Google Calendar OAuth error: {data['error']}")
@@ -64,6 +64,14 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                     scope=data.get("scope"),
                     token_type=data.get("token_type", "Bearer"),
                 )
+            except httpx.HTTPStatusError as e:
+                error_detail = ""
+                try:
+                    error_json = await e.response.json()
+                    error_detail = error_json.get("error", str(error_json))
+                except Exception:
+                    error_detail = str(e)
+                raise OAuth2TokenExchangeError(f"Google Calendar OAuth error: {error_detail}") from e
             except httpx.HTTPError as e:
                 raise OAuth2TokenExchangeError(f"Failed to exchange code: {str(e)}")
 
@@ -83,8 +91,8 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         "grant_type": "refresh_token",
                     },
                 )
-                response.raise_for_status()
-                data = response.json()
+                await response.raise_for_status()
+                data = await response.json()
 
                 if "error" in data:
                     raise OAuth2RefreshError(f"Google Calendar token refresh error: {data['error']}")
@@ -96,6 +104,14 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                     scope=data.get("scope"),
                     token_type=data.get("token_type", "Bearer"),
                 )
+            except httpx.HTTPStatusError as e:
+                error_detail = ""
+                try:
+                    error_json = await e.response.json()
+                    error_detail = error_json.get("error", str(error_json))
+                except Exception:
+                    error_detail = str(e)
+                raise OAuth2RefreshError(f"Google Calendar token refresh error: {error_detail}") from e
             except httpx.HTTPError as e:
                 raise OAuth2RefreshError(f"Failed to refresh token: {str(e)}")
 
@@ -109,8 +125,16 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         "Authorization": f"Bearer {access_token}",
                     },
                 )
-                response.raise_for_status()
-                return response.json()
+                await response.raise_for_status()
+                return await response.json()
+            except httpx.HTTPStatusError as e:
+                error_detail = ""
+                try:
+                    error_json = await e.response.json()
+                    error_detail = error_json.get("error", str(error_json))
+                except Exception:
+                    error_detail = str(e)
+                raise OAuth2ValidationError(f"Google Calendar OAuth error: {error_detail}") from e
             except httpx.HTTPError as e:
                 raise OAuth2ValidationError(f"Failed to get user info: {str(e)}")
 
@@ -133,8 +157,8 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         "Authorization": f"Bearer {access_token}",
                     },
                 )
-                calendar_response.raise_for_status()
-                calendar_data = calendar_response.json()
+                await calendar_response.raise_for_status()
+                calendar_data = await calendar_response.json()
 
                 # Get primary calendar to verify full API access
                 primary_response = await client.get(
@@ -143,8 +167,8 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         "Authorization": f"Bearer {access_token}",
                     },
                 )
-                primary_response.raise_for_status()
-                primary_data = primary_response.json()
+                await primary_response.raise_for_status()
+                primary_data = await primary_response.json()
 
                 return {
                     "primary_calendar": {
@@ -161,6 +185,14 @@ class GoogleCalendarOAuth2Provider(OAuth2Provider):
                         for cal in calendar_data.get("items", [])[:5]
                     ],
                 }
+            except httpx.HTTPStatusError as e:
+                error_detail = ""
+                try:
+                    error_json = await e.response.json()
+                    error_detail = error_json.get("error", str(error_json))
+                except Exception:
+                    error_detail = str(e)
+                raise OAuth2ValidationError(f"Google Calendar OAuth error: {error_detail}") from e
             except httpx.HTTPError as e:
                 raise OAuth2ValidationError(f"Failed to test API access: {str(e)}")
 
