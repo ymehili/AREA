@@ -279,6 +279,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       value={nodeConfig.description || ''}
                       onChange={(e) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, description: e.target.value })}
                       onFocus={handleInputFocus}
+                      placeholder="Enter a description for this step"
                     />
                   </div>
 

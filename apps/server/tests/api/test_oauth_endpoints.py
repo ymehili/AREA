@@ -288,3 +288,292 @@ class TestOAuthService:
         # The actual result depends on your test environment settings
         result = OAuthService.is_oauth_configured()
         assert isinstance(result, bool)
+    
+    @patch('app.integrations.user_oauth.OAuthService.is_oauth_configured', return_value=False)
+    @pytest.mark.asyncio
+    async def test_get_google_authorization_url_not_configured(self, mock_is_configured):
+        """Test that get_google_authorization_url raises error when not configured."""
+        from fastapi import HTTPException
+        
+        mock_request = Mock()
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.get_google_authorization_url(mock_request)
+        
+        assert exc_info.value.status_code == 500
+        assert "not properly configured" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.OAuthService.is_oauth_configured', return_value=True)
+    @patch('app.integrations.user_oauth.OAuth')
+    @pytest.mark.asyncio
+    async def test_get_google_authorization_url_exception(self, mock_oauth_class, mock_is_configured):
+        """Test that get_google_authorization_url handles exceptions."""
+        from fastapi import HTTPException
+        
+        # Make the OAuth client raise an exception
+        mock_oauth_instance = Mock()
+        mock_google = Mock()
+        mock_google.authorize_redirect = AsyncMock(side_effect=Exception("OAuth error"))
+        mock_oauth_instance.google = mock_google
+        mock_oauth_class.return_value = mock_oauth_instance
+        
+        mock_request = Mock()
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.get_google_authorization_url(mock_request)
+        
+        assert exc_info.value.status_code == 500
+        assert "Failed to initiate OAuth" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.OAuthService.is_oauth_configured', return_value=False)
+    @pytest.mark.asyncio
+    async def test_handle_google_callback_not_configured(self, mock_is_configured):
+        """Test that handle_google_callback raises error when not configured."""
+        from fastapi import HTTPException
+        
+        mock_request = Mock()
+        mock_db = Mock()
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.handle_google_callback(mock_request, mock_db)
+        
+        assert exc_info.value.status_code == 500
+        assert "not properly configured" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.OAuth')
+    @pytest.mark.asyncio
+    async def test_handle_google_callback_missing_email(self, mock_oauth_class):
+        """Test that missing email raises appropriate exception."""
+        from fastapi import HTTPException
+        
+        # Setup OAuth mocks
+        mock_oauth_instance = Mock()
+        mock_google = Mock()
+        mock_oauth_instance.google = mock_google
+        mock_oauth_class.return_value = mock_oauth_instance
+        
+        # Mock token response with userinfo but no email
+        mock_token = {
+            'userinfo': {
+                'sub': 'google123456'
+            }
+        }
+        mock_google.authorize_access_token = AsyncMock(return_value=mock_token)
+        
+        mock_request = Mock()
+        mock_db = Mock()
+        
+        # Test that it raises HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.handle_google_callback(mock_request, mock_db)
+        
+        assert exc_info.value.status_code == 400
+        assert "Email or Google ID not provided" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.OAuth')
+    @pytest.mark.asyncio
+    async def test_handle_google_callback_missing_sub(self, mock_oauth_class):
+        """Test that missing Google sub raises appropriate exception."""
+        from fastapi import HTTPException
+        
+        # Setup OAuth mocks
+        mock_oauth_instance = Mock()
+        mock_google = Mock()
+        mock_oauth_instance.google = mock_google
+        mock_oauth_class.return_value = mock_oauth_instance
+        
+        # Mock token response with userinfo but no sub
+        mock_token = {
+            'userinfo': {
+                'email': 'test@example.com'
+            }
+        }
+        mock_google.authorize_access_token = AsyncMock(return_value=mock_token)
+        
+        mock_request = Mock()
+        mock_db = Mock()
+        
+        # Test that it raises HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.handle_google_callback(mock_request, mock_db)
+        
+        assert exc_info.value.status_code == 400
+        assert "Email or Google ID not provided" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.OAuth')
+    @patch('app.integrations.user_oauth.OAuthService._find_or_create_google_user')
+    @pytest.mark.asyncio
+    async def test_handle_google_callback_generic_exception(self, mock_find_or_create, mock_oauth_class):
+        """Test that generic exceptions are handled properly."""
+        from fastapi import HTTPException
+        
+        # Setup OAuth mocks
+        mock_oauth_instance = Mock()
+        mock_google = Mock()
+        mock_oauth_instance.google = mock_google
+        mock_oauth_class.return_value = mock_oauth_instance
+        
+        # Mock the token response
+        mock_token = {
+            'userinfo': {
+                'email': 'test@example.com',
+                'sub': 'google123456'
+            }
+        }
+        mock_google.authorize_access_token = AsyncMock(return_value=mock_token)
+        
+        # Make _find_or_create_google_user raise an exception
+        mock_find_or_create.side_effect = Exception("Database error")
+        
+        mock_request = Mock()
+        mock_db = Mock()
+        
+        # Test that it raises HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            await OAuthService.handle_google_callback(mock_request, mock_db)
+        
+        assert exc_info.value.status_code == 400
+        assert "OAuth authentication failed" in exc_info.value.detail
+    
+    @patch('app.integrations.user_oauth.create_user_activity_log')
+    @patch('app.integrations.user_oauth.create_user')
+    @patch('app.integrations.user_oauth.get_user_by_email')
+    def test_find_or_create_google_user_activity_log_error(self, mock_get_user_by_email, mock_create_user, mock_create_activity_log):
+        """Test that activity log errors are handled gracefully."""
+        # Setup mocks
+        mock_db = Mock()
+        mock_get_user_by_email.return_value = None  # No existing user by email
+
+        # Mock the database query for Google sub
+        from app.models.user import User
+        mock_query = Mock()
+        mock_filter = Mock()
+        mock_query.filter.return_value = mock_filter
+        mock_filter.first.return_value = None  # No user with this Google sub
+        mock_db.query.return_value = mock_query
+
+        # Mock the created user
+        mock_user = Mock()
+        mock_user.id = uuid.uuid4()
+        mock_user.email = 'newuser@example.com'
+        mock_user.google_oauth_sub = 'google123456'
+        mock_user.is_confirmed = True
+        mock_user.hashed_password = ""
+        mock_create_user.return_value = mock_user
+        
+        # Make activity log creation fail
+        mock_create_activity_log.side_effect = Exception("Activity log error")
+
+        # Test the method - should not raise exception despite activity log error
+        result = OAuthService._find_or_create_google_user(
+            mock_db,
+            'newuser@example.com',
+            'google123456'
+        )
+
+        # Verify user was still returned despite activity log error
+        assert result == mock_user
+    
+    @patch('app.integrations.user_oauth.get_user_by_email')
+    def test_find_or_create_google_user_link_existing_account(self, mock_get_user_by_email):
+        """Test linking existing account with Google OAuth."""
+        # Setup mocks
+        mock_db = Mock()
+        
+        # No user found by Google sub initially
+        mock_query = Mock()
+        mock_filter = Mock()
+        mock_query.filter.return_value = mock_filter
+        mock_filter.first.return_value = None  # No user with this Google sub
+        mock_db.query.return_value = mock_query
+        
+        # Mock existing user found by email (without Google sub)
+        mock_user = Mock()
+        mock_user.id = uuid.uuid4()
+        mock_user.google_oauth_sub = None
+        mock_user.email = 'existing@example.com'
+        mock_get_user_by_email.return_value = mock_user
+        
+        # Test the method
+        result = OAuthService._find_or_create_google_user(
+            mock_db,
+            'existing@example.com',
+            'google123456'
+        )
+        
+        # Verify the user's Google sub was updated
+        assert mock_user.google_oauth_sub == 'google123456'
+        # db.add is called twice: once for user, once for activity log
+        assert mock_db.add.call_count == 2
+        mock_db.add.assert_any_call(mock_user)
+        # commit is called twice: once for user update, once for activity log
+        assert mock_db.commit.call_count == 2
+        # refresh is called twice: once for user, once for activity log
+        assert mock_db.refresh.call_count == 2
+        mock_db.refresh.assert_any_call(mock_user)
+    
+    def test_generate_redirect_url_web_app(self):
+        """Test redirect URL generation for web apps."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "#access_token=test_token_123" in result
+    
+    def test_generate_redirect_url_mobile_android(self):
+        """Test redirect URL generation for Android mobile apps."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "access_token=test_token_123" in result
+    
+    def test_generate_redirect_url_mobile_iphone(self):
+        """Test redirect URL generation for iPhone mobile apps."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "access_token=test_token_123" in result
+    
+    def test_generate_redirect_url_mobile_ipad(self):
+        """Test redirect URL generation for iPad mobile apps."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "access_token=test_token_123" in result
+    
+    def test_generate_redirect_url_mobile_expo(self):
+        """Test redirect URL generation for Expo/React Native apps."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Expo/51.0.0 (Android 13; expo) ReactNative/0.74.0"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "access_token=test_token_123" in result
+    
+    def test_generate_redirect_url_mobile_keyword(self):
+        """Test redirect URL generation for user agents with 'mobile' keyword."""
+        from app.integrations.user_oauth import OAuthService
+        
+        user_agent = "Some mobile browser"
+        access_token = "test_token_123"
+        
+        result = OAuthService.generate_redirect_url(access_token, user_agent)
+        
+        assert "access_token=test_token_123" in result

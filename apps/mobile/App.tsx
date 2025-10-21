@@ -181,21 +181,6 @@ const PROVIDER_LABELS: Record<string, string> = {
   microsoft: "Microsoft",
 };
 
-// Mirrored options from web wizard for a simple, consistent UX
-const SERVICES = ["Gmail", "Google Drive", "Slack", "GitHub"] as const;
-const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["New Email", "New Email w/ Attachment"],
-  "Google Drive": ["New File in Folder"],
-  Slack: ["New Message in Channel"],
-  GitHub: ["New Pull Request"],
-};
-const ACTIONS_BY_SERVICE: Record<string, string[]> = {
-  Gmail: ["Send Email"],
-  "Google Drive": ["Upload File", "Create Folder"],
-  Slack: ["Send Message"],
-  GitHub: ["Create Issue"],
-};
-
 async function updateProfileRequest(
   token: string,
   payload: { full_name?: string | null; email?: string },
@@ -624,9 +609,12 @@ function DashboardScreen() {
   );
 }
 
+// Define API-key services - these services use API keys instead of OAuth
+const API_KEY_SERVICES = ["openai", "weather"];
+
 function ConnectionsScreen() {
   const auth = useAuth();
-  const [services, setServices] = useState<{ id: string; name: string; description: string; connected: boolean; connection_id?: string }[]>([]);
+  const [services, setServices] = useState<{ id: string; name: string; description: string; connected: boolean; connection_id?: string; is_api_key_service: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -647,7 +635,7 @@ function ConnectionsScreen() {
     try {
       // Load available services from catalog
       const servicesData = await requestJson<{ services: { slug: string; name: string; description: string }[] }>(
-        "/services/services",
+        "/services/actions-reactions",
         { method: "GET" },
         auth.token,
       );
@@ -666,10 +654,13 @@ function ConnectionsScreen() {
         auth.token,
       );
 
-      // Filter services to only show those with OAuth2 implementations
+      // Combine OAuth providers and API-key services to determine which to show
+      const allSupportedServices = [...providersData.providers, ...API_KEY_SERVICES];
+
+      // Filter services to only show those with either OAuth or API-key implementations
       // and merge with connection status
       const transformed = servicesData.services
-        .filter((service) => providersData.providers.includes(service.slug))
+        .filter((service) => allSupportedServices.includes(service.slug))
         .map((service) => {
           const connection = connectionsData.find(
             (conn) => conn.service_name === service.slug
@@ -680,6 +671,7 @@ function ConnectionsScreen() {
             description: service.description || "",
             connected: !!connection,
             connection_id: connection?.id,
+            is_api_key_service: API_KEY_SERVICES.includes(service.slug),
           };
         });
 
@@ -703,12 +695,55 @@ function ConnectionsScreen() {
     void loadServices();
   }, [loadServices]);
 
-  const connectService = async (serviceId: string) => {
+  const connectService = async (serviceId: string, isApiKeyService: boolean) => {
     if (!auth.token) {
       Alert.alert("Authentication required", "Please log in again.");
       return;
     }
 
+    // Handle API key services differently
+    if (isApiKeyService) {
+      Alert.prompt(
+        `Connect ${serviceId}`,
+        `Enter your ${serviceId === 'openai' ? 'OpenAI' : serviceId === 'weather' ? 'OpenWeatherMap' : serviceId} API key:`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Connect",
+            onPress: async (apiKey?: string) => {
+              if (!apiKey || apiKey.trim() === '') {
+                Alert.alert("Invalid API Key", "Please enter a valid API key.");
+                return;
+              }
+
+              try {
+                await requestJson(
+                  `/service-connections/api-key/${serviceId}`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ api_key: apiKey.trim() }),
+                  },
+                  auth.token,
+                );
+
+                Alert.alert("Success", `${serviceId} connected successfully!`);
+                void loadServices();
+              } catch (err) {
+                const message = err instanceof Error ? err.message : "Unable to connect service.";
+                Alert.alert("Connection failed", message);
+              }
+            },
+          },
+        ],
+        "secure-text"
+      );
+      return;
+    }
+
+    // Handle OAuth services
     try {
       const data = await requestJson<{ authorization_url: string }>(
         `/service-connections/connect/${serviceId}`,
@@ -869,8 +904,8 @@ function ConnectionsScreen() {
                     </>
                   ) : (
                     <CustomButton 
-                      title="Connect" 
-                      onPress={() => connectService(s.id)} 
+                      title={s.is_api_key_service ? "Add API Key" : "Connect"} 
+                      onPress={() => connectService(s.id, s.is_api_key_service)} 
                       variant="default"
                     />
                   )}
@@ -884,6 +919,14 @@ function ConnectionsScreen() {
   );
 }
 
+type CatalogService = {
+  slug: string;
+  name: string;
+  description: string;
+  actions: Array<{ key: string; name: string; description: string }>;
+  reactions: Array<{ key: string; name: string; description: string }>;
+};
+
 function WizardScreen() {
   const auth = useAuth();
   const navigation = useNavigation<any>();
@@ -893,6 +936,64 @@ function WizardScreen() {
   const [actionService, setActionService] = useState("");
   const [action, setAction] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  // Load catalog services on mount
+  useEffect(() => {
+    const loadCatalog = async () => {
+      if (!auth.token) {
+        return;
+      }
+      setLoadingCatalog(true);
+      try {
+        const data = await requestJson<{ services: CatalogService[] }>(
+          "/services/actions-reactions",
+          { method: "GET" },
+          auth.token,
+        );
+        console.log(`[Wizard] Loaded ${data.services.length} services from catalog`);
+        console.log("[Wizard] Services:", data.services.map(s => s.slug).join(", "));
+        setCatalogServices(data.services);
+        setCatalogError(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to load services catalog.";
+        setCatalogError(message);
+        console.error("[Wizard] Failed to load catalog:", message);
+        Alert.alert("Failed to load catalog", message);
+      } finally {
+        setLoadingCatalog(false);
+      }
+    };
+    void loadCatalog();
+  }, [auth.token]);
+
+  // Get services that have actions (triggers)
+  const servicesWithActions = React.useMemo(() => {
+    const filtered = catalogServices.filter((service) => service.actions && service.actions.length > 0);
+    console.log(`[Wizard] Services with actions: ${filtered.length}`, filtered.map(s => s.slug));
+    return filtered;
+  }, [catalogServices]);
+
+  // Get services that have reactions
+  const servicesWithReactions = React.useMemo(() => {
+    const filtered = catalogServices.filter((service) => service.reactions && service.reactions.length > 0);
+    console.log(`[Wizard] Services with reactions: ${filtered.length}`, filtered.map(s => s.slug));
+    return filtered;
+  }, [catalogServices]);
+
+  // Get actions for selected trigger service
+  const availableActions = React.useMemo(() => {
+    const service = catalogServices.find((s) => s.slug === triggerService);
+    return service?.actions ?? [];
+  }, [catalogServices, triggerService]);
+
+  // Get reactions for selected action service
+  const availableReactions = React.useMemo(() => {
+    const service = catalogServices.find((s) => s.slug === actionService);
+    return service?.reactions ?? [];
+  }, [catalogServices, actionService]);
 
   const canNext = React.useMemo(() => {
     if (step === 1) return !!triggerService;
@@ -1007,6 +1108,33 @@ function WizardScreen() {
     }
   }, [auth, triggerService, trigger, actionService, action, navigation]);
 
+  if (loadingCatalog) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Card style={{ margin: 16 }}>
+          <Text style={styles.h1}>AREA Creation Wizard</Text>
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.muted}>Loading services...</Text>
+          </View>
+        </Card>
+      </SafeAreaView>
+    );
+  }
+
+  if (catalogError) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <Card style={{ margin: 16 }}>
+          <Text style={styles.h1}>AREA Creation Wizard</Text>
+          <Text style={styles.errorText}>{catalogError}</Text>
+          <View style={{ height: 12 }} />
+          <CustomButton title="Retry" onPress={() => navigation.goBack()} variant="outline" />
+        </Card>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1 }}>
@@ -1046,73 +1174,128 @@ function WizardScreen() {
           {step === 1 && (
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.cardTitle}>Step 1: Choose Trigger Service</Text>
-              {SERVICES.map((s) => (
-                <View key={s} style={{ marginBottom: 8 }}>
+              <Text style={styles.muted}>
+                Select a service that can trigger your automation ({servicesWithActions.length} available)
+              </Text>
+              <View style={{ height: 8 }} />
+              {servicesWithActions.map((service) => (
+                <View key={service.slug} style={{ marginBottom: 8 }}>
                   <CustomButton 
-                    title={s} 
-                    onPress={() => setTriggerService(s)} 
-                    variant={triggerService === s ? "default" : "outline"}
+                    title={service.name} 
+                    onPress={() => {
+                      setTriggerService(service.slug);
+                      setTrigger(""); // Reset trigger when service changes
+                    }} 
+                    variant={triggerService === service.slug ? "default" : "outline"}
                   />
                 </View>
               ))}
-              {triggerService ? <Text style={styles.muted}>Selected: {triggerService}</Text> : null}
+              {triggerService ? (
+                <Text style={styles.muted}>
+                  Selected: {catalogServices.find((s) => s.slug === triggerService)?.name}
+                </Text>
+              ) : null}
             </View>
           )}
 
           {step === 2 && (
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.cardTitle}>Step 2: Choose Trigger</Text>
-              {(TRIGGERS_BY_SERVICE[triggerService] ?? []).map((t) => (
-                <View key={t} style={{ marginBottom: 8 }}>
+              <Text style={styles.muted}>When should this automation run?</Text>
+              <View style={{ height: 8 }} />
+              {availableActions.map((action) => (
+                <View key={action.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
-                    title={t} 
-                    onPress={() => setTrigger(t)} 
-                    variant={trigger === t ? "default" : "outline"}
+                    title={action.name} 
+                    onPress={() => setTrigger(action.key)} 
+                    variant={trigger === action.key ? "default" : "outline"}
                   />
+                  <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
+                    {action.description}
+                  </Text>
                 </View>
               ))}
-              {trigger ? <Text style={styles.muted}>Selected: {trigger}</Text> : null}
+              {trigger ? (
+                <Text style={styles.muted}>
+                  Selected: {availableActions.find((a) => a.key === trigger)?.name}
+                </Text>
+              ) : null}
             </View>
           )}
 
           {step === 3 && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={styles.cardTitle}>Step 3: Choose REAction Service</Text>
-              {SERVICES.map((s) => (
-                <View key={s} style={{ marginBottom: 8 }}>
+              <Text style={styles.cardTitle}>Step 3: Choose Reaction Service</Text>
+              <Text style={styles.muted}>
+                Select a service to perform an action ({servicesWithReactions.length} available)
+              </Text>
+              <View style={{ height: 8 }} />
+              {servicesWithReactions.map((service) => (
+                <View key={service.slug} style={{ marginBottom: 8 }}>
                   <CustomButton 
-                    title={s} 
-                    onPress={() => setActionService(s)} 
-                    variant={actionService === s ? "default" : "outline"}
+                    title={service.name} 
+                    onPress={() => {
+                      setActionService(service.slug);
+                      setAction(""); // Reset action when service changes
+                    }} 
+                    variant={actionService === service.slug ? "default" : "outline"}
                   />
                 </View>
               ))}
-              {actionService ? <Text style={styles.muted}>Selected: {actionService}</Text> : null}
+              {actionService ? (
+                <Text style={styles.muted}>
+                  Selected: {catalogServices.find((s) => s.slug === actionService)?.name}
+                </Text>
+              ) : null}
             </View>
           )}
 
           {step === 4 && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={styles.cardTitle}>Step 4: Choose REAction</Text>
-              {(ACTIONS_BY_SERVICE[actionService] ?? []).map((a) => (
-                <View key={a} style={{ marginBottom: 8 }}>
+              <Text style={styles.cardTitle}>Step 4: Choose Reaction</Text>
+              <Text style={styles.muted}>What should happen when the trigger fires?</Text>
+              <View style={{ height: 8 }} />
+              {availableReactions.map((reaction) => (
+                <View key={reaction.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
-                    title={a} 
-                    onPress={() => setAction(a)} 
-                    variant={action === a ? "default" : "outline"}
+                    title={reaction.name} 
+                    onPress={() => setAction(reaction.key)} 
+                    variant={action === reaction.key ? "default" : "outline"}
                   />
+                  <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
+                    {reaction.description}
+                  </Text>
                 </View>
               ))}
-              {action ? <Text style={styles.muted}>Selected: {action}</Text> : null}
+              {action ? (
+                <Text style={styles.muted}>
+                  Selected: {availableReactions.find((r) => r.key === action)?.name}
+                </Text>
+              ) : null}
             </View>
           )}
 
           {step === 5 && (
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.cardTitle}>Step 5: Review & Confirm</Text>
-              <Text style={styles.muted}>
-                If new "{trigger}" in {triggerService}, then "{action}" in {actionService}.
-              </Text>
+              <View style={{ backgroundColor: Colors.cardLight, padding: 12, borderRadius: 8, marginTop: 8 }}>
+                <Text style={styles.muted}>Trigger Service:</Text>
+                <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
+                  {catalogServices.find((s) => s.slug === triggerService)?.name}
+                </Text>
+                <Text style={styles.muted}>When:</Text>
+                <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
+                  {availableActions.find((a) => a.key === trigger)?.name}
+                </Text>
+                <Text style={styles.muted}>Reaction Service:</Text>
+                <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
+                  {catalogServices.find((s) => s.slug === actionService)?.name}
+                </Text>
+                <Text style={styles.muted}>Then:</Text>
+                <Text style={styles.cardTitle}>
+                  {availableReactions.find((r) => r.key === action)?.name}
+                </Text>
+              </View>
             </View>
           )}
 
