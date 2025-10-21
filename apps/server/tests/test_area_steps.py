@@ -20,7 +20,61 @@ from app.services.area_steps import (
     get_steps_by_area,
     reorder_area_steps,
     update_area_step,
+    _ensure_uuid,
+    _is_duplicate_order_constraint_violation,
 )
+
+
+def test_area_step_exceptions():
+    """Test area step exception classes."""
+    # Test AreaStepNotFoundError
+    error = AreaStepNotFoundError("step-123")
+    assert "step-123" in str(error)
+    assert error.step_id == "step-123"
+    
+    # Test DuplicateStepOrderError
+    error2 = DuplicateStepOrderError("area-456", 3)
+    assert "area-456" in str(error2)
+    assert "3" in str(error2)
+    assert error2.area_id == "area-456"
+    assert error2.order == 3
+
+
+def test_ensure_uuid():
+    """Test _ensure_uuid helper function."""
+    # Test with string
+    string_uuid = "123e4567-e89b-12d3-a456-426614174000"
+    result = _ensure_uuid(string_uuid)
+    assert isinstance(result, uuid.UUID)
+    assert str(result) == string_uuid
+    
+    # Test with UUID
+    uuid_obj = uuid.uuid4()
+    result = _ensure_uuid(uuid_obj)
+    assert result == uuid_obj
+
+
+def test_is_duplicate_order_constraint_violation():
+    """Test _is_duplicate_order_constraint_violation helper."""
+    from sqlalchemy.exc import IntegrityError
+    
+    # Create mock IntegrityError with constraint violation message
+    class MockOrigError:
+        def __str__(self):
+            return "UNIQUE constraint failed: area_steps.area_id, area_steps.order"
+    
+    mock_exc = IntegrityError("statement", {}, MockOrigError())
+    result = _is_duplicate_order_constraint_violation(mock_exc)
+    assert result is True
+    
+    # Test with non-matching error
+    class MockNonMatchingError:
+        def __str__(self):
+            return "Some other error"
+    
+    mock_exc2 = IntegrityError("statement", {}, MockNonMatchingError())
+    result2 = _is_duplicate_order_constraint_violation(mock_exc2)
+    assert result2 is False
 
 
 def test_create_area_step(db_session: Session):
