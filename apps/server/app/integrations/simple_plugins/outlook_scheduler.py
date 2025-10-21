@@ -45,6 +45,10 @@ async def _get_outlook_client(user_id, db: Session) -> httpx.AsyncClient | None:
     try:
         connection = get_service_connection_by_user_and_service(db, user_id, "outlook")
         if not connection:
+            logger.warning(
+                "No Outlook connection found for user",
+                extra={"user_id": str(user_id)}
+            )
             return None
 
         # Decrypt tokens
@@ -94,9 +98,34 @@ async def _get_outlook_client(user_id, db: Session) -> httpx.AsyncClient | None:
                             expires_at=new_expires_at,
                         ),
                     )
+                    logger.info(
+                        "Outlook token refreshed successfully",
+                        extra={
+                            "user_id": str(user_id),
+                            "new_expires_at": new_expires_at.isoformat(),
+                        }
+                    )
             except Exception as refresh_err:
-                logger.error(f"Failed to refresh Outlook token: {refresh_err}")
+                logger.error(
+                    "Failed to refresh Outlook token",
+                    extra={
+                        "user_id": str(user_id),
+                        "error": str(refresh_err),
+                    },
+                    exc_info=True
+                )
                 return None
+
+        # Log token info (masked)
+        logger.debug(
+            "Creating Outlook client",
+            extra={
+                "user_id": str(user_id),
+                "token_prefix": access_token[:20] if access_token else None,
+                "token_expired": token_expired,
+                "expires_at": connection.expires_at.isoformat() if connection.expires_at else None,
+            }
+        )
 
         # Create authenticated client
         client = httpx.AsyncClient(
