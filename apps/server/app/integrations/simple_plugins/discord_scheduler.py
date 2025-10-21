@@ -76,6 +76,7 @@ def _extract_message_data(message: dict) -> dict:
         'author_username': author.get('username', ''),
         'author_discriminator': author.get('discriminator', ''),
         'author_global_name': author.get('global_name', ''),
+        'author_is_bot': author.get('bot', False),
         'mentions': [user.get('id') for user in message.get('mentions', [])],
         'attachments': [
             {
@@ -178,10 +179,11 @@ async def discord_scheduler_task() -> None:
                             }
                         )
 
-                        # Filter for new messages
+                        # Filter for new messages (exclude bot messages to prevent infinite loops)
                         new_messages = [
                             msg for msg in messages
                             if msg['id'] not in _last_seen_messages[area_id_str]
+                            and not msg.get('author', {}).get('bot', False)
                         ]
 
                         if new_messages:
@@ -271,6 +273,7 @@ async def _process_discord_trigger(db: Session, area: Area, message: dict, now: 
             "discord.author.username": message_data.get('author_username'),
             "discord.author.discriminator": message_data.get('author_discriminator'),
             "discord.author.global_name": message_data.get('author_global_name'),
+            "discord.author.is_bot": message_data.get('author_is_bot'),
             "discord.attachments": message_data.get('attachments'),
             "discord.embeds": message_data.get('embeds'),
             # General context
