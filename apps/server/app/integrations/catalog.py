@@ -140,64 +140,6 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         ),
     ),
     ServiceIntegration(
-        slug="dropbox",
-        name="Dropbox",
-        description="Keep Dropbox files in sync across automation flows.",
-        actions=(
-            AutomationOption(
-                key="file_added",
-                name="File Added",
-                description="Triggers when a new file is added to Dropbox.",
-            ),
-            AutomationOption(
-                key="folder_shared",
-                name="Folder Shared",
-                description="Triggers when a folder is shared with the user.",
-            ),
-        ),
-        reactions=(
-            AutomationOption(
-                key="create_shared_link",
-                name="Create Shared Link",
-                description="Generate a new shareable link for a file or folder.",
-            ),
-            AutomationOption(
-                key="upload_file",
-                name="Upload File",
-                description="Upload or replace a file in Dropbox storage.",
-            ),
-        ),
-    ),
-    ServiceIntegration(
-        slug="slack",
-        name="Slack",
-        description="Coordinate messaging and channel notifications in Slack.",
-        actions=(
-            AutomationOption(
-                key="message_posted",
-                name="Message Posted",
-                description="Triggers when a message is posted in a channel.",
-            ),
-            AutomationOption(
-                key="reaction_added",
-                name="Reaction Added",
-                description="Triggers when a reaction is added to a message.",
-            ),
-        ),
-        reactions=(
-            AutomationOption(
-                key="post_message",
-                name="Post Message",
-                description="Send a message to a channel or direct message.",
-            ),
-            AutomationOption(
-                key="send_dm",
-                name="Send Direct Message",
-                description="Send a direct message to a specific user.",
-            ),
-        ),
-    ),
-    ServiceIntegration(
         slug="github",
         name="GitHub",
         description="Automate workflows around repository events and issue management.",
