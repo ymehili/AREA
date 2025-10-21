@@ -225,7 +225,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {services.map((service) => (
+                              {services.filter(service => service.actions && service.actions.length > 0).map((service) => (
                                 <SelectItem key={service.slug} value={service.slug}>
                                   {service.name}
                                 </SelectItem>
@@ -302,6 +302,28 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   onFocus={handleInputFocus}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Only trigger for emails from this sender.</p>
+                              </div>
+                            )}
+
+                            {/* Trigger params: Discord new_message_in_channel requires channel_id */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'new_message_in_channel' && (
+                              <div>
+                                <Label htmlFor="discord_trigger_channel_id">Channel ID</Label>
+                                <Input
+                                  id="discord_trigger_channel_id"
+                                  type="text"
+                                  placeholder="123456789012345678"
+                                  value={(nodeConfig as TriggerNodeData).params?.channel_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, channel_id: e.target.value }
+                                    } as TriggerNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">The Discord channel ID to monitor for new messages.</p>
                               </div>
                             )}
                           </>
@@ -498,7 +520,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               <SelectValue placeholder={loadingServices ? "Loading..." : "Select a service"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {services.map((service) => (
+                              {services.filter(service => service.reactions && service.reactions.length > 0).map((service) => (
                                 <SelectItem key={service.slug} value={service.slug}>
                                   {service.name}
                                 </SelectItem>

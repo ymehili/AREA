@@ -313,7 +313,13 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         slug="discord",
         name="Discord",
         description="Send messages and manage channels in Discord servers. Add the bot to your servers using the invite link.",
-        actions=(),
+        actions=(
+            AutomationOption(
+                key="new_message_in_channel",
+                name="New Message in Channel",
+                description="Triggers when a new message is received in a specific Discord channel.",
+            ),
+        ),
         reactions=(
             AutomationOption(
                 key="send_message",
