@@ -90,7 +90,8 @@ class TestExtractMessageData:
                 "id": "user789",
                 "username": "testuser",
                 "discriminator": "1234",
-                "global_name": "Test User"
+                "global_name": "Test User",
+                "bot": False
             },
             "mentions": [],
             "attachments": [],
@@ -106,6 +107,7 @@ class TestExtractMessageData:
         assert data["author_username"] == "testuser"
         assert data["author_discriminator"] == "1234"
         assert data["author_global_name"] == "Test User"
+        assert data["author_is_bot"] == False
 
     def test_extract_message_with_attachments(self):
         """Test extracting data from message with attachments."""
@@ -114,7 +116,7 @@ class TestExtractMessageData:
             "channel_id": "channel456",
             "content": "Check this out",
             "timestamp": "2023-01-01T00:00:00.000000+00:00",
-            "author": {"id": "user789", "username": "testuser"},
+            "author": {"id": "user789", "username": "testuser", "bot": False},
             "mentions": [],
             "attachments": [
                 {
@@ -132,6 +134,7 @@ class TestExtractMessageData:
         assert len(data["attachments"]) == 1
         assert data["attachments"][0]["filename"] == "image.png"
         assert data["attachments"][0]["url"] == "https://cdn.discord.com/image.png"
+        assert data["author_is_bot"] == False
 
     def test_extract_message_missing_fields(self):
         """Test extracting data from message with missing fields."""
@@ -146,6 +149,7 @@ class TestExtractMessageData:
         assert data["content"] == ""
         assert data["author_id"] == ""
         assert data["author_username"] == ""
+        assert data["author_is_bot"] == False  # Defaults to False when missing
         assert data["attachments"] == []
 
 
@@ -197,7 +201,8 @@ class TestProcessDiscordTrigger:
                 "id": "user789",
                 "username": "testuser",
                 "discriminator": "1234",
-                "global_name": "Test User"
+                "global_name": "Test User",
+                "bot": False
             },
             "mentions": [],
             "attachments": [],
@@ -243,7 +248,7 @@ class TestProcessDiscordTrigger:
             "channel_id": "channel456",
             "content": "Test",
             "timestamp": "2023-01-01T00:00:00.000000+00:00",
-            "author": {"id": "user789", "username": "testuser"},
+            "author": {"id": "user789", "username": "testuser", "bot": False},
             "mentions": [],
             "attachments": [],
             "embeds": []
@@ -355,7 +360,8 @@ class TestDiscordSchedulerTask:
                 "id": "user789",
                 "username": "testuser",
                 "discriminator": "1234",
-                "global_name": "Test User"
+                "global_name": "Test User",
+                "bot": False
             },
             "mentions": [],
             "attachments": [],
@@ -434,6 +440,85 @@ class TestDiscordSchedulerTask:
             mock_messages.assert_not_called()
             mock_process.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_scheduler_filters_bot_messages(self):
+        """Test that scheduler filters out messages from bots to prevent infinite loops."""
+        from uuid import uuid4
+        from app.integrations.simple_plugins import discord_scheduler
+        
+        mock_area = Mock(spec=Area)
+        area_id = uuid4()
+        mock_area.id = area_id
+        mock_area.user_id = uuid4()
+        mock_area.trigger_action = "new_message_in_channel"
+        mock_area.trigger_params = {"channel_id": "123456789"}
+
+        # Create a human message and a bot message
+        human_message = {
+            "id": "human_msg",
+            "channel_id": "123456789",
+            "content": "Hello from human",
+            "timestamp": "2023-01-01T00:00:00.000000+00:00",
+            "author": {
+                "id": "user789",
+                "username": "human_user",
+                "bot": False
+            },
+            "mentions": [],
+            "attachments": [],
+            "embeds": []
+        }
+
+        bot_message = {
+            "id": "bot_msg",
+            "channel_id": "123456789",
+            "content": "Hello from bot",
+            "timestamp": "2023-01-01T00:01:00.000000+00:00",
+            "author": {
+                "id": "bot123",
+                "username": "my_bot",
+                "bot": True
+            },
+            "mentions": [],
+            "attachments": [],
+            "embeds": []
+        }
+
+        area_id_str = str(area_id)
+        # Pre-populate with an old message to avoid initialization logic
+        discord_scheduler._last_seen_messages[area_id_str] = {"old_msg"}
+
+        with patch("app.db.session.SessionLocal") as mock_session, \
+             patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_due_discord_areas") as mock_fetch, \
+             patch("app.integrations.simple_plugins.discord_scheduler._fetch_channel_messages") as mock_messages, \
+             patch("app.integrations.simple_plugins.discord_scheduler._process_discord_trigger") as mock_process:
+            
+            # First sleep returns immediately, second sleep cancels
+            mock_sleep.side_effect = [None, asyncio.CancelledError()]
+            
+            mock_db = Mock()
+            mock_db.__enter__ = Mock(return_value=mock_db)
+            mock_db.__exit__ = Mock(return_value=None)
+            mock_session.return_value = mock_db
+            
+            mock_fetch.return_value = [mock_area]
+            # Return both human and bot messages
+            mock_messages.return_value = [bot_message, human_message]
+
+            await discord_scheduler_task()
+
+            # Verify only the human message was processed (bot message filtered out)
+            assert mock_process.call_count == 1
+            # Get the message that was passed to _process_discord_trigger
+            processed_message = mock_process.call_args[0][2]
+            assert processed_message["id"] == "human_msg"
+            assert processed_message["author"]["bot"] == False
+            
+            # Clean up
+            if area_id_str in discord_scheduler._last_seen_messages:
+                del discord_scheduler._last_seen_messages[area_id_str]
+
 
 class TestExtractMessageData:
     """Tests for _extract_message_data function."""
@@ -451,7 +536,8 @@ class TestExtractMessageData:
                 "id": "user789",
                 "username": "testuser",
                 "discriminator": "1234",
-                "global_name": "Test User"
+                "global_name": "Test User",
+                "bot": False
             },
             "mentions": [{"id": "mentioned_user_1"}, {"id": "mentioned_user_2"}],
             "attachments": [
@@ -475,6 +561,7 @@ class TestExtractMessageData:
         assert result["author_username"] == "testuser"
         assert result["author_discriminator"] == "1234"
         assert result["author_global_name"] == "Test User"
+        assert result["author_is_bot"] == False
         assert len(result["mentions"]) == 2
         assert len(result["attachments"]) == 1
         assert result["attachments"][0]["filename"] == "image.png"
@@ -495,6 +582,33 @@ class TestExtractMessageData:
         assert result["content"] == ""
         assert result["timestamp"] == ""
         assert result["author_id"] == ""
+        assert result["author_is_bot"] == False
         assert result["mentions"] == []
         assert result["attachments"] == []
         assert result["embeds"] == []
+
+    def test_extract_bot_message_data(self):
+        """Test extracting data from a bot message."""
+        from app.integrations.simple_plugins.discord_scheduler import _extract_message_data
+        
+        message = {
+            "id": "bot_msg123",
+            "channel_id": "channel456",
+            "content": "I am a bot",
+            "timestamp": "2023-01-01T00:00:00.000000+00:00",
+            "author": {
+                "id": "bot123",
+                "username": "coolbot",
+                "bot": True
+            },
+            "mentions": [],
+            "attachments": [],
+            "embeds": []
+        }
+
+        result = _extract_message_data(message)
+
+        assert result["id"] == "bot_msg123"
+        assert result["author_id"] == "bot123"
+        assert result["author_username"] == "coolbot"
+        assert result["author_is_bot"] == True
