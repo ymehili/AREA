@@ -42,42 +42,30 @@ def list_services() -> ServiceListResponse:
 def list_service_actions_reactions() -> ServiceCatalogResponse:
     """Return the catalog of automation actions and reactions.
 
-    Filters services to only show:
-    - Triggers (actions) that are implemented in schedulers (time, gmail)
-    - Reactions that have registered handlers
+    Returns all services with their triggers and reactions.
+    No filtering is applied - the catalog is the source of truth.
     """
-    from app.integrations.catalog import ServiceIntegration, AutomationOption
+    from app.integrations.catalog import ServiceIntegration
     from app.integrations.simple_plugins.registry import get_plugins_registry
 
     registry = get_plugins_registry()
     catalog = get_service_catalog()
 
-    # Services with implemented triggers (via schedulers)
-    implemented_triggers = {
-        'time': ['every_interval'],  # Implemented in scheduler.py
-        'gmail': ['new_email', 'new_email_from_sender', 'new_unread_email', 'email_starred'],  # Implemented in gmail_scheduler.py
-        'github': ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'],  # Implemented in github_scheduler.py
-    }
-
     filtered_services = []
     for service in catalog:
-        # Filter actions (triggers) to only implemented ones
-        filtered_actions = []
-        if service.slug in implemented_triggers:
-            # Only include actions that are implemented
-            for action in service.actions:
-                if action.key in implemented_triggers[service.slug]:
-                    filtered_actions.append(action)
+        # Include all triggers (actions) from the catalog
+        # The catalog is the source of truth for what's implemented
+        filtered_actions = list(service.actions)
 
-        # Filter reactions to only those with handlers
+        # Filter reactions to only those with registered handlers
         filtered_reactions = []
         for reaction in service.reactions:
             handler = registry.get_reaction_handler(service.slug, reaction.key)
             if handler is not None:
                 filtered_reactions.append(reaction)
 
-        # Only include service if it has at least one trigger or reaction
-        if filtered_actions or filtered_reactions:
+        # Only include service if it has at least one trigger (action)
+        if filtered_actions:
             filtered_service = ServiceIntegration(
                 slug=service.slug,
                 name=service.name,
