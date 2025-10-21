@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import logging
 from typing import Any, Dict
 from urllib.parse import urlencode
 
@@ -12,6 +13,8 @@ from app.integrations.oauth.exceptions import (
     OAuth2TokenExchangeError,
     OAuth2ValidationError,
 )
+
+logger = logging.getLogger("area")
 
 
 class GitHubOAuth2Provider(OAuth2Provider):
@@ -152,7 +155,7 @@ class GitHubOAuth2Provider(OAuth2Provider):
             access_token: The access token to revoke
 
         Returns:
-            True if revocation succeeded, False otherwise
+            True if revocation succeeded or token already revoked, False on actual errors
         """
         async with httpx.AsyncClient() as client:
             try:
@@ -168,11 +171,20 @@ class GitHubOAuth2Provider(OAuth2Provider):
                     json={"access_token": access_token},
                 )
                 # 204 No Content means success
-                return response.status_code == 204
-            except httpx.HTTPError:
-                # If revocation fails, we still return True to allow disconnection
-                # The token may already be revoked or invalid
+                response.raise_for_status()
                 return True
+            except httpx.HTTPStatusError as e:
+                # 404 means token already revoked or doesn't exist - this is acceptable
+                if e.response.status_code == 404:
+                    logger.info("GitHub token already revoked or invalid")
+                    return True
+                # Other HTTP errors are real failures
+                logger.error(f"Failed to revoke GitHub token: HTTP {e.response.status_code}", exc_info=True)
+                return False
+            except httpx.HTTPError as e:
+                # Network errors or other httpx errors
+                logger.error(f"Network error during GitHub token revocation: {e}", exc_info=True)
+                return False
 
 
 __all__ = ["GitHubOAuth2Provider"]

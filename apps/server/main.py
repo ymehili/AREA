@@ -121,7 +121,6 @@ logger.info("FastAPI application created")
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 
 # Add SlowAPI middleware

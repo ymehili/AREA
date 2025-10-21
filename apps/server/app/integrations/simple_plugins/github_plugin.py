@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Dict
 
 import httpx
 
-from app.db.session import SessionLocal
 from app.services.service_connections import get_service_connection_by_user_and_service
 from app.integrations.simple_plugins.exceptions import (
     GitHubAuthError,
@@ -16,6 +15,7 @@ from app.integrations.simple_plugins.exceptions import (
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
     from app.models.area import Area
 
 logger = logging.getLogger("area")
@@ -24,12 +24,12 @@ GITHUB_API_BASE = "https://api.github.com"
 GITHUB_API_VERSION = "2022-11-28"
 
 
-def _get_github_access_token(area: Area, db=None) -> str:
+def _get_github_access_token(area: Area, db: "Session") -> str:
     """Get GitHub access token for a user.
 
     Args:
         area: The Area containing user_id
-        db: Database session (optional, will create if not provided)
+        db: Database session (required)
 
     Returns:
         GitHub access token string
@@ -38,38 +38,29 @@ def _get_github_access_token(area: Area, db=None) -> str:
         GitHubConnectionError: If service connection not found
         GitHubAuthError: If authentication fails
     """
-    close_db = False
-    if db is None:
-        db = SessionLocal()
-        close_db = True
+    # Get service connection for GitHub
+    connection = get_service_connection_by_user_and_service(db, area.user_id, "github")
+    if not connection:
+        raise GitHubConnectionError("GitHub service connection not found. Please connect your GitHub account.")
 
-    try:
-        # Get service connection for GitHub
-        connection = get_service_connection_by_user_and_service(db, area.user_id, "github")
-        if not connection:
-            raise GitHubConnectionError("GitHub service connection not found. Please connect your GitHub account.")
+    # Decrypt access token
+    from app.core.encryption import decrypt_token
+    access_token = decrypt_token(connection.encrypted_access_token)
 
-        # Decrypt access token
-        from app.core.encryption import decrypt_token
-        access_token = decrypt_token(connection.encrypted_access_token)
+    if not access_token:
+        raise GitHubAuthError("GitHub access token is invalid or expired.")
 
-        if not access_token:
-            raise GitHubAuthError("GitHub access token is invalid or expired.")
-
-        return access_token
-    finally:
-        if close_db:
-            db.close()
+    return access_token
 
 
-def _make_github_request(
+async def _make_github_request(
     method: str,
     endpoint: str,
     access_token: str,
     json_data: dict = None,
     params: dict = None,
 ) -> dict:
-    """Make an authenticated request to GitHub API (synchronous).
+    """Make an authenticated request to GitHub API (asynchronous).
 
     Args:
         method: HTTP method (GET, POST, PATCH, etc.)
@@ -92,9 +83,9 @@ def _make_github_request(
         "User-Agent": "AREA-App/1.0",
     }
 
-    with httpx.Client() as client:
+    async with httpx.AsyncClient() as client:
         try:
-            response = client.request(
+            response = await client.request(
                 method=method,
                 url=url,
                 headers=headers,
@@ -116,14 +107,18 @@ def _make_github_request(
             raise GitHubAPIError(f"Failed to connect to GitHub API: {str(e)}") from e
 
 
-def create_issue_handler(area: Area, params: dict, event: dict) -> None:
+async def create_issue_handler(area: Area, params: dict, event: dict, db: "Session" = None) -> None:
     """Create a new issue in a GitHub repository.
 
     Args:
         area: The Area being executed
         params: Action parameters with 'repo_owner', 'repo_name', 'title', 'body', optional 'labels', 'assignees'
         event: Event data from trigger
+        db: Database session (required)
     """
+    if db is None:
+        raise ValueError("Database session is required for GitHub handlers")
+
     try:
         # Extract parameters
         repo_owner = params.get("repo_owner")
@@ -152,7 +147,7 @@ def create_issue_handler(area: Area, params: dict, event: dict) -> None:
             raise ValueError("'title' parameter is required for create_issue action")
 
         # Get GitHub access token
-        access_token = _get_github_access_token(area)
+        access_token = _get_github_access_token(area, db)
 
         # Prepare issue data
         issue_data = {
@@ -166,7 +161,7 @@ def create_issue_handler(area: Area, params: dict, event: dict) -> None:
 
         # Create issue via GitHub API
         endpoint = f"/repos/{repo_owner}/{repo_name}/issues"
-        result = _make_github_request("POST", endpoint, access_token, json_data=issue_data)
+        result = await _make_github_request("POST", endpoint, access_token, json_data=issue_data)
 
         logger.info(
             "GitHub issue created successfully",
@@ -194,14 +189,17 @@ def create_issue_handler(area: Area, params: dict, event: dict) -> None:
         raise
 
 
-def add_comment_handler(area: Area, params: dict, event: dict) -> None:
+async def add_comment_handler(area: Area, params: dict, event: dict, db: "Session" = None) -> None:
     """Add a comment to a GitHub issue or pull request.
 
     Args:
         area: The Area being executed
         params: Action parameters with 'repo_owner', 'repo_name', 'issue_number', 'body'
         event: Event data from trigger
+        db: Database session (required)
     """
+    if db is None:
+        raise ValueError("Database session is required for GitHub handlers")
 
     try:
         # Extract parameters
@@ -214,6 +212,13 @@ def add_comment_handler(area: Area, params: dict, event: dict) -> None:
         # The event dict contains the full trigger context including extracted variables
         if not issue_number and event:
             issue_number = event.get("github.issue_number")
+
+        # Validate issue_number
+        if issue_number:
+            try:
+                issue_number = int(issue_number)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid issue_number: {issue_number}. Must be a positive integer.")
 
         logger.info(
             "Starting GitHub add_comment action",
@@ -231,17 +236,17 @@ def add_comment_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for add_comment action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
+            raise ValueError("'issue_number' is required. Use {{github.issue_number}} for trigger events or provide a specific issue number.")
         if not body:
             raise ValueError("'body' parameter is required for add_comment action")
 
         # Get GitHub access token
-        access_token = _get_github_access_token(area)
+        access_token = _get_github_access_token(area, db)
 
         # Add comment via GitHub API
         endpoint = f"/repos/{repo_owner}/{repo_name}/issues/{issue_number}/comments"
         comment_data = {"body": body}
-        result = _make_github_request("POST", endpoint, access_token, json_data=comment_data)
+        result = await _make_github_request("POST", endpoint, access_token, json_data=comment_data)
 
         logger.info(
             "GitHub comment added successfully",
@@ -269,14 +274,17 @@ def add_comment_handler(area: Area, params: dict, event: dict) -> None:
         raise
 
 
-def close_issue_handler(area: Area, params: dict, event: dict) -> None:
+async def close_issue_handler(area: Area, params: dict, event: dict, db: "Session" = None) -> None:
     """Close a GitHub issue.
 
     Args:
         area: The Area being executed
         params: Action parameters with 'repo_owner', 'repo_name', 'issue_number'
         event: Event data from trigger
+        db: Database session (required)
     """
+    if db is None:
+        raise ValueError("Database session is required for GitHub handlers")
 
     try:
         # Extract parameters
@@ -287,6 +295,13 @@ def close_issue_handler(area: Area, params: dict, event: dict) -> None:
         # Fallback: Try to get issue_number from the trigger event if not in params
         if not issue_number and event:
             issue_number = event.get("github.issue_number")
+
+        # Validate issue_number
+        if issue_number:
+            try:
+                issue_number = int(issue_number)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid issue_number: {issue_number}. Must be a positive integer.")
 
         logger.info(
             "Starting GitHub close_issue action",
@@ -304,15 +319,15 @@ def close_issue_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for close_issue action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
+            raise ValueError("'issue_number' is required. Use {{github.issue_number}} for trigger events or provide a specific issue number.")
 
         # Get GitHub access token
-        access_token = _get_github_access_token(area)
+        access_token = _get_github_access_token(area, db)
 
         # Close issue via GitHub API
         endpoint = f"/repos/{repo_owner}/{repo_name}/issues/{issue_number}"
         issue_data = {"state": "closed"}
-        result = _make_github_request("PATCH", endpoint, access_token, json_data=issue_data)
+        result = await _make_github_request("PATCH", endpoint, access_token, json_data=issue_data)
 
         logger.info(
             "GitHub issue closed successfully",
@@ -339,14 +354,17 @@ def close_issue_handler(area: Area, params: dict, event: dict) -> None:
         raise
 
 
-def add_label_handler(area: Area, params: dict, event: dict) -> None:
+async def add_label_handler(area: Area, params: dict, event: dict, db: "Session" = None) -> None:
     """Add labels to a GitHub issue or pull request.
 
     Args:
         area: The Area being executed
         params: Action parameters with 'repo_owner', 'repo_name', 'issue_number', 'labels'
         event: Event data from trigger
+        db: Database session (required)
     """
+    if db is None:
+        raise ValueError("Database session is required for GitHub handlers")
 
     try:
         # Extract parameters
@@ -358,6 +376,13 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
         # Fallback: Try to get issue_number from the trigger event if not in params
         if not issue_number and event:
             issue_number = event.get("github.issue_number")
+
+        # Validate issue_number
+        if issue_number:
+            try:
+                issue_number = int(issue_number)
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid issue_number: {issue_number}. Must be a positive integer.")
 
         logger.info(
             "Starting GitHub add_label action",
@@ -376,7 +401,7 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
         if not repo_owner or not repo_name:
             raise ValueError("'repo_owner' and 'repo_name' parameters are required for add_label action")
         if not issue_number:
-            raise ValueError("'issue_number' is required. Please add an 'Issue Number' parameter with value {{github.issue_number}} in the frontend, or provide a specific issue number.")
+            raise ValueError("'issue_number' is required. Use {{github.issue_number}} for trigger events or provide a specific issue number.")
         if not labels:
             raise ValueError("'labels' parameter is required for add_label action")
 
@@ -385,12 +410,12 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
             labels = [labels]
 
         # Get GitHub access token
-        access_token = _get_github_access_token(area)
+        access_token = _get_github_access_token(area, db)
 
         # Add labels via GitHub API
         endpoint = f"/repos/{repo_owner}/{repo_name}/issues/{issue_number}/labels"
         labels_data = {"labels": labels}
-        result = _make_github_request("POST", endpoint, access_token, json_data=labels_data)
+        result = await _make_github_request("POST", endpoint, access_token, json_data=labels_data)
 
         logger.info(
             "GitHub labels added successfully",
@@ -417,14 +442,17 @@ def add_label_handler(area: Area, params: dict, event: dict) -> None:
         raise
 
 
-def create_branch_handler(area: Area, params: dict, event: dict) -> None:
+async def create_branch_handler(area: Area, params: dict, event: dict, db: "Session" = None) -> None:
     """Create a new branch in a GitHub repository.
 
     Args:
         area: The Area being executed
         params: Action parameters with 'repo_owner', 'repo_name', 'branch_name', 'from_branch' (default: main)
         event: Event data from trigger
+        db: Database session (required)
     """
+    if db is None:
+        raise ValueError("Database session is required for GitHub handlers")
 
     try:
         # Extract parameters
@@ -453,11 +481,11 @@ def create_branch_handler(area: Area, params: dict, event: dict) -> None:
             raise ValueError("'branch_name' parameter is required for create_branch action")
 
         # Get GitHub access token
-        access_token = _get_github_access_token(area)
+        access_token = _get_github_access_token(area, db)
 
         # First, get the SHA of the source branch
         source_ref_endpoint = f"/repos/{repo_owner}/{repo_name}/git/ref/heads/{from_branch}"
-        source_ref = _make_github_request("GET", source_ref_endpoint, access_token)
+        source_ref = await _make_github_request("GET", source_ref_endpoint, access_token)
         sha = source_ref["object"]["sha"]
 
         # Create new branch
@@ -466,7 +494,7 @@ def create_branch_handler(area: Area, params: dict, event: dict) -> None:
             "ref": f"refs/heads/{branch_name}",
             "sha": sha,
         }
-        result = _make_github_request("POST", create_ref_endpoint, access_token, json_data=ref_data)
+        result = await _make_github_request("POST", create_ref_endpoint, access_token, json_data=ref_data)
 
         logger.info(
             "GitHub branch created successfully",
