@@ -388,7 +388,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., "London,UK")</p>
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., &quot;London,UK&quot;)</p>
                                 </div>
                                 <div>
                                   <Label htmlFor="weather_threshold">Temperature Threshold (°C)</Label>
@@ -452,7 +452,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., "London,UK")</p>
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., &quot;London,UK&quot;)</p>
                                 </div>
                                 <div>
                                   <Label htmlFor="weather_condition_type">Weather Condition</Label>
