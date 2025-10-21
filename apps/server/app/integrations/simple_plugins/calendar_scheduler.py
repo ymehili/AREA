@@ -19,6 +19,11 @@ from google.auth.exceptions import RefreshError
 from app.core.encryption import decrypt_token
 from app.core.config import settings
 from app.integrations.variable_extractor import extract_calendar_variables
+from app.integrations.simple_plugins.exceptions import (
+    CalendarAuthError,
+    CalendarAPIError,
+    CalendarConnectionError,
+)
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
 from app.services.execution_logs import create_execution_log
@@ -459,10 +464,45 @@ def clear_calendar_seen_state() -> None:
     _last_seen_events.clear()
 
 
+def cleanup_old_seen_events(max_age_hours: int = 24) -> int:
+    """Clean up old event IDs from memory to prevent unbounded growth.
+
+    This function removes event IDs from areas that haven't been seen in the last
+    max_age_hours. Since we only track event IDs (not timestamps), we use a simple
+    approach: if an area has too many events tracked (> 1000), we clear its seen set
+    to allow fresh polling.
+
+    Args:
+        max_age_hours: Maximum age in hours before cleaning (default: 24)
+                       Note: Currently used as a threshold for max events (max_age_hours * 10)
+
+    Returns:
+        Number of event IDs removed from memory
+    """
+    global _last_seen_events
+    removed_count = 0
+    max_events_per_area = max_age_hours * 10  # Rough heuristic: ~10 events per hour max
+
+    area_ids_to_clean = []
+    for area_id, seen_events in _last_seen_events.items():
+        if len(seen_events) > max_events_per_area:
+            area_ids_to_clean.append(area_id)
+            removed_count += len(seen_events)
+
+    for area_id in area_ids_to_clean:
+        logger.info(
+            f"Cleaning up old seen events for area {area_id}: {len(_last_seen_events[area_id])} events removed"
+        )
+        _last_seen_events[area_id].clear()
+
+    return removed_count
+
+
 __all__ = [
     "calendar_scheduler_task",
     "start_calendar_scheduler",
     "is_calendar_scheduler_running",
     "stop_calendar_scheduler",
     "clear_calendar_seen_state",
+    "cleanup_old_seen_events",
 ]
