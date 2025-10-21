@@ -319,6 +319,11 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                 name="New Message in Channel",
                 description="Triggers when a new message is received in a specific Discord channel.",
             ),
+            AutomationOption(
+                key="reaction_added",
+                name="Reaction Added to Message",
+                description="Triggers when a user adds a reaction (emoji) to a specific Discord message.",
+            ),
         ),
         reactions=(
             AutomationOption(
