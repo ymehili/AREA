@@ -42,13 +42,8 @@ def list_services() -> ServiceListResponse:
 def list_service_actions_reactions() -> ServiceCatalogResponse:
     """Return the catalog of automation actions and reactions.
 
-    Filters services to only show implemented features:
-    - Triggers (actions) from services with running schedulers
-    - Reactions that have registered handlers
-    
-    This automatically discovers which services are implemented by checking:
-    1. If a scheduler module exists and is running (for triggers)
-    2. If handlers are registered in the plugin registry (for reactions)
+    Returns all services with their triggers and reactions.
+    No filtering is applied - the catalog is the source of truth.
     """
     from app.integrations.catalog import ServiceIntegration
     from app.integrations.simple_plugins.registry import get_plugins_registry
@@ -56,44 +51,11 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
     registry = get_plugins_registry()
     catalog = get_service_catalog()
 
-    # Dynamically detect which services have schedulers running
-    # by checking if scheduler modules exist and are imported
-    services_with_schedulers = set()
-    
-    # Check for time scheduler (always available)
-    try:
-        from app.integrations.simple_plugins import scheduler
-        services_with_schedulers.add('time')
-    except ImportError:
-        pass
-    
-    # Check for Gmail scheduler
-    try:
-        from app.integrations.simple_plugins import gmail_scheduler
-        services_with_schedulers.add('gmail')
-    except ImportError:
-        pass
-    
-    # Check for Discord scheduler
-    try:
-        from app.integrations.simple_plugins import discord_scheduler
-        services_with_schedulers.add('discord')
-    except ImportError:
-        pass
-    
-    # Check for Weather scheduler
-    try:
-        from app.integrations.simple_plugins import weather_scheduler
-        services_with_schedulers.add('weather')
-    except ImportError:
-        pass
-
     filtered_services = []
     for service in catalog:
-        # Only include triggers (actions) if service has a scheduler
-        filtered_actions = []
-        if service.slug in services_with_schedulers:
-            filtered_actions = list(service.actions)
+        # Include all triggers (actions) from the catalog
+        # The catalog is the source of truth for what's implemented
+        filtered_actions = list(service.actions)
 
         # Filter reactions to only those with registered handlers
         filtered_reactions = []
@@ -102,8 +64,8 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
             if handler is not None:
                 filtered_reactions.append(reaction)
 
-        # Only include service if it has at least one trigger or reaction
-        if filtered_actions or filtered_reactions:
+        # Only include service if it has at least one trigger (action)
+        if filtered_actions:
             filtered_service = ServiceIntegration(
                 slug=service.slug,
                 name=service.name,

@@ -10,8 +10,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("area")
 
-# Handler type: callable that takes (area, params, event) and returns None or Awaitable[None]
-PluginHandler = Callable[["Area", dict, dict], None | Awaitable[None]]
+# Handler type: callable that takes (area, params, event, db) and returns None or Awaitable[None]
+# db parameter is optional for backward compatibility but recommended for all new handlers
+PluginHandler = Callable[..., None | Awaitable[None]]
 
 
 class PluginsRegistry:
@@ -69,6 +70,34 @@ class PluginsRegistry:
         )
         self._handlers[("discord", "send_message")] = send_message_handler
         self._handlers[("discord", "create_channel")] = create_channel_handler
+
+        # Google Calendar handlers
+        from app.integrations.simple_plugins.calendar_plugin import (
+            create_event_handler,
+            update_event_handler,
+            delete_event_handler,
+            create_all_day_event_handler,
+            quick_add_event_handler,
+        )
+        self._handlers[("google_calendar", "create_event")] = create_event_handler
+        self._handlers[("google_calendar", "update_event")] = update_event_handler
+        self._handlers[("google_calendar", "delete_event")] = delete_event_handler
+        self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
+        self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
+
+        # GitHub handlers
+        from app.integrations.simple_plugins.github_plugin import (
+            create_issue_handler,
+            add_comment_handler,
+            close_issue_handler,
+            add_label_handler,
+            create_branch_handler,
+        )
+        self._handlers[("github", "create_issue")] = create_issue_handler
+        self._handlers[("github", "add_comment")] = add_comment_handler
+        self._handlers[("github", "close_issue")] = close_issue_handler
+        self._handlers[("github", "add_label")] = add_label_handler
+        self._handlers[("github", "create_branch")] = create_branch_handler
 
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:

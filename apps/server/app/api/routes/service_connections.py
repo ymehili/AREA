@@ -183,7 +183,7 @@ def disconnect_service(
     current_user: User = Depends(require_active_user),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
-    """Disconnect a service connection."""
+    """Disconnect a service connection by ID."""
 
     # Convert connection_id to UUID
     try:
@@ -223,6 +223,74 @@ def disconnect_service(
     db.commit()
 
     return {"message": "Service disconnected successfully"}
+
+
+@router.delete("/disconnect/{service_name}")
+async def disconnect_service_by_name(
+    service_name: str,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_active_user),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    """Disconnect a service connection by service name.
+
+    This endpoint allows users to easily disconnect a service by name (e.g., 'github', 'gmail')
+    without needing to know the connection ID. This is useful when reconnecting to force
+    a fresh OAuth flow with updated scopes.
+
+    For GitHub, this also revokes the OAuth token on GitHub's side using their API,
+    ensuring the token is completely invalidated.
+    """
+
+    connection = (
+        db.query(ServiceConnection)
+        .filter(
+            ServiceConnection.service_name == service_name,
+            ServiceConnection.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not connection:
+        # Return success even if not found - idempotent operation
+        # This allows "disconnect then connect" to work smoothly
+        return {"message": f"No {service_name} connection found (already disconnected)"}
+
+    # For GitHub, revoke the token on GitHub's side before deleting from our database
+    if service_name == "github":
+        try:
+            from app.core.encryption import decrypt_token
+            from app.integrations.oauth.factory import OAuth2ProviderFactory
+
+            # Decrypt the access token
+            access_token = decrypt_token(connection.encrypted_access_token)
+
+            # Get the GitHub provider and revoke the token
+            provider = OAuth2ProviderFactory.create_provider("github")
+            if hasattr(provider, 'revoke_token'):
+                revoked = await provider.revoke_token(access_token)
+                logger.info(
+                    f"GitHub token revocation {'succeeded' if revoked else 'failed'} for user {current_user.id}"
+                )
+        except Exception as e:
+            # Log the error but continue with disconnection
+            # We don't want to block disconnection if revocation fails
+            logger.error(f"Failed to revoke GitHub token: {e}", exc_info=True)
+
+    # Schedule service disconnection activity log using background task
+    background_tasks.add_task(
+        log_user_activity_task,
+        user_id=str(current_user.id),
+        action_type="service_disconnected",
+        details=f"User disconnected {connection.service_name} service",
+        service_name=connection.service_name,
+        status="success"
+    )
+
+    db.delete(connection)
+    db.commit()
+
+    return {"message": f"{service_name} service disconnected successfully"}
 
 
 @router.get("/providers")

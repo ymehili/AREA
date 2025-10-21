@@ -14,6 +14,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 
 from app.core.encryption import decrypt_token
 from app.core.config import settings
@@ -78,6 +79,12 @@ def _get_gmail_service(user_id, db: Session):
                         expires_at=creds.expiry,
                     ),
                 )
+            except RefreshError as refresh_err:
+                logger.warning(
+                    f"Gmail token expired or revoked for user {user_id}. "
+                    f"User needs to reconnect their Gmail account."
+                )
+                return None
             except Exception as refresh_err:
                 logger.error(f"Failed to refresh Gmail token: {refresh_err}")
                 return None
@@ -124,6 +131,9 @@ def _fetch_messages(service, query: str, max_results: int = 10) -> list[dict]:
                 continue
 
         return full_messages
+    except RefreshError:
+        # Token expired/revoked - already logged in _get_gmail_service
+        return []
     except HttpError as e:
         logger.error(f"Gmail API error fetching messages: {e}", exc_info=True)
         return []
@@ -291,6 +301,12 @@ async def gmail_scheduler_task() -> None:
                             # Mark as seen
                             _last_seen_messages[area_id_str].add(message['id'])
 
+                except RefreshError as e:
+                    # Token expired/revoked - show clean warning
+                    logger.warning(
+                        f"Gmail area {area_id_str} skipped: token expired or revoked. "
+                        f"User needs to reconnect Gmail account."
+                    )
                 except Exception as e:
                     logger.error(
                         "Error processing Gmail area",

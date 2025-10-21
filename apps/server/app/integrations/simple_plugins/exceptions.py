@@ -75,6 +75,54 @@ class OpenAIConfigError(OpenAIError):
     pass
 
 
+class CalendarError(Exception):
+    """Base exception for Calendar operations."""
+
+    pass
+
+
+class CalendarAuthError(CalendarError):
+    """Calendar authentication/authorization failed."""
+
+    pass
+
+
+class CalendarAPIError(CalendarError):
+    """Calendar API request failed."""
+
+    pass
+
+
+class CalendarConnectionError(CalendarError):
+    """Calendar service connection not found or invalid."""
+
+    pass
+
+
+class GitHubError(Exception):
+    """Base exception for GitHub operations."""
+
+    pass
+
+
+class GitHubAuthError(GitHubError):
+    """GitHub authentication/authorization failed."""
+
+    pass
+
+
+class GitHubAPIError(GitHubError):
+    """GitHub API request failed."""
+
+    pass
+
+
+class GitHubConnectionError(GitHubError):
+    """GitHub service connection not found or invalid."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
@@ -88,4 +136,12 @@ __all__ = [
     "OpenAIAPIError",
     "OpenAIConnectionError",
     "OpenAIConfigError",
+    "CalendarError",
+    "CalendarAuthError",
+    "CalendarAPIError",
+    "CalendarConnectionError",
+    "GitHubError",
+    "GitHubAuthError",
+    "GitHubAPIError",
+    "GitHubConnectionError",
 ]

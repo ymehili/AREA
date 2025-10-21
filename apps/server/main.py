@@ -42,6 +42,16 @@ from app.integrations.simple_plugins.weather_scheduler import (
     stop_weather_scheduler,
     is_weather_scheduler_running,
 )
+from app.integrations.simple_plugins.calendar_scheduler import (
+    start_calendar_scheduler,
+    stop_calendar_scheduler,
+    is_calendar_scheduler_running,
+)
+from app.integrations.simple_plugins.github_scheduler import (
+    start_github_scheduler,
+    stop_github_scheduler,
+    is_github_scheduler_running,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -109,6 +119,30 @@ async def lifespan(app: FastAPI):
                 logger.info("Startup: Weather scheduler started successfully")
         except Exception:
             logger.warning("Startup: Unable to verify Weather scheduler status; continuing")
+
+        # Start the Google Calendar polling scheduler (non-blocking)
+        logger.info("Startup: starting Calendar scheduler")
+        start_calendar_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_calendar_scheduler_running():
+                logger.warning("Startup: Calendar scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Calendar scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Calendar scheduler status; continuing")
+
+        # Start the GitHub polling scheduler (non-blocking)
+        logger.info("Startup: starting GitHub scheduler")
+        start_github_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_github_scheduler_running():
+                logger.warning("Startup: GitHub scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: GitHub scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify GitHub scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -132,6 +166,14 @@ async def lifespan(app: FastAPI):
     stop_weather_scheduler()
     logger.info("Shutdown: Weather scheduler stopped")
 
+    logger.info("Shutdown: stopping Calendar scheduler")
+    stop_calendar_scheduler()
+    logger.info("Shutdown: Calendar scheduler stopped")
+
+    logger.info("Shutdown: stopping GitHub scheduler")
+    stop_github_scheduler()
+    logger.info("Shutdown: GitHub scheduler stopped")
+
 
 
 
@@ -142,7 +184,6 @@ logger.info("FastAPI application created")
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 
 # Add SlowAPI middleware
