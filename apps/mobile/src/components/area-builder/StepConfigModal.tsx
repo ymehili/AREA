@@ -27,7 +27,7 @@ const TRIGGERS_BY_SERVICE: Record<string, string[]> = {
   'Google Drive': ['New File in Folder'],
   Slack: ['New Message in Channel'],
   GitHub: ['New Pull Request'],
-  Discord: ['New Message in Channel', 'Member Joined Server', 'Reaction Added'],
+  Discord: ['New Message in Channel', 'Reaction Added to Message'],
   Time: ['Every Interval'],
   Debug: [],
   Delay: [],

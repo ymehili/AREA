@@ -612,3 +612,113 @@ class TestExtractMessageData:
         assert result["author_id"] == "bot123"
         assert result["author_username"] == "coolbot"
         assert result["author_is_bot"] == True
+
+
+class TestFetchMessageReactions:
+    """Test _fetch_message_reactions function."""
+
+    def test_fetch_reactions_success(self):
+        """Test successful reaction fetching from Discord."""
+        from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
+        
+        with patch("app.core.config.settings") as mock_settings, \
+             patch("app.integrations.simple_plugins.discord_scheduler.httpx.Client") as mock_client:
+            
+            mock_settings.discord_bot_token = "test_bot_token"
+            
+            mock_response = Mock()
+            mock_response.json.return_value = {
+                "id": "msg123",
+                "reactions": [
+                    {
+                        "emoji": {"name": "👍", "id": None, "animated": False},
+                        "count": 5,
+                        "me": False
+                    },
+                    {
+                        "emoji": {"name": "heart", "id": "123456", "animated": True},
+                        "count": 2,
+                        "me": True
+                    }
+                ]
+            }
+            mock_response.raise_for_status = Mock()
+            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+
+            reactions = _fetch_message_reactions("channel123", "msg123")
+
+            assert len(reactions) == 2
+            assert reactions[0]["emoji"]["name"] == "👍"
+            assert reactions[0]["count"] == 5
+            assert reactions[1]["emoji"]["name"] == "heart"
+            assert reactions[1]["emoji"]["animated"] == True
+
+    def test_fetch_reactions_no_bot_token(self):
+        """Test fetch reactions with no bot token configured."""
+        from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
+        
+        with patch("app.core.config.settings") as mock_settings:
+            mock_settings.discord_bot_token = None
+            
+            reactions = _fetch_message_reactions("channel123", "msg123")
+            
+            assert reactions == []
+
+    def test_fetch_reactions_http_error(self):
+        """Test fetch reactions with HTTP error."""
+        from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
+        import httpx
+        
+        with patch("app.core.config.settings") as mock_settings, \
+             patch("app.integrations.simple_plugins.discord_scheduler.httpx.Client") as mock_client:
+            
+            mock_settings.discord_bot_token = "test_bot_token"
+            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.HTTPError("Network error")
+            
+            reactions = _fetch_message_reactions("channel123", "msg123")
+            
+            assert reactions == []
+
+
+class TestExtractReactionData:
+    """Test _extract_reaction_data function."""
+
+    def test_extract_standard_emoji_reaction(self):
+        """Test extracting data from a standard emoji reaction."""
+        from app.integrations.simple_plugins.discord_scheduler import _extract_reaction_data
+        
+        reaction = {
+            "emoji": {"name": "👍", "id": None, "animated": False},
+            "count": 5,
+            "me": False
+        }
+        
+        result = _extract_reaction_data(reaction, "msg123", "channel456")
+        
+        assert result["message_id"] == "msg123"
+        assert result["channel_id"] == "channel456"
+        assert result["emoji_name"] == "👍"
+        assert result["emoji_id"] is None
+        assert result["emoji_animated"] == False
+        assert result["count"] == 5
+        assert result["me"] == False
+
+    def test_extract_custom_emoji_reaction(self):
+        """Test extracting data from a custom emoji reaction."""
+        from app.integrations.simple_plugins.discord_scheduler import _extract_reaction_data
+        
+        reaction = {
+            "emoji": {"name": "custom_emoji", "id": "987654321", "animated": True},
+            "count": 3,
+            "me": True
+        }
+        
+        result = _extract_reaction_data(reaction, "msg999", "channel888")
+        
+        assert result["message_id"] == "msg999"
+        assert result["channel_id"] == "channel888"
+        assert result["emoji_name"] == "custom_emoji"
+        assert result["emoji_id"] == "987654321"
+        assert result["emoji_animated"] == True
+        assert result["count"] == 3
+        assert result["me"] == True
