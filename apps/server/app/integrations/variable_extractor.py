@@ -415,3 +415,40 @@ def extract_rss_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     return variables
+
+
+def extract_variables_by_service(trigger_data: Dict[str, Any], service: str) -> Dict[str, Any]:
+    """Extract variables based on the service type.
+
+    Args:
+        trigger_data: Dictionary containing trigger event data
+        service: Service name (gmail, github, rss, etc.)
+
+    Returns:
+        Dictionary mapping variable names to their values
+    """
+    if not trigger_data:
+        logger.warning(
+            f"extract_variables_by_service called with empty trigger_data for service: {service}"
+        )
+        return {}
+
+    # Map service names to their extractor functions
+    extractors = {
+        "gmail": extract_gmail_variables,
+        "google_drive": extract_google_drive_variables,
+        "drive": extract_google_drive_variables,
+        "calendar": extract_calendar_variables,
+        "github": extract_github_variables,
+        "rss": extract_rss_variables,
+    }
+
+    extractor = extractors.get(service.lower())
+    if extractor:
+        return extractor(trigger_data)
+    else:
+        logger.warning(
+            f"No variable extractor found for service: {service}",
+            extra={"service": service, "trigger_data": trigger_data},
+        )
+        return {}
