@@ -27,6 +27,30 @@ class GmailConnectionError(GmailError):
     pass
 
 
+class OutlookError(Exception):
+    """Base exception for Outlook operations."""
+
+    pass
+
+
+class OutlookAuthError(OutlookError):
+    """Outlook authentication/authorization failed."""
+
+    pass
+
+
+class OutlookAPIError(OutlookError):
+    """Outlook API request failed."""
+
+    pass
+
+
+class OutlookConnectionError(OutlookError):
+    """Outlook service connection not found or invalid."""
+
+    pass
+
+
 class WeatherError(Exception):
     """Base exception for Weather operations."""
 
@@ -128,6 +152,10 @@ __all__ = [
     "GmailAuthError",
     "GmailAPIError",
     "GmailConnectionError",
+    "OutlookError",
+    "OutlookAuthError",
+    "OutlookAPIError",
+    "OutlookConnectionError",
     "WeatherError",
     "WeatherAPIError",
     "WeatherConfigError",
