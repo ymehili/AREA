@@ -72,7 +72,9 @@ def run_migrations() -> None:
                 return
 
     except Exception as e:
-        logger.warning("Unable to check migration status: %s, proceeding with upgrade", e)
+        logger.warning(
+            "Unable to check migration status: %s, proceeding with upgrade", e
+        )
 
     logger.info("Applying database migrations (alembic upgrade heads)")
     try:
@@ -84,4 +86,3 @@ def run_migrations() -> None:
 
 
 __all__ = ["run_migrations"]
-

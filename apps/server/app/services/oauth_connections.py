@@ -75,7 +75,9 @@ class OAuthConnectionService:
                 "token_type": token_set.token_type,
             }
 
-            connection = create_service_connection(db, connection_data, user_id, oauth_metadata)
+            connection = create_service_connection(
+                db, connection_data, user_id, oauth_metadata
+            )
             return connection
 
         except Exception as e:

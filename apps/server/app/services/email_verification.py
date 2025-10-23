@@ -115,7 +115,9 @@ def build_confirmation_link(token: str) -> str:
     query_params = dict(parse_qsl(split.query, keep_blank_values=True))
     query_params["token"] = token
     new_query = urlencode(query_params)
-    return urlunsplit((split.scheme, split.netloc, split.path, new_query, split.fragment))
+    return urlunsplit(
+        (split.scheme, split.netloc, split.path, new_query, split.fragment)
+    )
 
 
 __all__ = [

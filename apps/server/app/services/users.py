@@ -14,8 +14,14 @@ from app.models.user import User
 from app.schemas.auth import UserCreate
 from app.schemas.profile import PasswordChangeRequest, UserProfileUpdate
 from app.services.email import send_confirmation_email
-from app.services.email_verification import build_confirmation_link, issue_confirmation_token
-from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
+from app.services.email_verification import (
+    build_confirmation_link,
+    issue_confirmation_token,
+)
+from app.services.user_activity_logs import (
+    create_user_activity_log,
+    log_user_activity_task,
+)
 from app.schemas.user_activity_log import UserActivityLogCreate
 
 
@@ -193,7 +199,7 @@ def update_user_profile(
         details = "User updated profile name"
     elif update.email is not None:
         details = "User updated email"
-    
+
     if background_tasks is not None:
         background_tasks.add_task(
             log_user_activity_task,
@@ -201,7 +207,7 @@ def update_user_profile(
             action_type="profile_update",
             details=details,
             service_name="User Account",
-            status="success"
+            status="success",
         )
     else:
         # Fallback to sync logging if no background tasks available
@@ -210,7 +216,7 @@ def update_user_profile(
             action_type="profile_update",
             details=details,
             service_name="User Account",
-            status="success"
+            status="success",
         )
         create_user_activity_log(db, activity_log)
 
@@ -233,17 +239,17 @@ def change_user_password(
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     # Log password change activity
     activity_log = UserActivityLogCreate(
         user_id=user.id,
         action_type="password_change",
         details="User changed their account password",
         service_name="User Account",
-        status="success"
+        status="success",
     )
     create_user_activity_log(db, activity_log)
-    
+
     return user
 
 
@@ -263,17 +269,17 @@ def link_login_provider(
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     # Log login provider link activity
     activity_log = UserActivityLogCreate(
         user_id=user.id,
         action_type="provider_linked",
         details=f"User linked {provider} OAuth provider",
         service_name=provider.title(),
-        status="success"
+        status="success",
     )
     create_user_activity_log(db, activity_log)
-    
+
     return user
 
 
@@ -295,18 +301,19 @@ def unlink_login_provider(
     db.add(user)
     db.commit()
     db.refresh(user)
-    
+
     # Log login provider unlink activity
     activity_log = UserActivityLogCreate(
         user_id=user.id,
         action_type="provider_unlinked",
         details=f"User unlinked {provider} OAuth provider",
         service_name=provider.title(),
-        status="success"
+        status="success",
     )
     create_user_activity_log(db, activity_log)
-    
+
     return user
+
 
 def get_paginated_users(
     db: Session,
@@ -314,11 +321,11 @@ def get_paginated_users(
     limit: int = 100,
     search: Optional[str] = None,
     sort_field: Optional[str] = "created_at",
-    sort_direction: Optional[str] = "desc"
+    sort_direction: Optional[str] = "desc",
 ) -> tuple[List[User], int]:
     """
     Get paginated list of users with optional search and sorting.
-    
+
     Args:
         db: Database session
         skip: Number of records to skip
@@ -326,54 +333,52 @@ def get_paginated_users(
         search: Optional search string to filter by email
         sort_field: Field to sort by (id, email, created_at, is_confirmed)
         sort_direction: Sort direction ('asc' or 'desc')
-    
+
     Returns:
         Tuple of (list of users, total count)
     """
     # Allowed sort fields to prevent injection
     ALLOWED_SORT_FIELDS = {"id", "email", "created_at", "is_confirmed"}
-    
+
     # Validate sort_field at service layer
     if sort_field not in ALLOWED_SORT_FIELDS:
         sort_field = "created_at"  # Default to safe value
-    
+
     # Base query
     query = select(User)
-    
+
     # Apply search filter if provided
     if search:
         query = query.where(User.email.ilike(f"%{search}%"))
-    
+
     # Apply sorting
     if sort_field:
         if sort_direction == "asc":
             query = query.order_by(asc(getattr(User, sort_field)))
         else:
             query = query.order_by(desc(getattr(User, sort_field)))
-    
+
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
     total_count = db.execute(count_query).scalar_one()
-    
+
     # Apply pagination
     query = query.offset(skip).limit(limit)
-    
+
     result = db.execute(query)
     users = result.scalars().all()
-    
+
     return users, total_count
 
 
 def update_user_admin_status(
-    db: Session,
-    user_id: UUID,
-    is_admin: bool
+    db: Session, user_id: UUID, is_admin: bool
 ) -> Optional[User]:
     """Update a user's admin status."""
     user = db.get(User, user_id)
     if not user:
         return None
-    
+
     user.is_admin = is_admin
     db.commit()
     db.refresh(user)
@@ -385,31 +390,29 @@ def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
     statement = select(User).where(User.id == user_id)
     result = db.execute(statement)
     user = result.scalar_one_or_none()
-    
+
     # Eager load the relationships to include service connections and areas
     if user:
         # Access the relationships to ensure they're loaded
         _ = user.service_connections
         _ = user.areas
-    
+
     return user
 
 
 def confirm_user_email_admin(
-    db: Session,
-    admin_user: User,
-    target_user_id: UUID
+    db: Session, admin_user: User, target_user_id: UUID
 ) -> Optional[User]:
     """Manually confirm email for a user."""
     target_user = db.get(User, target_user_id)
     if not target_user:
         return None
-    
+
     from datetime import datetime, timezone
-    
+
     if target_user.is_confirmed:
         return target_user  # Already confirmed
-    
+
     target_user.is_confirmed = True
     target_user.confirmed_at = datetime.now(timezone.utc)
     db.commit()
@@ -418,34 +421,32 @@ def confirm_user_email_admin(
 
 
 def suspend_user_account(
-    db: Session,
-    admin_user: User,
-    target_user_id: UUID,
-    reason: Optional[str] = None
+    db: Session, admin_user: User, target_user_id: UUID, reason: Optional[str] = None
 ) -> Optional[User]:
     """Suspend user account."""
     target_user = db.get(User, target_user_id)
     if not target_user:
         return None
-    
+
     target_user.is_suspended = True
     db.commit()
     db.refresh(target_user)
-    
+
     # Create audit log for the suspension action
     from app.services.admin_audit import create_admin_audit_log
+
     details = f"Account suspended by admin {admin_user.email}"
     if reason:
         details += f". Reason: {reason}"
-    
+
     create_admin_audit_log(
         db,
         admin_user_id=admin_user.id,
         target_user_id=target_user_id,
         action_type="suspend_account",
-        details=details
+        details=details,
     )
-    
+
     return target_user
 
 
@@ -461,7 +462,7 @@ def create_user_admin(
     send_email: bool = True,
 ) -> User:
     """Create a new user via admin panel with specified admin status."""
-    
+
     normalized_email = _normalize_email(email)
     existing_user = get_user_by_email(db, normalized_email)
     if existing_user is not None:
@@ -501,30 +502,28 @@ def create_user_admin(
 
 
 def delete_user_account(
-    db: Session,
-    admin_user: User,
-    target_user_id: UUID,
-    reason: Optional[str] = None
+    db: Session, admin_user: User, target_user_id: UUID, reason: Optional[str] = None
 ) -> bool:
     """Delete user account."""
     target_user = db.get(User, target_user_id)
     if not target_user:
         return False
-    
+
     # Create audit log for the deletion action before deleting the user
     from app.services.admin_audit import create_admin_audit_log
+
     details = f"Account deleted by admin {admin_user.email}"
     if reason:
         details += f". Reason: {reason}"
-    
+
     create_admin_audit_log(
         db,
         admin_user_id=admin_user.id,
         target_user_id=target_user_id,
         action_type="delete_account",
-        details=details
+        details=details,
     )
-    
+
     db.delete(target_user)
     db.commit()
     return True

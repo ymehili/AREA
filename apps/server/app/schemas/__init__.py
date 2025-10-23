@@ -8,7 +8,11 @@ from .profile import (
     UserProfileResponse,
     UserProfileUpdate,
 )
-from .services import AutomationOptionSchema, ServiceCatalogResponse, ServiceDefinitionSchema
+from .services import (
+    AutomationOptionSchema,
+    ServiceCatalogResponse,
+    ServiceDefinitionSchema,
+)
 from .simple_services import ServiceListResponse, ServiceSchema
 
 __all__ = [

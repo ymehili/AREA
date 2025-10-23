@@ -55,17 +55,30 @@ def verify_connection(max_attempts: int = 20, delay_seconds: float = 1.0) -> Non
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
             if attempt > 1:
-                logger.info("Database connection established after %d attempt(s)", attempt)
+                logger.info(
+                    "Database connection established after %d attempt(s)", attempt
+                )
             return
         except SQLAlchemyError as exc:
             last_exc = exc
             logger.warning(
-                "Database not ready (attempt %d/%d): %s", attempt, max_attempts, type(exc).__name__
+                "Database not ready (attempt %d/%d): %s",
+                attempt,
+                max_attempts,
+                type(exc).__name__,
             )
             time.sleep(delay_seconds * attempt)  # linear backoff
 
-    logger.error("Database connection verification failed after %d attempts", max_attempts, exc_info=last_exc)
-    raise last_exc if last_exc else RuntimeError("Database connection verification failed")
+    logger.error(
+        "Database connection verification failed after %d attempts",
+        max_attempts,
+        exc_info=last_exc,
+    )
+    raise (
+        last_exc
+        if last_exc
+        else RuntimeError("Database connection verification failed")
+    )
 
 
 __all__ = ["engine", "SessionLocal", "get_db", "get_db_sync", "verify_connection"]

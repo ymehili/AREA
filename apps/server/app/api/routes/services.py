@@ -25,9 +25,7 @@ def list_services() -> ServiceListResponse:
     services = get_service_catalog()
     service_list = [
         ServiceSchema(
-            slug=service.slug,
-            name=service.name,
-            description=service.description
+            slug=service.slug, name=service.name, description=service.description
         )
         for service in services
     ]
@@ -71,7 +69,7 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
                 name=service.name,
                 description=service.description,
                 actions=tuple(filtered_actions),
-                reactions=tuple(filtered_reactions)
+                reactions=tuple(filtered_reactions),
             )
             filtered_services.append(filtered_service)
 

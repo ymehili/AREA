@@ -56,7 +56,9 @@ class GitHubOAuth2Provider(OAuth2Provider):
                 data = response.json()
 
                 if "error" in data:
-                    raise OAuth2TokenExchangeError(f"GitHub OAuth error: {data['error']}")
+                    raise OAuth2TokenExchangeError(
+                        f"GitHub OAuth error: {data['error']}"
+                    )
 
                 return OAuth2TokenSet(
                     access_token=data["access_token"],
@@ -179,11 +181,16 @@ class GitHubOAuth2Provider(OAuth2Provider):
                     logger.info("GitHub token already revoked or invalid")
                     return True
                 # Other HTTP errors are real failures
-                logger.error(f"Failed to revoke GitHub token: HTTP {e.response.status_code}", exc_info=True)
+                logger.error(
+                    f"Failed to revoke GitHub token: HTTP {e.response.status_code}",
+                    exc_info=True,
+                )
                 return False
             except httpx.HTTPError as e:
                 # Network errors or other httpx errors
-                logger.error(f"Network error during GitHub token revocation: {e}", exc_info=True)
+                logger.error(
+                    f"Network error during GitHub token revocation: {e}", exc_info=True
+                )
                 return False
 
 

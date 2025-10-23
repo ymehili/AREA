@@ -9,4 +9,3 @@ __all__ = [
     "require_active_user",
     "require_admin_user",
 ]
-

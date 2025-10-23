@@ -15,21 +15,21 @@ def create_admin_audit_log(
     admin_user_id: UUID,
     target_user_id: UUID,
     action_type: str,
-    details: Optional[str] = None
+    details: Optional[str] = None,
 ) -> AdminAuditLog:
     """Create a new admin audit log entry."""
-    
+
     audit_log = AdminAuditLog(
         admin_user_id=admin_user_id,
         target_user_id=target_user_id,
         action_type=action_type,
         details=details,
     )
-    
+
     db.add(audit_log)
     db.commit()
     db.refresh(audit_log)
-    
+
     return audit_log
 
 

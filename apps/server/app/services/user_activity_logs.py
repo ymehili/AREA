@@ -67,17 +67,17 @@ def log_user_activity_task(
     action_type: str,
     service_name: str | None = None,
     details: str | None = None,
-    status: str = "success"
+    status: str = "success",
 ) -> None:
     """
     Background task to log user activity with retry logic.
-    
+
     This function is designed to be called from background tasks to ensure
     that operations are committed even if activity logging fails.
     """
     from app.db.session import SessionLocal
     from app.schemas.user_activity_log import UserActivityLogCreate
-    
+
     # Create a new database session for this task
     db = SessionLocal()
     try:
@@ -86,14 +86,17 @@ def log_user_activity_task(
             action_type=action_type,
             service_name=service_name,
             details=details,
-            status=status
+            status=status,
         )
         create_user_activity_log(db, activity_log)
     except Exception:
         # Log the error but don't raise it to prevent breaking the main operation
         import logging
+
         logger = logging.getLogger(__name__)
-        logger.error(f"Failed to log activity: {action_type} for user {user_id}", exc_info=True)
+        logger.error(
+            f"Failed to log activity: {action_type} for user {user_id}", exc_info=True
+        )
         # In a production setting, you might want to implement a retry mechanism
         # or use a message queue to handle retries
     finally:
@@ -105,5 +108,5 @@ __all__ = [
     "create_user_activity_log",
     "get_user_activity_log_by_id",
     "get_user_activities",
-    "log_user_activity_task"
+    "log_user_activity_task",
 ]

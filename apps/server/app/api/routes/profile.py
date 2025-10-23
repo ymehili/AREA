@@ -72,11 +72,16 @@ def _get_login_method_status(provider: str, user: User) -> LoginMethodStatus:
                 linked=bool(identifier),
                 identifier=identifier or None,
             )
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unsupported login provider '{provider}'.")
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Unsupported login provider '{provider}'.",
+    )
 
 
 @router.get("/me", response_model=UserProfileResponse)
-def read_profile(current_user: User = Depends(require_active_user)) -> UserProfileResponse:
+def read_profile(
+    current_user: User = Depends(require_active_user),
+) -> UserProfileResponse:
     """Return the authenticated user's profile data."""
 
     return _build_profile(current_user)

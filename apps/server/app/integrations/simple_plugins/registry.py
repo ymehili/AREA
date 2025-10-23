@@ -31,6 +31,7 @@ class PluginsRegistry:
 
         # Delay handler
         from app.integrations.simple_plugins.delay_plugin import delay_handler
+
         self._handlers[("delay", "wait")] = delay_handler
 
         # Gmail handlers
@@ -39,6 +40,7 @@ class PluginsRegistry:
             mark_as_read_handler,
             forward_email_handler,
         )
+
         self._handlers[("gmail", "send_email")] = send_email_handler
         self._handlers[("gmail", "mark_as_read")] = mark_as_read_handler
         self._handlers[("gmail", "forward_email")] = forward_email_handler
@@ -48,6 +50,7 @@ class PluginsRegistry:
             get_current_weather_handler,
             get_forecast_handler,
         )
+
         self._handlers[("weather", "get_current_weather")] = get_current_weather_handler
         self._handlers[("weather", "get_forecast")] = get_forecast_handler
 
@@ -58,6 +61,7 @@ class PluginsRegistry:
             image_generation_handler,
             content_moderation_handler,
         )
+
         self._handlers[("openai", "chat")] = chat_completion_handler
         self._handlers[("openai", "complete_text")] = text_completion_handler
         self._handlers[("openai", "generate_image")] = image_generation_handler
@@ -71,10 +75,13 @@ class PluginsRegistry:
             create_all_day_event_handler,
             quick_add_event_handler,
         )
+
         self._handlers[("google_calendar", "create_event")] = create_event_handler
         self._handlers[("google_calendar", "update_event")] = update_event_handler
         self._handlers[("google_calendar", "delete_event")] = delete_event_handler
-        self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
+        self._handlers[("google_calendar", "create_all_day_event")] = (
+            create_all_day_event_handler
+        )
         self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
 
         # GitHub handlers
@@ -85,6 +92,7 @@ class PluginsRegistry:
             add_label_handler,
             create_branch_handler,
         )
+
         self._handlers[("github", "create_issue")] = create_issue_handler
         self._handlers[("github", "add_comment")] = add_comment_handler
         self._handlers[("github", "close_issue")] = close_issue_handler
@@ -97,6 +105,7 @@ class PluginsRegistry:
             rss_keyword_detected_handler,
             extract_feed_info_handler,
         )
+
         self._handlers[("rss", "new_item")] = rss_new_item_handler
         self._handlers[("rss", "keyword_detected")] = rss_keyword_detected_handler
         self._handlers[("rss", "extract_feed_info")] = extract_feed_info_handler
@@ -127,18 +136,20 @@ class PluginsRegistry:
         message = resolve_variables(message_template, event_with_area)
 
         # Log with structured context including all event data
-        event_summary = {k: v for k, v in event.items() if k in ['now', 'gmail.sender', 'gmail.subject', 'gmail.snippet']}
+        event_summary = {
+            k: v
+            for k, v in event.items()
+            if k in ["now", "gmail.sender", "gmail.subject", "gmail.snippet"]
+        }
 
         logger.info(
             f"area_run area_id={str(area.id)} user_id={str(area.user_id)} "
             f"trigger={area.trigger_service}.{area.trigger_action} "
             f"reaction={area.reaction_service}.{area.reaction_action} "
-            f"now={event.get('now')} message=\"{message}\" event_data={event_summary}"
+            f'now={event.get("now")} message="{message}" event_data={event_summary}'
         )
 
-    def get_reaction_handler(
-        self, service: str, action: str
-    ) -> PluginHandler | None:
+    def get_reaction_handler(self, service: str, action: str) -> PluginHandler | None:
         """Get the reaction handler for a service/action pair.
 
         Args:
@@ -150,9 +161,7 @@ class PluginsRegistry:
         """
         return self._handlers.get((service, action))
 
-    def get_handler(
-        self, service: str, action: str
-    ) -> PluginHandler | None:
+    def get_handler(self, service: str, action: str) -> PluginHandler | None:
         """Get the handler for a service/action pair (for triggers or reactions).
 
         Args:

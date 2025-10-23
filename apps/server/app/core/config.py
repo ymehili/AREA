@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         default=30,
         alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
     )
-    
+
     encryption_key: str = Field(
         default="",
         alias="ENCRYPTION_KEY",
@@ -91,8 +91,7 @@ class Settings(BaseSettings):
         alias="FRONTEND_REDIRECT_URL_WEB",
     )
     frontend_redirect_url_mobile: str = Field(
-        default="areamobile://oauth/callback",
-        alias="FRONTEND_REDIRECT_URL_MOBILE"
+        default="areamobile://oauth/callback", alias="FRONTEND_REDIRECT_URL_MOBILE"
     )
 
     # GitHub OAuth Configuration
@@ -126,7 +125,9 @@ class Settings(BaseSettings):
         description="API key for OpenWeatherMap API (get free key at https://openweathermap.org/api)",
     )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 settings = Settings()

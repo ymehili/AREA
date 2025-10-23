@@ -25,7 +25,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return _pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(*, subject: str, expires_delta: timedelta | None = None, extra_claims: dict[str, Any] | None = None) -> str:
+def create_access_token(
+    *,
+    subject: str,
+    expires_delta: timedelta | None = None,
+    extra_claims: dict[str, Any] | None = None,
+) -> str:
     """Create a signed JWT access token.
 
     Args:
@@ -34,7 +39,9 @@ def create_access_token(*, subject: str, expires_delta: timedelta | None = None,
         extra_claims: Optional additional claims to include in the token payload.
     """
 
-    expire_delta = expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
+    expire_delta = expires_delta or timedelta(
+        minutes=settings.access_token_expire_minutes
+    )
     expire = datetime.now(timezone.utc) + expire_delta
     payload: dict[str, Any] = {"sub": str(subject), "exp": expire}
     if extra_claims:

@@ -52,12 +52,17 @@ def _get_gmail_service(area: Area, db=None):
 
     try:
         # Get service connection for Gmail
-        connection = get_service_connection_by_user_and_service(db, area.user_id, "gmail")
+        connection = get_service_connection_by_user_and_service(
+            db, area.user_id, "gmail"
+        )
         if not connection:
-            raise GmailConnectionError("Gmail service connection not found. Please connect your Gmail account.")
+            raise GmailConnectionError(
+                "Gmail service connection not found. Please connect your Gmail account."
+            )
 
         # Create credentials from stored tokens
         from app.core.encryption import decrypt_token
+
         access_token = decrypt_token(connection.encrypted_access_token)
         refresh_token = None
         if connection.encrypted_refresh_token:
@@ -98,7 +103,7 @@ def _get_gmail_service(area: Area, db=None):
                 raise GmailAuthError("Failed to refresh Gmail token") from refresh_err
 
         # Build Gmail service
-        service = build('gmail', 'v1', credentials=creds)
+        service = build("gmail", "v1", credentials=creds)
         return service
     finally:
         if close_db:
@@ -144,25 +149,27 @@ def send_email_handler(area: Area, params: dict, event: dict) -> None:
 
         # Create MIME message
         message = MIMEMultipart()
-        message['To'] = to_email
-        message['Subject'] = subject
+        message["To"] = to_email
+        message["Subject"] = subject
 
         if cc:
-            message['Cc'] = cc
+            message["Cc"] = cc
         if bcc:
-            message['Bcc'] = bcc
+            message["Bcc"] = bcc
 
         # Add body
-        message.attach(MIMEText(body, 'plain'))
+        message.attach(MIMEText(body, "plain"))
 
         # Encode message
-        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
 
         # Send via Gmail API
-        result = service.users().messages().send(
-            userId='me',
-            body={'raw': raw_message}
-        ).execute()
+        result = (
+            service.users()
+            .messages()
+            .send(userId="me", body={"raw": raw_message})
+            .execute()
+        )
 
         logger.info(
             "Email sent successfully",
@@ -172,12 +179,12 @@ def send_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "to": to_email,
                 "subject": subject,
-                "message_id": result.get('id'),
-                "thread_id": result.get('threadId'),
+                "message_id": result.get("id"),
+                "thread_id": result.get("threadId"),
                 "cc": cc,
                 "bcc": bcc,
                 "body_length": len(body) if body else 0,
-            }
+            },
         )
     except HttpError as e:
         logger.error(
@@ -187,7 +194,7 @@ def send_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise GmailAPIError(f"Failed to send email: {e}") from e
     except Exception as e:
@@ -198,7 +205,7 @@ def send_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -231,17 +238,20 @@ def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
         )
 
         if not message_id:
-            raise ValueError("'message_id' is required to mark email as read. Use {{gmail.message_id}} from trigger.")
+            raise ValueError(
+                "'message_id' is required to mark email as read. Use {{gmail.message_id}} from trigger."
+            )
 
         # Get Gmail service
         service = _get_gmail_service(area)
 
         # Remove UNREAD label
-        result = service.users().messages().modify(
-            userId='me',
-            id=message_id,
-            body={'removeLabelIds': ['UNREAD']}
-        ).execute()
+        result = (
+            service.users()
+            .messages()
+            .modify(userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]})
+            .execute()
+        )
 
         logger.info(
             "Email marked as read successfully",
@@ -250,9 +260,9 @@ def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
                 "area_name": area.name,
                 "user_id": str(area.user_id),
                 "message_id": message_id,
-                "thread_id": result.get('threadId'),
-                "label_ids": result.get('labelIds', []),
-            }
+                "thread_id": result.get("threadId"),
+                "label_ids": result.get("labelIds", []),
+            },
         )
     except HttpError as e:
         logger.error(
@@ -262,7 +272,7 @@ def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise GmailAPIError(f"Failed to mark email as read: {e}") from e
     except Exception as e:
@@ -273,7 +283,7 @@ def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -311,7 +321,9 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
         )
 
         if not message_id:
-            raise ValueError("'message_id' is required to forward email. Use {{gmail.message_id}} from trigger.")
+            raise ValueError(
+                "'message_id' is required to forward email. Use {{gmail.message_id}} from trigger."
+            )
         if not to_email:
             raise ValueError("'to' parameter is required for forward_email action")
 
@@ -319,40 +331,43 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
         service = _get_gmail_service(area)
 
         # Fetch original message
-        original_message = service.users().messages().get(
-            userId='me',
-            id=message_id,
-            format='full'
-        ).execute()
+        original_message = (
+            service.users()
+            .messages()
+            .get(userId="me", id=message_id, format="full")
+            .execute()
+        )
 
         # Extract original subject and body
-        headers = original_message['payload'].get('headers', [])
+        headers = original_message["payload"].get("headers", [])
         original_subject = ""
         original_from = ""
         for header in headers:
-            if header['name'].lower() == 'subject':
-                original_subject = header['value']
-            elif header['name'].lower() == 'from':
-                original_from = header['value']
+            if header["name"].lower() == "subject":
+                original_subject = header["value"]
+            elif header["name"].lower() == "from":
+                original_from = header["value"]
 
         # Get original body (simplified - only gets plain text)
         original_body = ""
-        if 'parts' in original_message['payload']:
-            for part in original_message['payload']['parts']:
-                if part['mimeType'] == 'text/plain':
-                    body_data = part['body'].get('data', '')
+        if "parts" in original_message["payload"]:
+            for part in original_message["payload"]["parts"]:
+                if part["mimeType"] == "text/plain":
+                    body_data = part["body"].get("data", "")
                     if body_data:
-                        original_body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+                        original_body = base64.urlsafe_b64decode(body_data).decode(
+                            "utf-8"
+                        )
                         break
-        elif 'body' in original_message['payload']:
-            body_data = original_message['payload']['body'].get('data', '')
+        elif "body" in original_message["payload"]:
+            body_data = original_message["payload"]["body"].get("data", "")
             if body_data:
-                original_body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+                original_body = base64.urlsafe_b64decode(body_data).decode("utf-8")
 
         # Create forwarded message
         message = MIMEMultipart()
-        message['To'] = to_email
-        message['Subject'] = f"Fwd: {original_subject}"
+        message["To"] = to_email
+        message["Subject"] = f"Fwd: {original_subject}"
 
         # Build forwarded body
         forwarded_body = ""
@@ -364,14 +379,16 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
         forwarded_body += f"Subject: {original_subject}\n\n"
         forwarded_body += original_body
 
-        message.attach(MIMEText(forwarded_body, 'plain'))
+        message.attach(MIMEText(forwarded_body, "plain"))
 
         # Encode and send
-        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
-        result = service.users().messages().send(
-            userId='me',
-            body={'raw': raw_message}
-        ).execute()
+        raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+        result = (
+            service.users()
+            .messages()
+            .send(userId="me", body={"raw": raw_message})
+            .execute()
+        )
 
         logger.info(
             "Email forwarded successfully",
@@ -380,14 +397,14 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
                 "area_name": area.name,
                 "user_id": str(area.user_id),
                 "original_message_id": message_id,
-                "original_thread_id": original_message.get('threadId'),
+                "original_thread_id": original_message.get("threadId"),
                 "to": to_email,
-                "forwarded_message_id": result.get('id'),
-                "forwarded_thread_id": result.get('threadId'),
+                "forwarded_message_id": result.get("id"),
+                "forwarded_thread_id": result.get("threadId"),
                 "comment_length": len(comment) if comment else 0,
                 "original_subject": original_subject,
                 "original_from": original_from,
-            }
+            },
         )
     except HttpError as e:
         logger.error(
@@ -397,7 +414,7 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise GmailAPIError(f"Failed to forward email: {e}") from e
     except Exception as e:
@@ -408,7 +425,7 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 

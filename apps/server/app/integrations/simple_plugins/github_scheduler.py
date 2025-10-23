@@ -131,7 +131,9 @@ async def _fetch_github_events(
     repo_name = trigger_params.get("repo_name")
 
     if not repo_owner or not repo_name:
-        logger.warning(f"Missing repo_owner or repo_name for GitHub trigger: {trigger_action}")
+        logger.warning(
+            f"Missing repo_owner or repo_name for GitHub trigger: {trigger_action}"
+        )
         return []
 
     events = []
@@ -140,82 +142,108 @@ async def _fetch_github_events(
         if trigger_action == "new_issue":
             # Fetch recent issues
             endpoint = f"/repos/{repo_owner}/{repo_name}/issues"
-            params = {"state": "open", "sort": "created", "direction": "desc", "per_page": 10}
-            issues = await _make_github_request("GET", endpoint, access_token, params=params)
+            params = {
+                "state": "open",
+                "sort": "created",
+                "direction": "desc",
+                "per_page": 10,
+            }
+            issues = await _make_github_request(
+                "GET", endpoint, access_token, params=params
+            )
             if issues:
                 for issue in issues:
                     # Filter out pull requests (GitHub API returns PRs as issues)
                     if "pull_request" not in issue:
-                        events.append({
-                            "type": "issues",
-                            "action": "opened",
-                            "id": f"issue_{issue['id']}",
-                            "issue": issue,
-                            "repository": {
-                                "name": repo_name,
-                                "full_name": f"{repo_owner}/{repo_name}",
-                            },
-                            "sender": issue.get("user", {}),
-                        })
+                        events.append(
+                            {
+                                "type": "issues",
+                                "action": "opened",
+                                "id": f"issue_{issue['id']}",
+                                "issue": issue,
+                                "repository": {
+                                    "name": repo_name,
+                                    "full_name": f"{repo_owner}/{repo_name}",
+                                },
+                                "sender": issue.get("user", {}),
+                            }
+                        )
 
         elif trigger_action == "pull_request_opened":
             # Fetch recent pull requests
             endpoint = f"/repos/{repo_owner}/{repo_name}/pulls"
-            params = {"state": "open", "sort": "created", "direction": "desc", "per_page": 10}
-            prs = await _make_github_request("GET", endpoint, access_token, params=params)
+            params = {
+                "state": "open",
+                "sort": "created",
+                "direction": "desc",
+                "per_page": 10,
+            }
+            prs = await _make_github_request(
+                "GET", endpoint, access_token, params=params
+            )
             if prs:
                 for pr in prs:
-                    events.append({
-                        "type": "pull_request",
-                        "action": "opened",
-                        "id": f"pr_{pr['id']}",
-                        "pull_request": pr,
-                        "repository": {
-                            "name": repo_name,
-                            "full_name": f"{repo_owner}/{repo_name}",
-                        },
-                        "sender": pr.get("user", {}),
-                    })
+                    events.append(
+                        {
+                            "type": "pull_request",
+                            "action": "opened",
+                            "id": f"pr_{pr['id']}",
+                            "pull_request": pr,
+                            "repository": {
+                                "name": repo_name,
+                                "full_name": f"{repo_owner}/{repo_name}",
+                            },
+                            "sender": pr.get("user", {}),
+                        }
+                    )
 
         elif trigger_action == "push_to_repository":
             # Fetch recent commits via events API
             endpoint = f"/repos/{repo_owner}/{repo_name}/events"
             params = {"per_page": 10}
-            repo_events = await _make_github_request("GET", endpoint, access_token, params=params)
+            repo_events = await _make_github_request(
+                "GET", endpoint, access_token, params=params
+            )
             if repo_events:
                 for event in repo_events:
                     if event.get("type") == "PushEvent":
-                        events.append({
-                            "type": "push",
-                            "action": "pushed",
-                            "id": event["id"],
-                            "commits": event.get("payload", {}).get("commits", []),
-                            "ref": event.get("payload", {}).get("ref", ""),
-                            "repository": {
-                                "name": repo_name,
-                                "full_name": f"{repo_owner}/{repo_name}",
-                            },
-                            "sender": event.get("actor", {}),
-                        })
+                        events.append(
+                            {
+                                "type": "push",
+                                "action": "pushed",
+                                "id": event["id"],
+                                "commits": event.get("payload", {}).get("commits", []),
+                                "ref": event.get("payload", {}).get("ref", ""),
+                                "repository": {
+                                    "name": repo_name,
+                                    "full_name": f"{repo_owner}/{repo_name}",
+                                },
+                                "sender": event.get("actor", {}),
+                            }
+                        )
 
         elif trigger_action == "release_published":
             # Fetch recent releases
             endpoint = f"/repos/{repo_owner}/{repo_name}/releases"
             params = {"per_page": 10}
-            releases = await _make_github_request("GET", endpoint, access_token, params=params)
+            releases = await _make_github_request(
+                "GET", endpoint, access_token, params=params
+            )
             if releases:
                 for release in releases:
-                    events.append({
-                        "type": "release",
-                        "action": "published",
-                        "id": f"release_{release['id']}",
-                        "release": release,
-                        "repository": {
-                            "name": repo_name,
-                            "full_name": f"{repo_owner}/{repo_name}",
-                        },
-                        "sender": release.get("author", {}),
-                    })
+                    events.append(
+                        {
+                            "type": "release",
+                            "action": "published",
+                            "id": f"release_{release['id']}",
+                            "release": release,
+                            "repository": {
+                                "name": repo_name,
+                                "full_name": f"{repo_owner}/{repo_name}",
+                            },
+                            "sender": release.get("author", {}),
+                        }
+                    )
 
         elif trigger_action == "repository_starred":
             # Fetch stargazers (recent stars)
@@ -227,7 +255,9 @@ async def _fetch_github_events(
             pass
 
     except Exception as e:
-        logger.error(f"Error fetching GitHub events for {trigger_action}: {e}", exc_info=True)
+        logger.error(
+            f"Error fetching GitHub events for {trigger_action}: {e}", exc_info=True
+        )
 
     return events
 
@@ -269,7 +299,9 @@ async def github_scheduler_task() -> None:
                     # Use scoped session for this area's processing
                     with SessionLocal() as db:
                         # Get GitHub access token for user
-                        access_token = await asyncio.to_thread(_get_github_access_token, area.user_id, db)
+                        access_token = await asyncio.to_thread(
+                            _get_github_access_token, area.user_id, db
+                        )
                         if not access_token:
                             logger.warning(
                                 f"GitHub access token not available for area {area_id_str}, skipping"
@@ -285,7 +317,9 @@ async def github_scheduler_task() -> None:
 
                         # On first run for this area, prime the seen set to avoid backlog
                         if len(_last_seen_events[area_id_str]) == 0 and events:
-                            _last_seen_events[area_id_str].update(e["id"] for e in events)
+                            _last_seen_events[area_id_str].update(
+                                e["id"] for e in events
+                            )
                             logger.info(
                                 f"Initialized seen set for area {area_id_str} with {len(events)} event(s)"
                             )
@@ -299,12 +333,13 @@ async def github_scheduler_task() -> None:
                                 "user_id": str(area.user_id),
                                 "events_fetched": len(events),
                                 "trigger_action": area.trigger_action,
-                            }
+                            },
                         )
 
                         # Filter for new events
                         new_events = [
-                            event for event in events
+                            event
+                            for event in events
                             if event["id"] not in _last_seen_events[area_id_str]
                         ]
 
@@ -317,7 +352,7 @@ async def github_scheduler_task() -> None:
                                     "user_id": str(area.user_id),
                                     "new_events_count": len(new_events),
                                     "event_ids": [e["id"] for e in new_events],
-                                }
+                                },
                             )
 
                         # Process each new event
@@ -341,13 +376,17 @@ async def github_scheduler_task() -> None:
             break
 
         except Exception as e:
-            logger.error("GitHub scheduler task error", extra={"error": str(e)}, exc_info=True)
+            logger.error(
+                "GitHub scheduler task error", extra={"error": str(e)}, exc_info=True
+            )
             await asyncio.sleep(30)  # Back off on error
 
     logger.info("GitHub scheduler task stopped")
 
 
-async def _process_github_trigger(db: Session, area: Area, event: dict, now: datetime) -> None:
+async def _process_github_trigger(
+    db: Session, area: Area, event: dict, now: datetime
+) -> None:
     """Process a GitHub trigger event and execute the area.
 
     Args:
@@ -376,7 +415,7 @@ async def _process_github_trigger(db: Session, area: Area, event: dict, now: dat
                     "event_type": event.get("type"),
                     "event_action": event.get("action"),
                 }
-            }
+            },
         )
         execution_log = create_execution_log(db, execution_log_start)
 
@@ -397,7 +436,9 @@ async def _process_github_trigger(db: Session, area: Area, event: dict, now: dat
 
         # Update execution log
         execution_log.status = "Success" if result["status"] == "success" else "Failed"
-        execution_log.output = f"GitHub trigger executed: {result['steps_executed']} step(s)"
+        execution_log.output = (
+            f"GitHub trigger executed: {result['steps_executed']} step(s)"
+        )
         execution_log.error_message = result.get("error")
         execution_log.step_details = {
             "execution_log": result.get("execution_log", []),

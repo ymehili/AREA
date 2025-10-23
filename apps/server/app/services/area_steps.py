@@ -54,7 +54,9 @@ class DuplicateStepOrderError(Exception):
         self.order = order
 
 
-def create_area_step(db: Session, area_id: Union[str, uuid_module.UUID], step_in: AreaStepCreate) -> AreaStep:
+def create_area_step(
+    db: Session, area_id: Union[str, uuid_module.UUID], step_in: AreaStepCreate
+) -> AreaStep:
     """Create a new area step."""
     area_uuid = _ensure_uuid(area_id)
 
@@ -92,15 +94,21 @@ def create_area_step(db: Session, area_id: Union[str, uuid_module.UUID], step_in
     return step
 
 
-def get_steps_by_area(db: Session, area_id: Union[str, uuid_module.UUID]) -> List[AreaStep]:
+def get_steps_by_area(
+    db: Session, area_id: Union[str, uuid_module.UUID]
+) -> List[AreaStep]:
     """Fetch all steps for a specific area, ordered by execution order."""
     area_id = _ensure_uuid(area_id)
-    statement = select(AreaStep).where(AreaStep.area_id == area_id).order_by(AreaStep.order)
+    statement = (
+        select(AreaStep).where(AreaStep.area_id == area_id).order_by(AreaStep.order)
+    )
     result = db.execute(statement)
     return list(result.scalars().all())
 
 
-def get_area_step_by_id(db: Session, step_id: Union[str, uuid_module.UUID]) -> AreaStep | None:
+def get_area_step_by_id(
+    db: Session, step_id: Union[str, uuid_module.UUID]
+) -> AreaStep | None:
     """Fetch an area step by its ID."""
     step_id = _ensure_uuid(step_id)
     statement = select(AreaStep).where(AreaStep.id == step_id)
@@ -108,7 +116,13 @@ def get_area_step_by_id(db: Session, step_id: Union[str, uuid_module.UUID]) -> A
     return result.scalar_one_or_none()
 
 
-def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in: AreaStepUpdate, *, user_id: str) -> AreaStep:
+def update_area_step(
+    db: Session,
+    step_id: Union[str, uuid_module.UUID],
+    step_in: AreaStepUpdate,
+    *,
+    user_id: str,
+) -> AreaStep:
     """Update an existing area step."""
     step = get_area_step_by_id(db, step_id)
     if step is None:
@@ -117,12 +131,13 @@ def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in
     # Verify ownership at DB level to prevent TOCTOU race condition
     area = db.execute(
         select(Area).where(
-            Area.id == step.area_id,
-            Area.user_id == _ensure_uuid(user_id)
+            Area.id == step.area_id, Area.user_id == _ensure_uuid(user_id)
         )
     ).scalar_one_or_none()
     if not area:
-        raise AreaStepNotFoundError(str(step_id))  # Don't reveal the area exists but doesn't belong to user
+        raise AreaStepNotFoundError(
+            str(step_id)
+        )  # Don't reveal the area exists but doesn't belong to user
 
     # Update fields if provided
     if step_in.step_type is not None:
@@ -165,7 +180,9 @@ def update_area_step(db: Session, step_id: Union[str, uuid_module.UUID], step_in
     return step
 
 
-def delete_area_step(db: Session, step_id: Union[str, uuid_module.UUID], *, user_id: str) -> bool:
+def delete_area_step(
+    db: Session, step_id: Union[str, uuid_module.UUID], *, user_id: str
+) -> bool:
     """Delete an area step by its ID."""
     step = get_area_step_by_id(db, step_id)
     if step is None:
@@ -174,8 +191,7 @@ def delete_area_step(db: Session, step_id: Union[str, uuid_module.UUID], *, user
     # Verify ownership at DB level to prevent TOCTOU race condition
     area = db.execute(
         select(Area).where(
-            Area.id == step.area_id,
-            Area.user_id == _ensure_uuid(user_id)
+            Area.id == step.area_id, Area.user_id == _ensure_uuid(user_id)
         )
     ).scalar_one_or_none()
     if not area:
@@ -186,7 +202,11 @@ def delete_area_step(db: Session, step_id: Union[str, uuid_module.UUID], *, user
     return True
 
 
-def reorder_area_steps(db: Session, area_id: Union[str, uuid_module.UUID], step_order: List[Union[str, uuid_module.UUID]]) -> List[AreaStep]:
+def reorder_area_steps(
+    db: Session,
+    area_id: Union[str, uuid_module.UUID],
+    step_order: List[Union[str, uuid_module.UUID]],
+) -> List[AreaStep]:
     """Reorder area steps by providing a list of step IDs in desired order.
 
     Args:
@@ -205,7 +225,7 @@ def reorder_area_steps(db: Session, area_id: Union[str, uuid_module.UUID], step_
 
     # Fetch all steps for the area
     all_area_steps = get_steps_by_area(db, area_id)
-    
+
     # Map step IDs to steps for the ones being reordered
     steps_dict = {s.id: s for s in all_area_steps if s.id in step_ids}
 

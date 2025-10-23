@@ -42,7 +42,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     google_oauth_sub: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     github_oauth_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    microsoft_oauth_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    microsoft_oauth_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
     is_confirmed: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -80,12 +82,10 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    
+
     # Relationship to ServiceConnection
     service_connections: Mapped[List["ServiceConnection"]] = relationship(
-        "ServiceConnection", 
-        back_populates="user",
-        cascade="all, delete-orphan"
+        "ServiceConnection", back_populates="user", cascade="all, delete-orphan"
     )
     email_verification_tokens: Mapped[List["EmailVerificationToken"]] = relationship(
         "EmailVerificationToken",
@@ -94,15 +94,11 @@ class User(Base):
     )
     # Relationship to Area
     areas: Mapped[List["Area"]] = relationship(
-        "Area",
-        back_populates="user",
-        cascade="all, delete-orphan"
+        "Area", back_populates="user", cascade="all, delete-orphan"
     )
     # Relationship to UserActivityLog
     activity_logs: Mapped[List["UserActivityLog"]] = relationship(
-        "UserActivityLog",
-        back_populates="user",
-        cascade="all, delete-orphan"
+        "UserActivityLog", back_populates="user", cascade="all, delete-orphan"
     )
 
 

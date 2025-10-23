@@ -49,12 +49,17 @@ def _get_calendar_service(area: Area, db=None):
 
     try:
         # Get service connection for Google Calendar
-        connection = get_service_connection_by_user_and_service(db, area.user_id, "google_calendar")
+        connection = get_service_connection_by_user_and_service(
+            db, area.user_id, "google_calendar"
+        )
         if not connection:
-            raise CalendarConnectionError("Google Calendar service connection not found. Please connect your Google Calendar account.")
+            raise CalendarConnectionError(
+                "Google Calendar service connection not found. Please connect your Google Calendar account."
+            )
 
         # Create credentials from stored tokens
         from app.core.encryption import decrypt_token
+
         access_token = decrypt_token(connection.encrypted_access_token)
         refresh_token = None
         if connection.encrypted_refresh_token:
@@ -91,10 +96,12 @@ def _get_calendar_service(area: Area, db=None):
                     },
                     exc_info=True,
                 )
-                raise CalendarAuthError("Failed to refresh Google Calendar token") from refresh_err
+                raise CalendarAuthError(
+                    "Failed to refresh Google Calendar token"
+                ) from refresh_err
 
         # Build Calendar service
-        service = build('calendar', 'v3', credentials=creds)
+        service = build("calendar", "v3", credentials=creds)
         return service
     finally:
         if close_db:
@@ -134,7 +141,9 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
         if not title:
             raise ValueError("'title' parameter is required for create_event action")
         if not start_time:
-            raise ValueError("'start_time' parameter is required for create_event action")
+            raise ValueError(
+                "'start_time' parameter is required for create_event action"
+            )
         if not end_time:
             raise ValueError("'end_time' parameter is required for create_event action")
 
@@ -162,7 +171,9 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
             event_body["attendees"] = attendee_list
 
         # Create event
-        result = service.events().insert(calendarId='primary', body=event_body).execute()
+        result = (
+            service.events().insert(calendarId="primary", body=event_body).execute()
+        )
 
         logger.info(
             "Calendar event created successfully",
@@ -170,10 +181,10 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_id": str(area.id),
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "event_id": result.get('id'),
-                "event_link": result.get('htmlLink'),
+                "event_id": result.get("id"),
+                "event_link": result.get("htmlLink"),
                 "title": title,
-            }
+            },
         )
     except HttpError as e:
         logger.error(
@@ -183,7 +194,7 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise CalendarAPIError(f"Failed to create calendar event: {e}") from e
     except Exception as e:
@@ -194,7 +205,7 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -225,13 +236,17 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
         )
 
         if not event_id:
-            raise ValueError("'event_id' is required to update event. Use {{calendar.event_id}} from trigger.")
+            raise ValueError(
+                "'event_id' is required to update event. Use {{calendar.event_id}} from trigger."
+            )
 
         # Get Calendar service
         service = _get_calendar_service(area)
 
         # Fetch existing event
-        existing_event = service.events().get(calendarId='primary', eventId=event_id).execute()
+        existing_event = (
+            service.events().get(calendarId="primary", eventId=event_id).execute()
+        )
 
         # Update fields if provided
         if "title" in params and params["title"]:
@@ -252,11 +267,11 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
             }
 
         # Update event
-        result = service.events().update(
-            calendarId='primary',
-            eventId=event_id,
-            body=existing_event
-        ).execute()
+        result = (
+            service.events()
+            .update(calendarId="primary", eventId=event_id, body=existing_event)
+            .execute()
+        )
 
         logger.info(
             "Calendar event updated successfully",
@@ -265,8 +280,8 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_name": area.name,
                 "user_id": str(area.user_id),
                 "event_id": event_id,
-                "event_link": result.get('htmlLink'),
-            }
+                "event_link": result.get("htmlLink"),
+            },
         )
     except HttpError as e:
         logger.error(
@@ -276,7 +291,7 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise CalendarAPIError(f"Failed to update calendar event: {e}") from e
     except Exception as e:
@@ -287,7 +302,7 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -318,13 +333,15 @@ def delete_event_handler(area: Area, params: dict, event: dict) -> None:
         )
 
         if not event_id:
-            raise ValueError("'event_id' is required to delete event. Use {{calendar.event_id}} from trigger.")
+            raise ValueError(
+                "'event_id' is required to delete event. Use {{calendar.event_id}} from trigger."
+            )
 
         # Get Calendar service
         service = _get_calendar_service(area)
 
         # Delete event
-        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        service.events().delete(calendarId="primary", eventId=event_id).execute()
 
         logger.info(
             "Calendar event deleted successfully",
@@ -333,7 +350,7 @@ def delete_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_name": area.name,
                 "user_id": str(area.user_id),
                 "event_id": event_id,
-            }
+            },
         )
     except HttpError as e:
         logger.error(
@@ -343,7 +360,7 @@ def delete_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise CalendarAPIError(f"Failed to delete calendar event: {e}") from e
     except Exception as e:
@@ -354,7 +371,7 @@ def delete_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -386,9 +403,13 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
         )
 
         if not title:
-            raise ValueError("'title' parameter is required for create_all_day_event action")
+            raise ValueError(
+                "'title' parameter is required for create_all_day_event action"
+            )
         if not date:
-            raise ValueError("'date' parameter is required for create_all_day_event action")
+            raise ValueError(
+                "'date' parameter is required for create_all_day_event action"
+            )
 
         # Get Calendar service
         service = _get_calendar_service(area)
@@ -406,7 +427,9 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
         }
 
         # Create event
-        result = service.events().insert(calendarId='primary', body=event_body).execute()
+        result = (
+            service.events().insert(calendarId="primary", body=event_body).execute()
+        )
 
         logger.info(
             "All-day calendar event created successfully",
@@ -414,11 +437,11 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_id": str(area.id),
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "event_id": result.get('id'),
-                "event_link": result.get('htmlLink'),
+                "event_id": result.get("id"),
+                "event_link": result.get("htmlLink"),
                 "title": title,
                 "date": date,
-            }
+            },
         )
     except HttpError as e:
         logger.error(
@@ -428,7 +451,7 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise CalendarAPIError(f"Failed to create all-day calendar event: {e}") from e
     except Exception as e:
@@ -439,7 +462,7 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 
@@ -474,7 +497,7 @@ def quick_add_event_handler(area: Area, params: dict, event: dict) -> None:
         service = _get_calendar_service(area)
 
         # Quick add event using natural language
-        result = service.events().quickAdd(calendarId='primary', text=text).execute()
+        result = service.events().quickAdd(calendarId="primary", text=text).execute()
 
         logger.info(
             "Calendar event created via quick add",
@@ -482,11 +505,11 @@ def quick_add_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_id": str(area.id),
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "event_id": result.get('id'),
-                "event_link": result.get('htmlLink'),
+                "event_id": result.get("id"),
+                "event_link": result.get("htmlLink"),
                 "text": text,
-                "parsed_summary": result.get('summary'),
-            }
+                "parsed_summary": result.get("summary"),
+            },
         )
     except HttpError as e:
         logger.error(
@@ -496,7 +519,7 @@ def quick_add_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise CalendarAPIError(f"Failed to create event via quick add: {e}") from e
     except Exception as e:
@@ -507,7 +530,7 @@ def quick_add_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "error": str(e),
             },
-            exc_info=True
+            exc_info=True,
         )
         raise
 

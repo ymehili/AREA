@@ -59,9 +59,7 @@ def register_user(
 
 @router.post("/login", response_model=TokenResponse)
 def login_user(
-    background_tasks: BackgroundTasks,
-    payload: UserLogin, 
-    db: Session = Depends(get_db)
+    background_tasks: BackgroundTasks, payload: UserLogin, db: Session = Depends(get_db)
 ) -> TokenResponse:
     """Authenticate a user by email/password and return a JWT token."""
 
@@ -92,7 +90,7 @@ def login_user(
         action_type="user_login",
         details="User successfully logged in to their account",
         service_name="User Account",
-        status="success"
+        status="success",
     )
 
     token = create_access_token(subject=str(user.id))
@@ -110,7 +108,9 @@ def resend_confirmation_email(
     user = get_user_by_email(db, payload.email)
     if user is None:
         # Avoid leaking account existence information.
-        return {"message": "If an account exists for this email, a confirmation has been sent."}
+        return {
+            "message": "If an account exists for this email, a confirmation has been sent."
+        }
 
     if user.is_confirmed:
         raise HTTPException(
@@ -128,7 +128,9 @@ def resend_confirmation_email(
 
 
 @router.get("/confirm")
-def confirm_email(token: str = Query(...), db: Session = Depends(get_db)) -> RedirectResponse:
+def confirm_email(
+    token: str = Query(...), db: Session = Depends(get_db)
+) -> RedirectResponse:
     """Validate a confirmation token and redirect to the configured URL."""
 
     success_url = settings.email_confirmation_success_redirect_url

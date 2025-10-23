@@ -44,6 +44,7 @@ def list_area_execution_logs(
 ) -> List[ExecutionLogResponse]:
     """List all execution logs for a specific area."""
     from uuid import UUID
+
     # First, verify that the area belongs to the current user
     uuid_area_id = UUID(area_id)
     area = db.query(Area).filter(Area.id == uuid_area_id).first()
@@ -52,13 +53,13 @@ def list_area_execution_logs(
             status_code=404,
             detail="Area not found",
         )
-    
+
     if str(area.user_id) != str(current_user.id):
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to access this area's execution logs",
         )
-    
+
     execution_logs = get_execution_logs_by_area(db, str(uuid_area_id))
     return [ExecutionLogResponse.model_validate(log) for log in execution_logs]
 
@@ -75,6 +76,7 @@ def get_execution_log(
 ) -> ExecutionLogResponse:
     """Get a specific execution log by ID."""
     from uuid import UUID
+
     uuid_execution_log_id = UUID(execution_log_id)
     execution_log = get_execution_log_by_id(db, str(uuid_execution_log_id))
     if not execution_log:
@@ -82,14 +84,14 @@ def get_execution_log(
             status_code=404,
             detail="Execution log not found",
         )
-    
+
     # Check if the execution log belongs to an area that belongs to the current user
     if str(execution_log.area.user_id) != str(current_user.id):
         raise HTTPException(
             status_code=403,
             detail="You don't have permission to access this execution log",
         )
-    
+
     return ExecutionLogResponse.model_validate(execution_log)
 
 

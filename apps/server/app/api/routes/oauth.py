@@ -16,38 +16,33 @@ async def oauth_login(provider: str, request: Request):
     # Validate provider
     if provider != "google":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported OAuth provider"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported OAuth provider"
         )
-    
+
     # Delegate to business logic layer
     return await OAuthService.get_google_authorization_url(request)
 
 
 @router.get("/{provider}/callback")
 async def oauth_callback(
-    provider: str,
-    request: Request,
-    db: Session = Depends(get_db)
+    provider: str, request: Request, db: Session = Depends(get_db)
 ):
     """Handle OAuth callback and redirect to frontend with JWT token."""
     # Validate provider
     if provider != "google":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unsupported OAuth provider"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported OAuth provider"
         )
-    
+
     # Get token from business logic layer
     token_response = await OAuthService.handle_google_callback(request, db)
-    
+
     # Handle redirect logic (web-layer concern)
     user_agent = request.headers.get("user-agent", "")
     redirect_url = OAuthService.generate_redirect_url(
-        token_response.access_token,
-        user_agent
+        token_response.access_token, user_agent
     )
-    
+
     return RedirectResponse(url=redirect_url)
 
 

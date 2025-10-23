@@ -105,9 +105,7 @@ class ConditionEvaluator:
             elif operator_name == "endswith":
                 return str(field_value).endswith(str(value))
             else:
-                raise ConditionEvaluationError(
-                    f"Unknown operator: {operator_name}"
-                )
+                raise ConditionEvaluationError(f"Unknown operator: {operator_name}")
         except Exception as e:
             logger.error(
                 "Error evaluating simple condition",
@@ -119,9 +117,7 @@ class ConditionEvaluator:
                 },
                 exc_info=True,
             )
-            raise ConditionEvaluationError(
-                f"Failed to evaluate condition: {e}"
-            ) from e
+            raise ConditionEvaluationError(f"Failed to evaluate condition: {e}") from e
 
     def evaluate_expression(self, expression: str) -> bool:
         """Evaluate a complex expression safely.
@@ -158,9 +154,7 @@ class ConditionEvaluator:
                 extra={"expression": expression, "error": str(e)},
                 exc_info=True,
             )
-            raise ConditionEvaluationError(
-                f"Failed to evaluate expression: {e}"
-            ) from e
+            raise ConditionEvaluationError(f"Failed to evaluate expression: {e}") from e
 
     def _resolve_field(self, field_path: str) -> Any:
         """Resolve a dotted field path from context.
@@ -217,19 +211,30 @@ class ConditionEvaluator:
             ast.BinOp,
             ast.Call,
             # Comparison operators
-            ast.Eq, ast.NotEq, ast.Lt, ast.LtE, ast.Gt, ast.GtE,
+            ast.Eq,
+            ast.NotEq,
+            ast.Lt,
+            ast.LtE,
+            ast.Gt,
+            ast.GtE,
             # Boolean operators
-            ast.And, ast.Or, ast.Not,
+            ast.And,
+            ast.Or,
+            ast.Not,
             # Arithmetic operators
-            ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod,
+            ast.Add,
+            ast.Sub,
+            ast.Mult,
+            ast.Div,
+            ast.Mod,
         ]
 
         # Handle deprecated Num/Str nodes for older Python versions
-        if hasattr(ast, 'Num'):
+        if hasattr(ast, "Num"):
             allowed_nodes.append(ast.Num)
-        if hasattr(ast, 'Str'):
+        if hasattr(ast, "Str"):
             allowed_nodes.append(ast.Str)
-        if hasattr(ast, 'NameConstant'):
+        if hasattr(ast, "NameConstant"):
             allowed_nodes.append(ast.NameConstant)
 
         allowed_nodes_tuple = tuple(allowed_nodes)
@@ -299,11 +304,11 @@ class ConditionEvaluator:
         if isinstance(node, ast.Constant):
             return node.value
         # Handle deprecated nodes for Python < 3.8
-        elif hasattr(ast, 'Num') and isinstance(node, ast.Num):
+        elif hasattr(ast, "Num") and isinstance(node, ast.Num):
             return node.n
-        elif hasattr(ast, 'Str') and isinstance(node, ast.Str):
+        elif hasattr(ast, "Str") and isinstance(node, ast.Str):
             return node.s
-        elif hasattr(ast, 'NameConstant') and isinstance(node, ast.NameConstant):
+        elif hasattr(ast, "NameConstant") and isinstance(node, ast.NameConstant):
             return node.value
         elif isinstance(node, ast.Name):
             # Resolve variable from context
@@ -317,15 +322,11 @@ class ConditionEvaluator:
             value = self._eval_node(node.value)
             if isinstance(value, dict):
                 if node.attr not in value:
-                    raise ConditionEvaluationError(
-                        f"Attribute '{node.attr}' not found"
-                    )
+                    raise ConditionEvaluationError(f"Attribute '{node.attr}' not found")
                 return value[node.attr]
             else:
                 if not hasattr(value, node.attr):
-                    raise ConditionEvaluationError(
-                        f"Attribute '{node.attr}' not found"
-                    )
+                    raise ConditionEvaluationError(f"Attribute '{node.attr}' not found")
                 return getattr(value, node.attr)
         elif isinstance(node, ast.Compare):
             # Evaluate comparison (e.g., a > b)
@@ -447,9 +448,7 @@ def evaluate_condition(
     if condition_type == "simple":
         simple_config = condition_config.get("simple")
         if not simple_config:
-            raise ConditionEvaluationError(
-                "Simple condition configuration missing"
-            )
+            raise ConditionEvaluationError("Simple condition configuration missing")
 
         field = simple_config.get("field")
         operator_name = simple_config.get("operator")
@@ -472,9 +471,7 @@ def evaluate_condition(
         return evaluator.evaluate_expression(expression)
 
     else:
-        raise ConditionEvaluationError(
-            f"Unknown condition type: {condition_type}"
-        )
+        raise ConditionEvaluationError(f"Unknown condition type: {condition_type}")
 
 
 __all__ = [

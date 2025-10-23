@@ -47,7 +47,9 @@ def _get_calendar_service(user_id, db: Session):
         Calendar service object or None if connection not found
     """
     try:
-        connection = get_service_connection_by_user_and_service(db, user_id, "google_calendar")
+        connection = get_service_connection_by_user_and_service(
+            db, user_id, "google_calendar"
+        )
         if not connection:
             return None
 
@@ -87,13 +89,15 @@ def _get_calendar_service(user_id, db: Session):
                 logger.error(f"Failed to refresh Google Calendar token: {refresh_err}")
                 return None
 
-        return build('calendar', 'v3', credentials=creds)
+        return build("calendar", "v3", credentials=creds)
     except Exception as e:
         logger.error(f"Failed to get Google Calendar service: {e}", exc_info=True)
         return None
 
 
-def _fetch_events(service, time_min: str, time_max: str, max_results: int = 50) -> list[dict]:
+def _fetch_events(
+    service, time_min: str, time_max: str, max_results: int = 50
+) -> list[dict]:
     """Fetch events from Google Calendar API.
 
     Args:
@@ -106,16 +110,20 @@ def _fetch_events(service, time_min: str, time_max: str, max_results: int = 50) 
         List of event objects
     """
     try:
-        results = service.events().list(
-            calendarId='primary',
-            timeMin=time_min,
-            timeMax=time_max,
-            maxResults=max_results,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
+        results = (
+            service.events()
+            .list(
+                calendarId="primary",
+                timeMin=time_min,
+                timeMax=time_max,
+                maxResults=max_results,
+                singleEvents=True,
+                orderBy="startTime",
+            )
+            .execute()
+        )
 
-        return results.get('items', [])
+        return results.get("items", [])
     except RefreshError:
         # Token expired/revoked - already logged in _get_calendar_service
         return []
@@ -133,32 +141,33 @@ def _extract_event_data(event: dict) -> dict:
     Returns:
         Dictionary with extracted event data
     """
-    start = event.get('start', {})
-    end = event.get('end', {})
+    start = event.get("start", {})
+    end = event.get("end", {})
 
     # Handle both dateTime (timed events) and date (all-day events)
-    start_time = start.get('dateTime') or start.get('date')
-    end_time = end.get('dateTime') or end.get('date')
+    start_time = start.get("dateTime") or start.get("date")
+    end_time = end.get("dateTime") or end.get("date")
 
     # Extract attendees
-    attendees = event.get('attendees', [])
-    attendee_emails = [att.get('email', '') for att in attendees]
+    attendees = event.get("attendees", [])
+    attendee_emails = [att.get("email", "") for att in attendees]
 
     return {
-        'id': event.get('id'),
-        'summary': event.get('summary', ''),
-        'description': event.get('description', ''),
-        'location': event.get('location', ''),
-        'start_time': start_time,
-        'end_time': end_time,
-        'timezone': start.get('timeZone', 'UTC'),
-        'attendees': attendee_emails,
-        'organizer': event.get('organizer', {}).get('email', ''),
-        'status': event.get('status', ''),
-        'html_link': event.get('htmlLink', ''),
-        'created': event.get('created', ''),
-        'updated': event.get('updated', ''),
-        'is_all_day': 'date' in start,  # All-day events use 'date' instead of 'dateTime'
+        "id": event.get("id"),
+        "summary": event.get("summary", ""),
+        "description": event.get("description", ""),
+        "location": event.get("location", ""),
+        "start_time": start_time,
+        "end_time": end_time,
+        "timezone": start.get("timeZone", "UTC"),
+        "attendees": attendee_emails,
+        "organizer": event.get("organizer", {}).get("email", ""),
+        "status": event.get("status", ""),
+        "html_link": event.get("htmlLink", ""),
+        "created": event.get("created", ""),
+        "updated": event.get("updated", ""),
+        "is_all_day": "date"
+        in start,  # All-day events use 'date' instead of 'dateTime'
     }
 
 
@@ -219,7 +228,9 @@ async def calendar_scheduler_task() -> None:
                     # Use scoped session for this area's processing
                     with SessionLocal() as db:
                         # Get Calendar service for user
-                        service = await asyncio.to_thread(_get_calendar_service, area.user_id, db)
+                        service = await asyncio.to_thread(
+                            _get_calendar_service, area.user_id, db
+                        )
                         if not service:
                             logger.warning(
                                 f"Calendar service not available for area {area_id_str}, skipping"
@@ -234,7 +245,9 @@ async def calendar_scheduler_task() -> None:
 
                         # On first run for this area, prime the seen set to avoid backlog
                         if len(_last_seen_events[area_id_str]) == 0:
-                            _last_seen_events[area_id_str].update(e['id'] for e in events)
+                            _last_seen_events[area_id_str].update(
+                                e["id"] for e in events
+                            )
                             logger.info(
                                 f"Initialized seen set for area {area_id_str} with {len(events)} event(s)"
                             )
@@ -242,8 +255,9 @@ async def calendar_scheduler_task() -> None:
 
                         # Filter for new events
                         new_events = [
-                            evt for evt in events
-                            if evt['id'] not in _last_seen_events[area_id_str]
+                            evt
+                            for evt in events
+                            if evt["id"] not in _last_seen_events[area_id_str]
                         ]
 
                         if new_events:
@@ -254,15 +268,15 @@ async def calendar_scheduler_task() -> None:
                                     "area_name": area.name,
                                     "user_id": str(area.user_id),
                                     "new_events_count": len(new_events),
-                                    "event_ids": [e['id'] for e in new_events],
-                                }
+                                    "event_ids": [e["id"] for e in new_events],
+                                },
                             )
 
                         # Process each new event
                         for cal_event in new_events:
                             await _process_calendar_trigger(db, area, cal_event, now)
                             # Mark as seen
-                            _last_seen_events[area_id_str].add(cal_event['id'])
+                            _last_seen_events[area_id_str].add(cal_event["id"])
 
                 except RefreshError:
                     # Token expired/revoked - show clean warning
@@ -285,7 +299,9 @@ async def calendar_scheduler_task() -> None:
             break
 
         except Exception as e:
-            logger.error("Calendar scheduler task error", extra={"error": str(e)}, exc_info=True)
+            logger.error(
+                "Calendar scheduler task error", extra={"error": str(e)}, exc_info=True
+            )
             await asyncio.sleep(30)  # Back off on error
 
     logger.info("Calendar scheduler task stopped")
@@ -322,7 +338,9 @@ async def _fetch_events_for_trigger(service, area: Area, now: datetime) -> list[
     return []
 
 
-async def _process_calendar_trigger(db: Session, area: Area, cal_event: dict, now: datetime) -> None:
+async def _process_calendar_trigger(
+    db: Session, area: Area, cal_event: dict, now: datetime
+) -> None:
     """Process a Calendar trigger event and execute the area.
 
     Args:
@@ -351,10 +369,10 @@ async def _process_calendar_trigger(db: Session, area: Area, cal_event: dict, no
                     "now": now.isoformat(),
                     "area_id": area_id_str,
                     "user_id": str(area.user_id),
-                    "event_id": event_data.get('id'),
-                    "summary": event_data.get('summary'),
+                    "event_id": event_data.get("id"),
+                    "summary": event_data.get("summary"),
                 }
-            }
+            },
         )
         execution_log = create_execution_log(db, execution_log_start)
 
@@ -375,12 +393,14 @@ async def _process_calendar_trigger(db: Session, area: Area, cal_event: dict, no
 
         # Update execution log
         execution_log.status = "Success" if result["status"] == "success" else "Failed"
-        execution_log.output = f"Calendar trigger executed: {result['steps_executed']} step(s)"
+        execution_log.output = (
+            f"Calendar trigger executed: {result['steps_executed']} step(s)"
+        )
         execution_log.error_message = result.get("error")
         execution_log.step_details = {
             "execution_log": result.get("execution_log", []),
             "steps_executed": result["steps_executed"],
-            "event_id": event_data.get('id'),
+            "event_id": event_data.get("id"),
         }
         db.commit()
 
@@ -390,9 +410,9 @@ async def _process_calendar_trigger(db: Session, area: Area, cal_event: dict, no
                 "area_id": area_id_str,
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "event_id": event_data.get('id'),
-                "summary": event_data.get('summary'),
-                "start_time": event_data.get('start_time'),
+                "event_id": event_data.get("id"),
+                "summary": event_data.get("summary"),
+                "start_time": event_data.get("start_time"),
                 "status": result["status"],
                 "steps_executed": result.get("steps_executed", 0),
             },

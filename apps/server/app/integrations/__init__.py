@@ -15,4 +15,3 @@ __all__ = [
     "get_service_catalog",
     "service_catalog_payload",
 ]
-

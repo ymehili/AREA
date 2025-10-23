@@ -118,14 +118,18 @@ async def scheduler_task() -> None:
                                         "user_id": str(area.user_id),
                                         "tick": True,
                                     }
-                                }
+                                },
                             )
-                            execution_log = create_execution_log(db, execution_log_start)
+                            execution_log = create_execution_log(
+                                db, execution_log_start
+                            )
 
                             # Get configured interval for logging
                             interval_seconds = 60
                             if area.trigger_params:
-                                interval_seconds = area.trigger_params.get("interval_seconds", 60)
+                                interval_seconds = area.trigger_params.get(
+                                    "interval_seconds", 60
+                                )
 
                             # Assemble trigger event data with datetime context
                             trigger_data = {
@@ -151,8 +155,14 @@ async def scheduler_task() -> None:
                                 _last_run_by_area_id[area_id_str] = now
 
                                 # Update execution log based on result
-                                execution_log.status = "Success" if result["status"] == "success" else "Failed"
-                                execution_log.output = f"Executed {result['steps_executed']} step(s)"
+                                execution_log.status = (
+                                    "Success"
+                                    if result["status"] == "success"
+                                    else "Failed"
+                                )
+                                execution_log.output = (
+                                    f"Executed {result['steps_executed']} step(s)"
+                                )
                                 execution_log.error_message = result.get("error")
                                 execution_log.step_details = {
                                     "execution_log": result.get("execution_log", []),

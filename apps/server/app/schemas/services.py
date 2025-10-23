@@ -39,7 +39,9 @@ class ServiceCatalogResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     @classmethod
-    def from_catalog(cls, services: Sequence[ServiceIntegration]) -> "ServiceCatalogResponse":
+    def from_catalog(
+        cls, services: Sequence[ServiceIntegration]
+    ) -> "ServiceCatalogResponse":
         """Build a schema response from catalog dataclasses."""
 
         service_payload = [
@@ -66,4 +68,3 @@ __all__ = [
     "ServiceDefinitionSchema",
     "ServiceCatalogResponse",
 ]
-

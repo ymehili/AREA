@@ -55,7 +55,9 @@ class GmailOAuth2Provider(OAuth2Provider):
                 data = response.json()
 
                 if "error" in data:
-                    raise OAuth2TokenExchangeError(f"Gmail OAuth error: {data['error']}")
+                    raise OAuth2TokenExchangeError(
+                        f"Gmail OAuth error: {data['error']}"
+                    )
 
                 return OAuth2TokenSet(
                     access_token=data["access_token"],
@@ -87,7 +89,9 @@ class GmailOAuth2Provider(OAuth2Provider):
                 data = response.json()
 
                 if "error" in data:
-                    raise OAuth2RefreshError(f"Gmail token refresh error: {data['error']}")
+                    raise OAuth2RefreshError(
+                        f"Gmail token refresh error: {data['error']}"
+                    )
 
                 return OAuth2TokenSet(
                     access_token=data["access_token"],

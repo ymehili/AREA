@@ -14,16 +14,16 @@ class ApiKeyConnectionBase(BaseModel):
 
 class ApiKeyConnectionCreateRequest(BaseModel):
     """Schema for API key creation request - doesn't require service_name since it comes from path parameter.
-    
+
     Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
     """
-    
+
     api_key: str = Field(..., min_length=1)
 
 
 class ApiKeyConnectionCreate(ApiKeyConnectionBase):
     """Schema for creating a new API key connection.
-    
+
     Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
     """
 
@@ -32,7 +32,7 @@ class ApiKeyConnectionCreate(ApiKeyConnectionBase):
 
 class ApiKeyConnectionUpdate(ApiKeyConnectionBase):
     """Schema for updating an existing API key connection.
-    
+
     Note: Service-specific validation (format, actual API validation) is done in the endpoint handler.
     """
 

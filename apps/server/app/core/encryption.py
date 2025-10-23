@@ -13,22 +13,27 @@ from app.core.config import settings
 def get_encryption_key() -> bytes:
     """Resolve the configured Fernet key, validating it is usable."""
 
-    key: str | bytes | None = os.environ.get("ENCRYPTION_KEY") or settings.encryption_key
+    key: str | bytes | None = (
+        os.environ.get("ENCRYPTION_KEY") or settings.encryption_key
+    )
     if not key:
-        raise RuntimeError("ENCRYPTION_KEY environment variable or setting must be configured")
+        raise RuntimeError(
+            "ENCRYPTION_KEY environment variable or setting must be configured"
+        )
 
     key_bytes = key.encode("utf-8") if isinstance(key, str) else key
 
     try:
         decoded = base64.urlsafe_b64decode(key_bytes)
     except (ValueError, TypeError) as exc:
-        raise ValueError("ENCRYPTION_KEY must be a 32-byte url-safe base64 string") from exc
+        raise ValueError(
+            "ENCRYPTION_KEY must be a 32-byte url-safe base64 string"
+        ) from exc
 
     if len(decoded) != 32:
         raise ValueError("ENCRYPTION_KEY must decode to exactly 32 bytes for Fernet")
 
     return key_bytes
-
 
 
 @lru_cache(maxsize=1)

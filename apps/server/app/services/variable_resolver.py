@@ -13,15 +13,15 @@ from app.integrations.variable_extractor import (
 
 def extract_variables_from_trigger_data(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
     """Extract key-value pairs from trigger event data.
-    
+
     Args:
         trigger_data: Dictionary containing trigger event data
-        
+
     Returns:
         Dictionary mapping variable names to their values
     """
     variables = {}
-    
+
     def _extract_recursive(data, prefix=""):
         """Recursively extract key-value pairs from nested data."""
         if isinstance(data, dict):
@@ -35,24 +35,27 @@ def extract_variables_from_trigger_data(trigger_data: Dict[str, Any]) -> Dict[st
         else:
             # Add the variable with its path as key
             variables[prefix] = data
-    
+
     _extract_recursive(trigger_data)
     return variables
 
 
-def substitute_variables_in_params(params: Dict[str, Any], variables: Dict[str, Any]) -> Dict[str, Any]:
+def substitute_variables_in_params(
+    params: Dict[str, Any], variables: Dict[str, Any]
+) -> Dict[str, Any]:
     """Replace {{variable}} placeholders with actual values in parameters.
-    
+
     Args:
         params: Dictionary containing parameters that may have variable placeholders
         variables: Dictionary of available variables to substitute
-        
+
     Returns:
         Dictionary with variables substituted
     """
     import copy
+
     result = copy.deepcopy(params)
-    
+
     def _substitute_recursive(obj):
         """Recursively substitute variables in nested objects."""
         if isinstance(obj, str):
@@ -64,7 +67,7 @@ def substitute_variables_in_params(params: Dict[str, Any], variables: Dict[str, 
                     # Replace the variable with its value
                     # Handle different value types appropriately
                     var_value = variables[match]
-                    
+
                     # If it's the entire string, replace with the actual value (not string)
                     if obj == f"{{{{{match}}}}}":
                         return var_value
@@ -78,7 +81,7 @@ def substitute_variables_in_params(params: Dict[str, Any], variables: Dict[str, 
             return [_substitute_recursive(item) for item in obj]
         else:
             return obj
-    
+
     return _substitute_recursive(result)
 
 
@@ -109,13 +112,14 @@ def resolve_variables(template: str, variables: Dict[str, Any]) -> str:
 
     return re.sub(pattern, replace, template)
 
+
 def get_available_variables_for_service(service_id: str, action_id: str) -> List[str]:
     """Get list of variables available for a service/action.
-    
+
     Args:
         service_id: ID of the service
         action_id: ID of the action
-        
+
     Returns:
         List of available variable names
     """
@@ -127,9 +131,9 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
         "utc.isoformat",
         "trigger",
         "user.id",
-        "area.id"
+        "area.id",
     ]
-    
+
     # Add service-specific variables based on the service
     service_specific = {
         "gmail": [
@@ -137,7 +141,7 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "gmail.subject",
             "gmail.body",
             "gmail.attachments",
-            "gmail.timestamp"
+            "gmail.timestamp",
         ],
         "google_drive": [
             "drive.file_id",
@@ -146,7 +150,7 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "drive.mime_type",
             "drive.owner",
             "drive.created_time",
-            "drive.modified_time"
+            "drive.modified_time",
         ],
         "github": [
             "github.repo",
@@ -156,7 +160,7 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "github.issue_body",
             "github.issue_author",
             "github.pull_request_number",
-            "github.pull_request_title"
+            "github.pull_request_title",
         ],
         "rss": [
             "rss.title",
@@ -170,34 +174,36 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "rss.feed_url",
             "rss.feed_description",
             "rss.matched_keywords",
-            "rss.keyword_match_count"
-        ]
+            "rss.keyword_match_count",
+        ],
     }
-    
+
     variables = common_variables[:]
     if service_id in service_specific:
         variables.extend(service_specific[service_id])
-    
+
     return variables
 
 
-def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str) -> Dict[str, Any]:
+def extract_variables_by_service(
+    trigger_data: Dict[str, Any], service_type: str
+) -> Dict[str, Any]:
     """Extract variables using service-specific extractor based on service type.
-    
+
     Args:
         trigger_data: Dictionary containing trigger event data
         service_type: Type of service (e.g., 'gmail', 'google_drive', 'github')
-        
+
     Returns:
         Dictionary mapping variable names to their values
     """
     # If trigger_data already contains namespaced variables (e.g., "gmail.subject"),
     # pass them through directly. This happens when the trigger populated flat variables.
-    if any(isinstance(k, str) and '.' in k for k in trigger_data.keys()):
+    if any(isinstance(k, str) and "." in k for k in trigger_data.keys()):
         # Only include primitive or JSON-serializable values
         result: Dict[str, Any] = {}
         for k, v in trigger_data.items():
-            if isinstance(k, str) and '.' in k:
+            if isinstance(k, str) and "." in k:
                 result[k] = v
         # Also pass common fields if present
         for k in ("now", "timestamp", "area_id", "user_id"):
@@ -207,12 +213,12 @@ def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str
 
     # Map service types to their specific extractors
     service_extractors = {
-        'gmail': extract_gmail_variables,
-        'google_drive': extract_google_drive_variables,
-        'github': extract_github_variables,
-        'rss': extract_rss_variables
+        "gmail": extract_gmail_variables,
+        "google_drive": extract_google_drive_variables,
+        "github": extract_github_variables,
+        "rss": extract_rss_variables,
     }
-    
+
     # Use service-specific extractor if available, otherwise use generic one
     if service_type in service_extractors:
         return service_extractors[service_type](trigger_data)

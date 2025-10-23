@@ -6,7 +6,15 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import DateTime, String, Integer, ForeignKey, Index, UniqueConstraint, func
+from sqlalchemy import (
+    DateTime,
+    String,
+    Integer,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

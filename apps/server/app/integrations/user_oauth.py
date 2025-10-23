@@ -20,21 +20,21 @@ from app.schemas.user_activity_log import UserActivityLogCreate
 
 class OAuthService:
     """Service for handling OAuth authentication flows."""
-    
+
     _oauth_client: Optional[OAuth] = None
-    
+
     @classmethod
     def _get_oauth_client(cls) -> OAuth:
         """Get or create OAuth client instance. Factory method for testability."""
         if cls._oauth_client is None:
             cls._oauth_client = cls._create_oauth_client()
         return cls._oauth_client
-    
+
     @classmethod
     def _create_oauth_client(cls) -> OAuth:
         """Create and configure OAuth client."""
         oauth = OAuth()
-        
+
         # Register Google OAuth provider only if configured
         if settings.google_client_id and settings.google_client_secret:
             oauth.register(
@@ -42,38 +42,34 @@ class OAuthService:
                 client_id=settings.google_client_id,
                 client_secret=settings.google_client_secret,
                 server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-                client_kwargs={
-                    "scope": "openid email profile"
-                },
+                client_kwargs={"scope": "openid email profile"},
                 # Explicitly configure the token endpoint
                 token_endpoint="https://oauth2.googleapis.com/token",
                 # Add timeout to prevent hanging connections
-                kwargs={
-                    "timeout": 30
-                }
+                kwargs={"timeout": 30},
             )
-        
+
         return oauth
-    
+
     @classmethod
     def _reset_oauth_client(cls) -> None:
         """Reset OAuth client. Used for testing."""
         cls._oauth_client = None
-    
+
     @staticmethod
     def is_oauth_configured() -> bool:
         """Check if OAuth is properly configured."""
         return bool(settings.google_client_id and settings.google_client_secret)
-    
+
     @classmethod
     async def get_google_authorization_url(cls, request: Request) -> RedirectResponse:
         """Get Google OAuth authorization URL and redirect response."""
         if not cls.is_oauth_configured():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="OAuth is not properly configured"
+                detail="OAuth is not properly configured",
             )
-        
+
         try:
             oauth = cls._get_oauth_client()
             redirect_uri = f"{settings.oauth_redirect_base_url}/google/callback"
@@ -81,66 +77,69 @@ class OAuthService:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to initiate OAuth: {str(e)}"
+                detail=f"Failed to initiate OAuth: {str(e)}",
             )
-    
+
     @classmethod
-    async def handle_google_callback(cls, request: Request, db: Session) -> TokenResponse:
+    async def handle_google_callback(
+        cls, request: Request, db: Session
+    ) -> TokenResponse:
         """Handle Google OAuth callback and create/access user."""
         if not cls.is_oauth_configured():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="OAuth is not properly configured"
+                detail="OAuth is not properly configured",
             )
-        
+
         try:
             oauth = cls._get_oauth_client()
-            
+
             # Get user info from Google
             token = await oauth.google.authorize_access_token(request)
             user_info = token.get("userinfo")
-            
+
             if not user_info:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Unable to retrieve user information from Google"
+                    detail="Unable to retrieve user information from Google",
                 )
-            
+
             email = user_info.get("email")
             google_sub = user_info.get("sub")  # Google's unique user identifier
-            
+
             if not email or not google_sub:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email or Google ID not provided"
+                    detail="Email or Google ID not provided",
                 )
-            
+
             # Find or create user
             user = cls._find_or_create_google_user(db, email, google_sub)
-            
+
             # Create access token
             access_token = create_access_token(subject=str(user.id))
             return TokenResponse(access_token=access_token)
-            
+
         except HTTPException:
             # Re-raise HTTP exceptions as-is
             raise
         except Exception as e:
             # Log the full exception for debugging
             import traceback
+
             print(f"OAuth authentication error: {str(e)}")
             print(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"OAuth authentication failed: {str(e)}"
+                detail=f"OAuth authentication failed: {str(e)}",
             )
-    
+
     @staticmethod
     def _find_or_create_google_user(db: Session, email: str, google_sub: str) -> User:
         """Find existing user or create new one from Google OAuth data."""
         # Check if user exists with this Google sub
         user = db.query(User).filter(User.google_oauth_sub == google_sub).first()
-        
+
         # If not found by Google sub, check by email
         if not user:
             user = get_user_by_email(db, email)
@@ -154,16 +153,19 @@ class OAuthService:
                 # Create new user by calling the create_user function but using a workaround
                 # Since OAuth users don't have passwords, we'll handle this differently
                 from app.schemas.auth import UserCreate
+
                 # Temporarily use a mock password - we'll overwrite it after creation
                 user_in = UserCreate(
                     email=email,
-                    password="oauth_temp_password"  # This will be overwritten with empty string
+                    password="oauth_temp_password",  # This will be overwritten with empty string
                     # Note: full_name is not a field in UserCreate schema, so not passing it
                 )
-                
+
                 # Create the user using the service function
-                user = create_user(db, user_in, send_email=False)  # Don't send confirmation email for OAuth users
-                
+                user = create_user(
+                    db, user_in, send_email=False
+                )  # Don't send confirmation email for OAuth users
+
                 # Update the user to set OAuth-specific fields
                 user.hashed_password = ""  # Remove password for OAuth users
                 user.google_oauth_sub = google_sub
@@ -171,7 +173,7 @@ class OAuthService:
                 db.add(user)  # SQLAlchemy needs to track this change
                 db.commit()
                 db.refresh(user)
-        
+
         # Log successful OAuth login activity in a resilient way
         # Using try-except to ensure the main operation continues even if logging fails
         try:
@@ -180,18 +182,21 @@ class OAuthService:
                 action_type="user_login",
                 details="User successfully logged in via Google OAuth",
                 service_name="Google OAuth",
-                status="success"
+                status="success",
             )
             create_user_activity_log(db, activity_log)
         except Exception:
             # Log the error but don't raise it to prevent breaking the main operation
             import logging
+
             logger = logging.getLogger(__name__)
-            logger.error(f"Failed to log OAuth login activity for user {user.id}", exc_info=True)
+            logger.error(
+                f"Failed to log OAuth login activity for user {user.id}", exc_info=True
+            )
             # In a production setting, this could be added to a message queue for retry
-        
+
         return user
-    
+
     @staticmethod
     def generate_redirect_url(access_token: str, user_agent: str) -> str:
         """Generate appropriate redirect URL based on client type (user agent detection)."""
@@ -200,14 +205,15 @@ class OAuthService:
         # Detect if this is a mobile app based ONLY on user agent
         # Common mobile user agent indicators
         is_mobile = (
-            "mobile" in user_agent_lower or
-            "android" in user_agent_lower or
-            "iphone" in user_agent_lower or
-            "ipad" in user_agent_lower or
-            "ipod" in user_agent_lower or
+            "mobile" in user_agent_lower
+            or "android" in user_agent_lower
+            or "iphone" in user_agent_lower
+            or "ipad" in user_agent_lower
+            or "ipod" in user_agent_lower
+            or
             # React Native / Expo user agent patterns
-            "expo" in user_agent_lower or
-            "reactnative" in user_agent_lower
+            "expo" in user_agent_lower
+            or "reactnative" in user_agent_lower
         )
 
         # For mobile apps, redirect to mobile URL (may be custom scheme or http/https)
@@ -218,13 +224,14 @@ class OAuthService:
             if not mobile_path or mobile_path == "/":
                 mobile_path = "/oauth/callback"
 
-            query_params = dict(parse_qsl(parsed_mobile_url.query, keep_blank_values=True))
+            query_params = dict(
+                parse_qsl(parsed_mobile_url.query, keep_blank_values=True)
+            )
             query_params["access_token"] = access_token
 
             mobile_redirect_url = urlunparse(
                 parsed_mobile_url._replace(
-                    path=mobile_path,
-                    query=urlencode(query_params)
+                    path=mobile_path, query=urlencode(query_params)
                 )
             )
 
@@ -234,7 +241,9 @@ class OAuthService:
 
         # For web apps, use URL hash
         print(f"Web app detected (User-Agent: {user_agent})")
-        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
+        print(
+            f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}"
+        )
         return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
 
 

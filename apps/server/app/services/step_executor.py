@@ -129,11 +129,9 @@ class StepExecutor:
         self._execute_step(trigger_step)
 
         # Determine overall status
-        has_errors = any(
-            log.get("status") == "failed" for log in self.execution_log
-        )
+        has_errors = any(log.get("status") == "failed" for log in self.execution_log)
         status = "failed" if has_errors else "success"
-        
+
         # Log area execution summary
         logger.info(
             "Area execution completed",
@@ -143,7 +141,9 @@ class StepExecutor:
                 "user_id": str(self.area.user_id),
                 "status": status,
                 "steps_executed": len(self.execution_log),
-                "steps_failed": len([log for log in self.execution_log if log.get("status") == "failed"]),
+                "steps_failed": len(
+                    [log for log in self.execution_log if log.get("status") == "failed"]
+                ),
                 "execution_log": self.execution_log,
             },
         )
@@ -190,7 +190,7 @@ class StepExecutor:
                 step_log["status"] = "success"
                 step_log["output"] = "Trigger activated"
                 self.execution_log.append(step_log)
-                
+
                 logger.info(
                     "Trigger step executed successfully",
                     extra={
@@ -265,9 +265,7 @@ class StepExecutor:
             )
             return False
 
-    def _execute_condition_step(
-        self, step: AreaStep, step_log: Dict[str, Any]
-    ) -> bool:
+    def _execute_condition_step(self, step: AreaStep, step_log: Dict[str, Any]) -> bool:
         """Execute a condition step and branch based on result.
 
         Args:
@@ -323,9 +321,7 @@ class StepExecutor:
             )
             return False
 
-    def _execute_action_step(
-        self, step: AreaStep, step_log: Dict[str, Any]
-    ) -> bool:
+    def _execute_action_step(self, step: AreaStep, step_log: Dict[str, Any]) -> bool:
         """Execute an action or reaction step.
 
         Args:
@@ -337,15 +333,11 @@ class StepExecutor:
         """
         try:
             # Get handler for this action
-            handler = self.registry.get_reaction_handler(
-                step.service, step.action
-            )
+            handler = self.registry.get_reaction_handler(step.service, step.action)
 
             if not handler:
                 step_log["status"] = "failed"
-                step_log[
-                    "error"
-                ] = f"No handler found for {step.service}.{step.action}"
+                step_log["error"] = f"No handler found for {step.service}.{step.action}"
                 self.execution_log.append(step_log)
                 logger.warning(
                     "No handler found for action",
@@ -362,13 +354,19 @@ class StepExecutor:
             params = step.config or {}
 
             # Import variable resolver and substitute variables
-            from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
-            trigger_data = self.execution_context.get('trigger', {})
+            from app.services.variable_resolver import (
+                substitute_variables_in_params,
+                extract_variables_by_service,
+            )
+
+            trigger_data = self.execution_context.get("trigger", {})
 
             # Use service-specific extractor based on trigger service, not action service
             # The trigger data should be parsed according to the trigger service type
             trigger_service = self.area.trigger_service
-            variables_from_context = extract_variables_by_service(trigger_data, trigger_service)
+            variables_from_context = extract_variables_by_service(
+                trigger_data, trigger_service
+            )
 
             params = substitute_variables_in_params(params, variables_from_context)
 
@@ -387,7 +385,7 @@ class StepExecutor:
             # Execute handler - it may modify trigger_data (e.g., weather adds weather_data)
             # Check if handler accepts db parameter and pass it
             sig = inspect.signature(handler)
-            handler_accepts_db = 'db' in sig.parameters
+            handler_accepts_db = "db" in sig.parameters
 
             if handler_accepts_db:
                 result = handler(self.area, params, trigger_data, db=self.db)
@@ -405,6 +403,7 @@ class StepExecutor:
                     # We're in an async context, but execute_area is sync
                     # We need to run the coroutine in a thread pool
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(asyncio.run, result)
                         result = future.result()
@@ -415,7 +414,7 @@ class StepExecutor:
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
             step_log["params_used"] = params
-            
+
             # If this is a weather action, include weather data in the log
             # Check after handler execution as the handler adds this data
             if step.service == "weather":
@@ -426,12 +425,15 @@ class StepExecutor:
                         "step_id": str(step.id),
                         "trigger_data_keys": list(trigger_data.keys()),
                         "has_weather_data": "weather_data" in trigger_data,
-                    }
+                    },
                 )
                 if "weather_data" in trigger_data:
                     step_log["weather_data"] = trigger_data["weather_data"]
-                    logger.info("Weather data added to step log", extra={"weather_data": trigger_data["weather_data"]})
-            
+                    logger.info(
+                        "Weather data added to step log",
+                        extra={"weather_data": trigger_data["weather_data"]},
+                    )
+
             # If this is an openai action, include openai data in the log
             # Check after handler execution as the handler adds this data
             if step.service == "openai":
@@ -442,15 +444,18 @@ class StepExecutor:
                         "step_id": str(step.id),
                         "trigger_data_keys": list(trigger_data.keys()),
                         "has_openai_data": "openai_data" in trigger_data,
-                    }
+                    },
                 )
                 if "openai_data" in trigger_data:
                     step_log["openai_data"] = trigger_data["openai_data"]
                     # Also update the output to show the actual response
                     if "response" in trigger_data["openai_data"]:
                         step_log["output"] = trigger_data["openai_data"]["response"]
-                    logger.info("OpenAI data added to step log", extra={"openai_data": trigger_data["openai_data"]})
-            
+                    logger.info(
+                        "OpenAI data added to step log",
+                        extra={"openai_data": trigger_data["openai_data"]},
+                    )
+
             self.execution_log.append(step_log)
 
             logger.info(
@@ -520,9 +525,7 @@ class StepExecutor:
 
             if target_step:
                 # Check if we've already executed this step (prevent infinite loops)
-                executed_ids = [
-                    log["step_id"] for log in self.execution_log
-                ]
+                executed_ids = [log["step_id"] for log in self.execution_log]
                 if str(target_step.id) in executed_ids:
                     logger.warning(
                         "Step already executed, skipping to prevent loop",
@@ -567,9 +570,9 @@ class StepExecutor:
 
             if not handler:
                 step_log["status"] = "failed"
-                step_log[
-                    "error"
-                ] = f"No handler found for {self.area.reaction_service}.{self.area.reaction_action}"
+                step_log["error"] = (
+                    f"No handler found for {self.area.reaction_service}.{self.area.reaction_action}"
+                )
                 self.execution_log.append(step_log)
                 return {
                     "status": "failed",
@@ -579,20 +582,28 @@ class StepExecutor:
                 }
 
             # Import variable resolver and substitute variables
-            from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
+            from app.services.variable_resolver import (
+                substitute_variables_in_params,
+                extract_variables_by_service,
+            )
+
             trigger_data = self.execution_context.get("trigger", {})
 
             # Use service-specific extractor based on trigger service, not reaction service
-            variables_from_context = extract_variables_by_service(trigger_data, self.area.trigger_service)
+            variables_from_context = extract_variables_by_service(
+                trigger_data, self.area.trigger_service
+            )
 
             # Process reaction params with variable substitution
             reaction_params = self.area.reaction_params or {}
-            reaction_params = substitute_variables_in_params(reaction_params, variables_from_context)
+            reaction_params = substitute_variables_in_params(
+                reaction_params, variables_from_context
+            )
 
             # Execute reaction with params
             # Check if handler accepts db parameter and pass it
             sig = inspect.signature(handler)
-            handler_accepts_db = 'db' in sig.parameters
+            handler_accepts_db = "db" in sig.parameters
 
             if handler_accepts_db:
                 result = handler(self.area, reaction_params, trigger_data, db=self.db)
@@ -607,6 +618,7 @@ class StepExecutor:
                     # We're in an async context, but execute_area is sync
                     # We need to run the coroutine in a thread pool
                     import concurrent.futures
+
                     with concurrent.futures.ThreadPoolExecutor() as executor:
                         future = executor.submit(asyncio.run, result)
                         result = future.result()
@@ -615,9 +627,9 @@ class StepExecutor:
                     result = asyncio.run(result)
 
             step_log["status"] = "success"
-            step_log[
-                "output"
-            ] = f"Executed {self.area.reaction_service}.{self.area.reaction_action}"
+            step_log["output"] = (
+                f"Executed {self.area.reaction_service}.{self.area.reaction_action}"
+            )
             self.execution_log.append(step_log)
 
             return {
@@ -639,7 +651,9 @@ class StepExecutor:
             }
 
 
-def execute_area(db: Session, area: Area, trigger_data: Dict[str, Any]) -> Dict[str, Any]:
+def execute_area(
+    db: Session, area: Area, trigger_data: Dict[str, Any]
+) -> Dict[str, Any]:
     """Execute an area workflow with the given trigger data.
 
     Args:

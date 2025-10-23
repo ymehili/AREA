@@ -31,7 +31,7 @@ def build_confirmation_email(recipient: str, confirmation_link: str) -> EmailMes
         (
             "<p>Thanks for signing up for Action-Reaction!</p>"
             "<p>Please confirm your email address by clicking the button below.</p>"
-            f"<p><a href=\"{confirmation_link}\">Confirm my email</a></p>"
+            f'<p><a href="{confirmation_link}">Confirm my email</a></p>'
             "<p>If you did not create this account, you can ignore this email.</p>"
         ),
         subtype="html",
@@ -72,4 +72,3 @@ __all__ = [
     "send_confirmation_email",
     "send_email",
 ]
-

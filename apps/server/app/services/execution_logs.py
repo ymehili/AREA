@@ -20,7 +20,9 @@ class ExecutionLogNotFoundError(Exception):
         self.execution_log_id = execution_log_id
 
 
-def get_execution_log_by_id(db: Session, execution_log_id: str) -> Optional[ExecutionLog]:
+def get_execution_log_by_id(
+    db: Session, execution_log_id: str
+) -> Optional[ExecutionLog]:
     """Fetch an execution log by its ID."""
     uuid_id = uuid.UUID(execution_log_id)
     statement = select(ExecutionLog).where(ExecutionLog.id == uuid_id)
@@ -44,7 +46,9 @@ def get_execution_logs_for_user(db: Session, user_id: str) -> List[ExecutionLog]
     return list(result.scalars().all())
 
 
-def create_execution_log(db: Session, execution_log_in: ExecutionLogCreate) -> ExecutionLog:
+def create_execution_log(
+    db: Session, execution_log_in: ExecutionLogCreate
+) -> ExecutionLog:
     """Create a new execution log."""
     execution_log = ExecutionLog(
         area_id=execution_log_in.area_id,

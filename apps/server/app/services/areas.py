@@ -19,8 +19,11 @@ def _is_duplicate_area_constraint_violation(exc: IntegrityError) -> bool:
     error_str = str(exc.orig) if exc.orig else str(exc)
     # Check for the unique constraint on user_id and name
     # This can vary between database backends, so check for multiple patterns
-    return ("uq_areas_user_id_name" in error_str or 
-            ("UNIQUE constraint failed" in error_str and "user_id" in error_str and "name" in error_str))
+    return "uq_areas_user_id_name" in error_str or (
+        "UNIQUE constraint failed" in error_str
+        and "user_id" in error_str
+        and "name" in error_str
+    )
 
 
 class AreaNotFoundError(Exception):
@@ -35,7 +38,9 @@ class DuplicateAreaError(Exception):
     """Raised when attempting to create an area that already exists for the user."""
 
     def __init__(self, user_id: str, name: str) -> None:
-        super().__init__(f"An area with name '{name}' already exists for user '{user_id}'")
+        super().__init__(
+            f"An area with name '{name}' already exists for user '{user_id}'"
+        )
         self.user_id = user_id
         self.name = name
 
@@ -104,25 +109,31 @@ def create_area(
             # Otherwise, map by order index
             for i, step in enumerate(created_steps):
                 # Check if the original step_in had a clientId in its config
-                if steps[i].config and 'clientId' in steps[i].config:
-                    old_id = steps[i].config['clientId']
+                if steps[i].config and "clientId" in steps[i].config:
+                    old_id = steps[i].config["clientId"]
                     old_id_to_new_id[str(old_id)] = str(step.id)
                 # Also map by order for robustness
                 old_id_to_new_id[f"order_{i}"] = str(step.id)
 
             # Second pass: update all 'targets' arrays in configs to use new UUIDs
             for step in created_steps:
-                if step.config and 'targets' in step.config and isinstance(step.config['targets'], list):
+                if (
+                    step.config
+                    and "targets" in step.config
+                    and isinstance(step.config["targets"], list)
+                ):
                     updated_targets = []
-                    for target_id in step.config['targets']:
+                    for target_id in step.config["targets"]:
                         # Try to find the new UUID for this target
                         new_target_id = old_id_to_new_id.get(str(target_id))
                         if new_target_id is None:
-                            raise ValueError(f"Invalid target ID '{target_id}' in step connections")
+                            raise ValueError(
+                                f"Invalid target ID '{target_id}' in step connections"
+                            )
                         updated_targets.append(new_target_id)
 
                     # Update the step's config with the new targets
-                    step.config = {**step.config, 'targets': updated_targets}
+                    step.config = {**step.config, "targets": updated_targets}
 
         db.commit()
     except IntegrityError as exc:
@@ -135,7 +146,9 @@ def create_area(
     return area
 
 
-def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Optional[str] = None) -> Area:
+def update_area(
+    db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Optional[str] = None
+) -> Area:
     """Update an existing area.
 
     If user_id is provided, scope the lookup to that user to prevent cross-user updates.
@@ -143,7 +156,9 @@ def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Opti
     uuid_area_id = uuid.UUID(area_id)
     if user_id is not None:
         uuid_user_id = uuid.UUID(user_id)
-        statement = select(Area).where(Area.id == uuid_area_id, Area.user_id == uuid_user_id)
+        statement = select(Area).where(
+            Area.id == uuid_area_id, Area.user_id == uuid_user_id
+        )
         result = db.execute(statement)
         area = result.scalar_one_or_none()
     else:
@@ -243,25 +258,31 @@ def update_area_with_steps(
     # Build mapping from old IDs to new UUIDs
     for i, step in enumerate(created_steps):
         # Check if the original step_in had a clientId in its config
-        if steps[i].config and 'clientId' in steps[i].config:
-            old_id = steps[i].config['clientId']
+        if steps[i].config and "clientId" in steps[i].config:
+            old_id = steps[i].config["clientId"]
             old_id_to_new_id[str(old_id)] = str(step.id)
         # Also map by order for robustness
         old_id_to_new_id[f"order_{i}"] = str(step.id)
 
     # Update all 'targets' arrays in configs to use new UUIDs
     for step in created_steps:
-        if step.config and 'targets' in step.config and isinstance(step.config['targets'], list):
+        if (
+            step.config
+            and "targets" in step.config
+            and isinstance(step.config["targets"], list)
+        ):
             updated_targets = []
-            for target_id in step.config['targets']:
+            for target_id in step.config["targets"]:
                 # Try to find the new UUID for this target
                 new_target_id = old_id_to_new_id.get(str(target_id))
                 if new_target_id is None:
-                    raise ValueError(f"Invalid target ID '{target_id}' in step connections")
+                    raise ValueError(
+                        f"Invalid target ID '{target_id}' in step connections"
+                    )
                 updated_targets.append(new_target_id)
 
             # Update the step's config with the new targets
-            step.config = {**step.config, 'targets': updated_targets}
+            step.config = {**step.config, "targets": updated_targets}
 
     db.commit()
     db.refresh(area)

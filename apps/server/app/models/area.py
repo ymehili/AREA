@@ -6,11 +6,20 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from app.models.area_step import AreaStep
     from app.models.execution_log import ExecutionLog
@@ -47,7 +56,7 @@ class Area(Base):
         Boolean,
         nullable=False,
         default=True,
-        server_default='true',
+        server_default="true",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

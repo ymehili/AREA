@@ -9,7 +9,9 @@ from app.integrations.oauth.base import OAuth2Config, OAuth2Provider
 from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
-from app.integrations.oauth.providers.google_calendar import GoogleCalendarOAuth2Provider
+from app.integrations.oauth.providers.google_calendar import (
+    GoogleCalendarOAuth2Provider,
+)
 
 
 class OAuth2ProviderFactory:
@@ -25,7 +27,9 @@ class OAuth2ProviderFactory:
     def create_provider(cls, provider_name: str) -> OAuth2Provider:
         """Create OAuth2 provider instance."""
         if provider_name not in cls._providers:
-            raise UnsupportedProviderError(f"Provider '{provider_name}' is not supported")
+            raise UnsupportedProviderError(
+                f"Provider '{provider_name}' is not supported"
+            )
 
         if not cls._is_provider_configured(provider_name):
             raise UnsupportedProviderError(
@@ -86,10 +90,14 @@ class OAuth2ProviderFactory:
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/google_calendar",
             )
 
-        raise UnsupportedProviderError(f"No configuration for provider: {provider_name}")
+        raise UnsupportedProviderError(
+            f"No configuration for provider: {provider_name}"
+        )
 
     @classmethod
-    def register_provider(cls, provider_name: str, provider_class: Type[OAuth2Provider]):
+    def register_provider(
+        cls, provider_name: str, provider_class: Type[OAuth2Provider]
+    ):
         """Register a new OAuth2 provider."""
         cls._providers[provider_name] = provider_class
 

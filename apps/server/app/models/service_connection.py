@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from app.models.user import User
 

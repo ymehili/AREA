@@ -89,7 +89,7 @@ def _get_gmail_service(user_id, db: Session):
                 logger.error(f"Failed to refresh Gmail token: {refresh_err}")
                 return None
 
-        return build('gmail', 'v1', credentials=creds)
+        return build("gmail", "v1", credentials=creds)
     except Exception as e:
         logger.error(f"Failed to get Gmail service: {e}", exc_info=True)
         return None
@@ -108,23 +108,25 @@ def _fetch_messages(service, query: str, max_results: int = 10) -> list[dict]:
     """
     try:
         # List messages matching query
-        results = service.users().messages().list(
-            userId='me',
-            q=query,
-            maxResults=max_results
-        ).execute()
+        results = (
+            service.users()
+            .messages()
+            .list(userId="me", q=query, maxResults=max_results)
+            .execute()
+        )
 
-        messages = results.get('messages', [])
+        messages = results.get("messages", [])
 
         # Fetch full details for each message
         full_messages = []
         for msg in messages:
             try:
-                full_msg = service.users().messages().get(
-                    userId='me',
-                    id=msg['id'],
-                    format='full'
-                ).execute()
+                full_msg = (
+                    service.users()
+                    .messages()
+                    .get(userId="me", id=msg["id"], format="full")
+                    .execute()
+                )
                 full_messages.append(full_msg)
             except HttpError as e:
                 logger.warning(f"Failed to fetch message {msg['id']}: {e}")
@@ -148,38 +150,38 @@ def _extract_message_data(message: dict) -> dict:
     Returns:
         Dictionary with extracted message data
     """
-    headers = message.get('payload', {}).get('headers', [])
+    headers = message.get("payload", {}).get("headers", [])
 
     # Extract headers
     sender = ""
     subject = ""
     date = ""
     for header in headers:
-        name = header.get('name', '').lower()
-        value = header.get('value', '')
-        if name == 'from':
+        name = header.get("name", "").lower()
+        value = header.get("value", "")
+        if name == "from":
             sender = value
-        elif name == 'subject':
+        elif name == "subject":
             subject = value
-        elif name == 'date':
+        elif name == "date":
             date = value
 
     return {
-        'id': message.get('id'),
-        'threadId': message.get('threadId'),
-        'snippet': message.get('snippet', ''),
-        'labelIds': message.get('labelIds', []),
-        'payload': {
-            'headers': [
-                {'name': 'From', 'value': sender},
-                {'name': 'Subject', 'value': subject},
-                {'name': 'Date', 'value': date},
+        "id": message.get("id"),
+        "threadId": message.get("threadId"),
+        "snippet": message.get("snippet", ""),
+        "labelIds": message.get("labelIds", []),
+        "payload": {
+            "headers": [
+                {"name": "From", "value": sender},
+                {"name": "Subject", "value": subject},
+                {"name": "Date", "value": date},
             ]
         },
         # Add extracted fields for easy access
-        'sender': sender,
-        'subject': subject,
-        'date': date,
+        "sender": sender,
+        "subject": subject,
+        "date": date,
     }
 
 
@@ -239,7 +241,9 @@ async def gmail_scheduler_task() -> None:
                     # Use scoped session for this area's processing
                     with SessionLocal() as db:
                         # Get Gmail service for user
-                        service = await asyncio.to_thread(_get_gmail_service, area.user_id, db)
+                        service = await asyncio.to_thread(
+                            _get_gmail_service, area.user_id, db
+                        )
                         if not service:
                             logger.warning(
                                 f"Gmail service not available for area {area_id_str}, skipping"
@@ -255,11 +259,15 @@ async def gmail_scheduler_task() -> None:
                             continue
 
                         # Fetch messages
-                        messages = await asyncio.to_thread(_fetch_messages, service, query)
+                        messages = await asyncio.to_thread(
+                            _fetch_messages, service, query
+                        )
 
                         # On first run for this area, prime the seen set with fetched IDs to avoid backlog
                         if len(_last_seen_messages[area_id_str]) == 0 and messages:
-                            _last_seen_messages[area_id_str].update(m['id'] for m in messages)
+                            _last_seen_messages[area_id_str].update(
+                                m["id"] for m in messages
+                            )
                             logger.info(
                                 f"Initialized seen set for area {area_id_str} with {len(messages)} message(s)"
                             )
@@ -272,15 +280,18 @@ async def gmail_scheduler_task() -> None:
                                 "area_name": area.name,
                                 "user_id": str(area.user_id),
                                 "messages_fetched": len(messages),
-                                "messages_already_seen": len(_last_seen_messages[area_id_str]),
+                                "messages_already_seen": len(
+                                    _last_seen_messages[area_id_str]
+                                ),
                                 "query": query,
-                            }
+                            },
                         )
 
                         # Filter for new messages
                         new_messages = [
-                            msg for msg in messages
-                            if msg['id'] not in _last_seen_messages[area_id_str]
+                            msg
+                            for msg in messages
+                            if msg["id"] not in _last_seen_messages[area_id_str]
                         ]
 
                         if new_messages:
@@ -291,15 +302,15 @@ async def gmail_scheduler_task() -> None:
                                     "area_name": area.name,
                                     "user_id": str(area.user_id),
                                     "new_messages_count": len(new_messages),
-                                    "message_ids": [msg['id'] for msg in new_messages],
-                                }
+                                    "message_ids": [msg["id"] for msg in new_messages],
+                                },
                             )
 
                         # Process each new message
                         for message in new_messages:
                             await _process_gmail_trigger(db, area, message, now)
                             # Mark as seen
-                            _last_seen_messages[area_id_str].add(message['id'])
+                            _last_seen_messages[area_id_str].add(message["id"])
 
                 except RefreshError:
                     # Token expired/revoked - show clean warning
@@ -322,7 +333,9 @@ async def gmail_scheduler_task() -> None:
             break
 
         except Exception as e:
-            logger.error("Gmail scheduler task error", extra={"error": str(e)}, exc_info=True)
+            logger.error(
+                "Gmail scheduler task error", extra={"error": str(e)}, exc_info=True
+            )
             await asyncio.sleep(30)  # Back off on error
 
     logger.info("Gmail scheduler task stopped")
@@ -362,7 +375,9 @@ def _build_gmail_query(area: Area) -> str | None:
     return None
 
 
-async def _process_gmail_trigger(db: Session, area: Area, message: dict, now: datetime) -> None:
+async def _process_gmail_trigger(
+    db: Session, area: Area, message: dict, now: datetime
+) -> None:
     """Process a Gmail trigger event and execute the area.
 
     Args:
@@ -392,10 +407,10 @@ async def _process_gmail_trigger(db: Session, area: Area, message: dict, now: da
                     "now": now.isoformat(),
                     "area_id": area_id_str,
                     "user_id": str(area.user_id),
-                    "message_id": message_data.get('id'),
-                    "subject": message_data.get('subject'),
+                    "message_id": message_data.get("id"),
+                    "subject": message_data.get("subject"),
                 }
-            }
+            },
         )
         execution_log = create_execution_log(db, execution_log_start)
 
@@ -416,12 +431,14 @@ async def _process_gmail_trigger(db: Session, area: Area, message: dict, now: da
 
         # Update execution log
         execution_log.status = "Success" if result["status"] == "success" else "Failed"
-        execution_log.output = f"Gmail trigger executed: {result['steps_executed']} step(s)"
+        execution_log.output = (
+            f"Gmail trigger executed: {result['steps_executed']} step(s)"
+        )
         execution_log.error_message = result.get("error")
         execution_log.step_details = {
             "execution_log": result.get("execution_log", []),
             "steps_executed": result["steps_executed"],
-            "message_id": message_data.get('id'),
+            "message_id": message_data.get("id"),
         }
         db.commit()
 
@@ -431,12 +448,12 @@ async def _process_gmail_trigger(db: Session, area: Area, message: dict, now: da
                 "area_id": area_id_str,
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "message_id": message_data.get('id'),
-                "thread_id": message_data.get('threadId'),
-                "subject": message_data.get('subject'),
-                "sender": message_data.get('sender'),
-                "snippet": message_data.get('snippet'),
-                "date": message_data.get('date'),
+                "message_id": message_data.get("id"),
+                "thread_id": message_data.get("threadId"),
+                "subject": message_data.get("subject"),
+                "sender": message_data.get("sender"),
+                "snippet": message_data.get("snippet"),
+                "date": message_data.get("date"),
                 "status": result["status"],
                 "steps_executed": result.get("steps_executed", 0),
                 "execution_log": result.get("execution_log", []),
