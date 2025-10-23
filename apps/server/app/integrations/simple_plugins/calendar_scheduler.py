@@ -19,11 +19,6 @@ from google.auth.exceptions import RefreshError
 from app.core.encryption import decrypt_token
 from app.core.config import settings
 from app.integrations.variable_extractor import extract_calendar_variables
-from app.integrations.simple_plugins.exceptions import (
-    CalendarAuthError,
-    CalendarAPIError,
-    CalendarConnectionError,
-)
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
 from app.services.execution_logs import create_execution_log
@@ -82,7 +77,7 @@ def _get_calendar_service(user_id, db: Session):
                         expires_at=creds.expiry,
                     ),
                 )
-            except RefreshError as refresh_err:
+            except RefreshError:
                 logger.warning(
                     f"Google Calendar token expired or revoked for user {user_id}. "
                     f"User needs to reconnect their Google Calendar account."
@@ -269,7 +264,7 @@ async def calendar_scheduler_task() -> None:
                             # Mark as seen
                             _last_seen_events[area_id_str].add(cal_event['id'])
 
-                except RefreshError as e:
+                except RefreshError:
                     # Token expired/revoked - show clean warning
                     logger.warning(
                         f"Calendar area {area_id_str} skipped: token expired or revoked. "

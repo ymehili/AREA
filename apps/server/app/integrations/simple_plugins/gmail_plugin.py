@@ -6,7 +6,7 @@ import base64
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -359,7 +359,7 @@ def forward_email_handler(area: Area, params: dict, event: dict) -> None:
         if comment:
             forwarded_body += f"{comment}\n\n"
 
-        forwarded_body += f"---------- Forwarded message ----------\n"
+        forwarded_body += "---------- Forwarded message ----------\n"
         forwarded_body += f"From: {original_from}\n"
         forwarded_body += f"Subject: {original_subject}\n\n"
         forwarded_body += original_body

@@ -12,7 +12,7 @@ Each user provides their own API key which is securely stored and retrieved.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 import httpx
 
 from app.models.area import Area
@@ -88,7 +88,7 @@ def _make_weather_request(endpoint: str, params: dict, area: Area, db: Session) 
         url = f"{OPENWEATHER_BASE_URL}/{endpoint}"
         
         logger.debug(
-            f"Making Weather API request",
+            "Making Weather API request",
             extra={
                 "endpoint": endpoint,
                 "params": {k: v for k, v in params.items() if k != "appid"},

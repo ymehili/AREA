@@ -79,7 +79,7 @@ def _get_gmail_service(user_id, db: Session):
                         expires_at=creds.expiry,
                     ),
                 )
-            except RefreshError as refresh_err:
+            except RefreshError:
                 logger.warning(
                     f"Gmail token expired or revoked for user {user_id}. "
                     f"User needs to reconnect their Gmail account."
@@ -301,7 +301,7 @@ async def gmail_scheduler_task() -> None:
                             # Mark as seen
                             _last_seen_messages[area_id_str].add(message['id'])
 
-                except RefreshError as e:
+                except RefreshError:
                     # Token expired/revoked - show clean warning
                     logger.warning(
                         f"Gmail area {area_id_str} skipped: token expired or revoked. "

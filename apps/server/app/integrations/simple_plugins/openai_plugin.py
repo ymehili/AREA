@@ -12,7 +12,7 @@ Each user provides their own API key which is securely stored and retrieved.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 import httpx
 
 from app.models.area import Area

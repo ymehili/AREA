@@ -315,6 +315,30 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         ),
     ),
     ServiceIntegration(
+        slug="rss",
+        name="RSS Feeds",
+        description="Monitor RSS/Atom feeds for new content and trigger automations based on updates.",
+        actions=(
+            AutomationOption(
+                key="new_item",
+                name="New RSS Item",
+                description="Triggers when a new item is published in an RSS feed.",
+            ),
+            AutomationOption(
+                key="keyword_detected",
+                name="Keyword Detected",
+                description="Triggers when a new RSS item contains specific keywords.",
+            ),
+        ),
+        reactions=(
+            AutomationOption(
+                key="extract_feed_info",
+                name="Extract Feed Information",
+                description="Extract basic information about the RSS feed (title, description, link).",
+            ),
+        ),
+    ),
+    ServiceIntegration(
         slug="google_calendar",
         name="Google Calendar",
         description="Automate workflows around calendar events, meetings, and schedules.",

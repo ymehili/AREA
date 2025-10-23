@@ -28,8 +28,7 @@ from app.services import (
     issue_confirmation_token,
     send_confirmation_email,
 )
-from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
-from app.schemas.user_activity_log import UserActivityLogCreate
+from app.services.user_activity_logs import log_user_activity_task
 
 
 router = APIRouter(tags=["auth"])

@@ -2,7 +2,6 @@
 
 import click
 from sqlalchemy.orm import Session
-from app.models.user import User
 from app.db.session import get_db_sync
 from app.services.users import get_user_by_email
 

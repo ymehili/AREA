@@ -14,7 +14,7 @@ from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 from app.services.users import get_user_by_email, create_user
-from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
+from app.services.user_activity_logs import create_user_activity_log
 from app.schemas.user_activity_log import UserActivityLogCreate
 
 
@@ -178,7 +178,7 @@ class OAuthService:
             activity_log = UserActivityLogCreate(
                 user_id=user.id,
                 action_type="user_login",
-                details=f"User successfully logged in via Google OAuth",
+                details="User successfully logged in via Google OAuth",
                 service_name="Google OAuth",
                 status="success"
             )

@@ -1,14 +1,11 @@
 """Admin API routes."""
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from uuid import UUID
 from fastapi import HTTPException
 from typing import Optional
-from fastapi import Body
 
 from app.api.dependencies import require_admin_user
 from app.models.user import User
@@ -23,8 +20,7 @@ from app.services.users import (
     create_user_admin,
     UserEmailAlreadyExistsError
 )
-from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest, CreateUserAdminRequest, SuspendUserRequest, DeleteUserRequest
-from pydantic import BaseModel, Field
+from app.schemas.user_admin import PaginatedUserList, UpdateAdminStatusRequest, CreateUserAdminRequest
 from app.schemas.user_detail_admin import UserDetailAdminResponse
 from app.services.admin_audit import create_admin_audit_log
 

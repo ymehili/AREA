@@ -42,6 +42,11 @@ from app.integrations.simple_plugins.github_scheduler import (
     stop_github_scheduler,
     is_github_scheduler_running,
 )
+from app.integrations.simple_plugins.rss_scheduler import (
+    start_rss_scheduler,
+    stop_rss_scheduler,
+    is_rss_scheduler_running,
+)
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -109,6 +114,18 @@ async def lifespan(app: FastAPI):
                 logger.info("Startup: GitHub scheduler started successfully")
         except Exception:
             logger.warning("Startup: Unable to verify GitHub scheduler status; continuing")
+
+        # Start the RSS polling scheduler (non-blocking)
+        logger.info("Startup: starting RSS scheduler")
+        start_rss_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_rss_scheduler_running():
+                logger.warning("Startup: RSS scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: RSS scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify RSS scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -131,6 +148,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping GitHub scheduler")
     stop_github_scheduler()
     logger.info("Shutdown: GitHub scheduler stopped")
+
+    logger.info("Shutdown: stopping RSS scheduler")
+    stop_rss_scheduler()
+    logger.info("Shutdown: RSS scheduler stopped")
 
 
 

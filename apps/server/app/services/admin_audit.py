@@ -8,7 +8,6 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.admin_audit_log import AdminAuditLog
-from app.schemas.admin_audit_log import AdminAuditLogCreate
 
 
 def create_admin_audit_log(

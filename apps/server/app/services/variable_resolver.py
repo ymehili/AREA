@@ -7,6 +7,7 @@ from app.integrations.variable_extractor import (
     extract_gmail_variables,
     extract_google_drive_variables,
     extract_github_variables,
+    extract_rss_variables,
 )
 
 
@@ -156,6 +157,20 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "github.issue_author",
             "github.pull_request_number",
             "github.pull_request_title"
+        ],
+        "rss": [
+            "rss.title",
+            "rss.description",
+            "rss.content",
+            "rss.link",
+            "rss.author",
+            "rss.published",
+            "rss.categories",
+            "rss.feed_title",
+            "rss.feed_url",
+            "rss.feed_description",
+            "rss.matched_keywords",
+            "rss.keyword_match_count"
         ]
     }
     
@@ -194,7 +209,8 @@ def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str
     service_extractors = {
         'gmail': extract_gmail_variables,
         'google_drive': extract_google_drive_variables,
-        'github': extract_github_variables
+        'github': extract_github_variables,
+        'rss': extract_rss_variables
     }
     
     # Use service-specific extractor if available, otherwise use generic one

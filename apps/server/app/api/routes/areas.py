@@ -9,7 +9,6 @@ from app.api.dependencies import require_active_user
 from app.db.session import get_db
 from app.models.user import User
 from app.models.area import Area
-from app.models.area_step import AreaStep
 from app.schemas.area import AreaCreate, AreaUpdate, AreaResponse
 from app.schemas.area_step import AreaStepCreate, AreaStepUpdate, AreaStepResponse
 from app.services.areas import (
@@ -24,8 +23,6 @@ from app.services.areas import (
     DuplicateAreaError,
 )
 from app.services.user_activity_logs import log_user_activity_task
-from app.schemas.user_activity_log import UserActivityLogCreate, UserActivityLogResponse
-from app.services.user_activity_logs import create_user_activity_log
 from app.services.area_steps import (
     create_area_step,
     get_steps_by_area,
@@ -35,8 +32,6 @@ from app.services.area_steps import (
     AreaStepNotFoundError,
     DuplicateStepOrderError,
 )
-from app.services.user_activity_logs import create_user_activity_log
-from app.schemas.user_activity_log import UserActivityLogCreate
 
 router = APIRouter(tags=["areas"])
 

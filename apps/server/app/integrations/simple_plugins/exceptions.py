@@ -123,6 +123,24 @@ class GitHubConnectionError(GitHubError):
     pass
 
 
+class RSSError(Exception):
+    """Base exception for RSS operations."""
+
+    pass
+
+
+class RSSFeedError(RSSError):
+    """RSS feed parsing or processing failed."""
+
+    pass
+
+
+class RSSConnectionError(RSSError):
+    """RSS feed connection or fetch failed."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
@@ -144,4 +162,7 @@ __all__ = [
     "GitHubAuthError",
     "GitHubAPIError",
     "GitHubConnectionError",
+    "RSSError",
+    "RSSFeedError",
+    "RSSConnectionError",
 ]

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 

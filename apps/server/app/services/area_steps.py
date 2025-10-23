@@ -7,7 +7,6 @@ from typing import List, Union
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-import logging
 
 from app.models.area_step import AreaStep
 from app.models.area import Area

@@ -91,6 +91,16 @@ class PluginsRegistry:
         self._handlers[("github", "add_label")] = add_label_handler
         self._handlers[("github", "create_branch")] = create_branch_handler
 
+        # RSS handlers
+        from app.integrations.simple_plugins.rss_plugin import (
+            rss_new_item_handler,
+            rss_keyword_detected_handler,
+            extract_feed_info_handler,
+        )
+        self._handlers[("rss", "new_item")] = rss_new_item_handler
+        self._handlers[("rss", "keyword_detected")] = rss_keyword_detected_handler
+        self._handlers[("rss", "extract_feed_info")] = extract_feed_info_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.
@@ -140,6 +150,20 @@ class PluginsRegistry:
         """
         return self._handlers.get((service, action))
 
+    def get_handler(
+        self, service: str, action: str
+    ) -> PluginHandler | None:
+        """Get the handler for a service/action pair (for triggers or reactions).
+
+        Args:
+            service: Service slug (e.g., "rss")
+            action: Action key (e.g., "new_item")
+
+        Returns:
+            Handler function or None if not found
+        """
+        return self._handlers.get((service, action))
+
 
 # Global registry instance
 _registry: PluginsRegistry | None = None
@@ -153,4 +177,18 @@ def get_plugins_registry() -> PluginsRegistry:
     return _registry
 
 
-__all__ = ["PluginsRegistry", "get_plugins_registry"]
+def get_handler(service: str, action: str) -> PluginHandler | None:
+    """Get the handler for a service/action pair from the global registry.
+
+    Args:
+        service: Service slug (e.g., "rss")
+        action: Action key (e.g., "new_item")
+
+    Returns:
+        Handler function or None if not found
+    """
+    registry = get_plugins_registry()
+    return registry.get_handler(service, action)
+
+
+__all__ = ["PluginsRegistry", "get_plugins_registry", "get_handler"]

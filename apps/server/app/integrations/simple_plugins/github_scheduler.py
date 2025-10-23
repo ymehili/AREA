@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 import httpx
 
 from app.core.encryption import decrypt_token
-from app.core.config import settings
 from app.integrations.variable_extractor import extract_github_variables
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate

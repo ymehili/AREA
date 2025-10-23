@@ -5,7 +5,7 @@ import uuid
 import httpx
 from typing import Any, Dict
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.background import BackgroundTasks
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -21,15 +21,12 @@ from app.schemas.service_connection import ServiceConnectionRead
 from app.services.oauth_connections import OAuthConnectionService
 from app.services.service_connections import (
     DuplicateServiceConnectionError,
-    get_service_connection_by_user_and_service,
-    create_service_connection as create_oauth_service_connection,
-    get_user_service_connections
+    get_service_connection_by_user_and_service
 )
-from app.services.user_activity_logs import create_user_activity_log, log_user_activity_task
-from app.schemas.user_activity_log import UserActivityLogCreate
+from app.services.user_activity_logs import log_user_activity_task
 
 # Import the new service connection schemas
-from app.schemas.api_key_connection import ApiKeyConnectionCreate, ApiKeyConnectionCreateRequest
+from app.schemas.api_key_connection import ApiKeyConnectionCreateRequest
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -402,6 +399,40 @@ async def test_provider_api_access(
                             "connection_id": connection_id,
                             "test_result": test_result,
                         }
+                elif provider == "rss":
+                    # For RSS, test the feed URL stored in oauth_metadata
+                    if connection.oauth_metadata and connection.oauth_metadata.get("connection_type") == "rss_url":
+                        from app.integrations.simple_plugins.rss_plugin import rss_feed_manager
+
+                        feed_url = connection.oauth_metadata.get("feed_url")
+                        if not feed_url:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="RSS feed URL not found in connection metadata"
+                            )
+
+                        # Test RSS feed parsing
+                        result = await rss_feed_manager.parse_feed(feed_url, None, db)
+
+                        test_result = {
+                            "feed_accessible": True,
+                            "feed_title": result.get("feed_info", {}).get("title", "Unknown Feed"),
+                            "total_items": result.get("total_items", 0),
+                            "last_checked": result.get("last_checked"),
+                            "feed_url": feed_url
+                        }
+
+                        return {
+                            "success": True,
+                            "provider": provider,
+                            "connection_id": connection_id,
+                            "test_result": test_result,
+                        }
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Invalid RSS connection metadata",
+                        )
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -448,8 +479,8 @@ async def add_api_key_connection(
     Returns:
         Connection details with success status
     """
-    # Validate provider name - support for OpenAI and Weather
-    supported_providers = ["openai", "weather"]
+    # Validate provider name - support for OpenAI, Weather, and RSS
+    supported_providers = ["openai", "weather", "rss"]
     if provider not in supported_providers:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -505,7 +536,7 @@ async def add_api_key_connection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid API key format. OpenWeatherMap API keys should be 32 alphanumeric characters.",
             )
-        
+
         # Test the API key by making a simple request to the OpenWeatherMap API
         try:
             async with httpx.AsyncClient() as client:
@@ -534,6 +565,65 @@ async def add_api_key_connection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to validate API key with OpenWeatherMap service: {str(e)}"
             )
+
+    elif provider == "rss":
+        # For RSS, the "api_key" is actually the RSS feed URL
+        rss_feed_url = api_key.strip()
+
+        # Validate RSS feed URL format
+        if not rss_feed_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="RSS feed URL is required",
+            )
+
+        # Basic URL validation
+        if not (rss_feed_url.startswith("http://") or rss_feed_url.startswith("https://")):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid RSS feed URL. URL must start with http:// or https://",
+            )
+
+        # Test the RSS feed by parsing it
+        try:
+            from app.integrations.simple_plugins.rss_plugin import rss_feed_manager
+
+            # Test RSS feed parsing (without area for preview mode)
+            result = await rss_feed_manager.parse_feed(rss_feed_url, None, db)
+
+            # Check if feed has any items
+            total_items = result.get("total_items", 0)
+
+            if total_items == 0:
+                logger.warning(f"RSS feed has no items: {rss_feed_url}")
+                # Still allow connection but warn the user
+                pass
+
+        except Exception as e:
+            error_detail = "Failed to validate RSS feed. Please check the URL and try again."
+            if "timeout" in str(e).lower():
+                error_detail = "Request timed out while fetching RSS feed. The feed server may be slow or unavailable."
+            elif "404" in str(e) or "not found" in str(e).lower():
+                error_detail = "RSS feed not found. Please check the URL and ensure it's accessible."
+            elif "401" in str(e) or "unauthorized" in str(e).lower():
+                error_detail = "RSS feed requires authentication. AREA currently supports public RSS feeds only."
+            elif "403" in str(e) or "forbidden" in str(e).lower():
+                error_detail = "Access to RSS feed is forbidden. The server may be blocking requests."
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_detail
+            )
+
+        # For RSS, store the URL in oauth_metadata instead of encrypted_access_token
+        # and use empty string for the token field
+        api_key = ""  # Will be stored as empty
+        rss_metadata = {
+            "connection_type": "rss_url",
+            "feed_url": rss_feed_url,
+            "check_interval": 300,  # 5 minutes default
+            "max_items": 10
+        }
     
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, str(current_user.id), provider)
@@ -542,16 +632,23 @@ async def add_api_key_connection(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A service connection for {provider} already exists for this user"
         )
-    
-    # Encrypt the API key
-    encrypted_api_key = encrypt_token(api_key)
-    
+
+    # Prepare connection metadata based on provider
+    if provider == "rss":
+        # For RSS, store empty token and use metadata for the feed URL
+        encrypted_api_key = encrypt_token("")  # Empty token
+        oauth_metadata = rss_metadata
+    else:
+        # For other providers, encrypt the API key
+        encrypted_api_key = encrypt_token(api_key)
+        oauth_metadata = {"connection_type": "api_key"}
+
     # Create a new service connection record
     service_connection = ServiceConnection(
         user_id=current_user.id,
         service_name=provider,
         encrypted_access_token=encrypted_api_key,
-        oauth_metadata={"connection_type": "api_key"}  # Mark as API key connection
+        oauth_metadata=oauth_metadata
     )
     
     db.add(service_connection)
@@ -568,12 +665,26 @@ async def add_api_key_connection(
         status="success"
     )
     
-    return {
-        "message": f"Successfully added {provider} API key",
-        "connection_id": str(service_connection.id),
-        "provider": provider,
-        "connected_at": service_connection.created_at,
-    }
+    # Prepare response based on provider type
+    if provider == "rss":
+        response_message = f"Successfully added RSS feed: {rss_metadata.get('feed_url', 'Unknown URL')}"
+        response_data = {
+            "message": response_message,
+            "connection_id": str(service_connection.id),
+            "provider": provider,
+            "feed_url": rss_metadata.get("feed_url"),
+            "feed_title": rss_metadata.get("feed_title", "RSS Feed"),
+            "connected_at": service_connection.created_at,
+        }
+    else:
+        response_data = {
+            "message": f"Successfully added {provider} API key",
+            "connection_id": str(service_connection.id),
+            "provider": provider,
+            "connected_at": service_connection.created_at,
+        }
+
+    return response_data
 
 
 __all__ = ["router"]
