@@ -12,17 +12,13 @@ if TYPE_CHECKING:
 
 import httpx
 
-from app.core.encryption import decrypt_token
 from app.core.config import settings
 from app.integrations.variable_extractor import extract_outlook_variables
+from app.integrations.simple_plugins.outlook_utils import get_outlook_access_token
 from app.models.area import Area
 from app.schemas.execution_log import ExecutionLogCreate
 from app.services.execution_logs import create_execution_log
-from app.services.service_connections import (
-    get_service_connection_by_user_and_service,
-    update_service_connection,
-)
-from app.schemas.service_connection import ServiceConnectionUpdate
+from app.services.service_connections import get_service_connection_by_user_and_service
 from app.services.step_executor import execute_area
 
 logger = logging.getLogger("area")
@@ -51,70 +47,21 @@ async def _get_outlook_client(user_id, db: Session) -> httpx.AsyncClient | None:
             )
             return None
 
-        # Decrypt tokens
-        access_token = decrypt_token(connection.encrypted_access_token)
-        refresh_token = None
-        if connection.encrypted_refresh_token:
-            refresh_token = decrypt_token(connection.encrypted_refresh_token)
-
-        # Check if token is expired
-        now = datetime.now(timezone.utc)
-        token_expired = False
-        if connection.expires_at:
-            # Add 5 minute buffer
-            token_expired = connection.expires_at <= now + timedelta(minutes=5)
-
-        # Refresh token if expired
-        if token_expired and refresh_token:
-            try:
-                async with httpx.AsyncClient() as temp_client:
-                    response = await temp_client.post(
-                        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                        data={
-                            "client_id": settings.microsoft_client_id,
-                            "client_secret": settings.microsoft_client_secret,
-                            "refresh_token": refresh_token,
-                            "grant_type": "refresh_token",
-                        },
-                    )
-                    response.raise_for_status()
-                    token_data = response.json()
-
-                    # Update tokens
-                    access_token = token_data["access_token"]
-                    new_refresh_token = token_data.get("refresh_token", refresh_token)
-                    expires_in = token_data.get("expires_in", 3600)
-                    new_expires_at = now + timedelta(seconds=expires_in)
-
-                    # Persist updated tokens
-                    update_service_connection(
-                        db,
-                        str(connection.id),
-                        ServiceConnectionUpdate(
-                            service_name=connection.service_name,
-                            access_token=access_token,
-                            refresh_token=new_refresh_token,
-                            expires_at=new_expires_at,
-                        ),
-                    )
-                    logger.info(
-                        "Outlook token refreshed successfully",
-                        extra={
-                            "user_id": str(user_id),
-                            "new_expires_at": new_expires_at.isoformat(),
-                        }
-                    )
-            except Exception as refresh_err:
-                logger.error(
-                    "Failed to refresh Outlook token",
-                    extra={
-                        "user_id": str(user_id),
-                        "error": str(refresh_err),
-                    },
-                    exc_info=True
-                )
-                return None
+        # Get valid access token (will refresh if expired)
+        try:
+            access_token = await get_outlook_access_token(
+                connection, db, user_id=str(user_id)
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to get valid Outlook access token",
+                extra={
+                    "user_id": str(user_id),
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
+            return None
 
         # Log token info (masked)
         logger.debug(
@@ -122,7 +69,6 @@ async def _get_outlook_client(user_id, db: Session) -> httpx.AsyncClient | None:
             extra={
                 "user_id": str(user_id),
                 "token_prefix": access_token[:20] if access_token else None,
-                "token_expired": token_expired,
                 "expires_at": connection.expires_at.isoformat() if connection.expires_at else None,
             }
         )
