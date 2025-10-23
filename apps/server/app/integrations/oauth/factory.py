@@ -11,7 +11,6 @@ from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
 from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 from app.integrations.oauth.providers.google_calendar import GoogleCalendarOAuth2Provider
-from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 
 
 class OAuth2ProviderFactory:
