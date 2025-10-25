@@ -9,6 +9,7 @@ from app.integrations.oauth.factory import OAuth2ProviderFactory
 from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
+from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 
 
 class TestOAuth2ProviderFactory:
@@ -23,6 +24,8 @@ class TestOAuth2ProviderFactory:
             mock_settings.google_client_secret = ""
             mock_settings.discord_client_id = ""
             mock_settings.discord_client_secret = ""
+            mock_settings.microsoft_client_id = ""
+            mock_settings.microsoft_client_secret = ""
 
             providers = OAuth2ProviderFactory.get_supported_providers()
             assert providers == []
@@ -185,3 +188,59 @@ class TestOAuth2ProviderFactory:
             assert config.token_url == "https://discord.com/api/oauth2/token"
             assert "bot" in config.scopes
             assert "identify" in config.scopes
+
+    def test_get_supported_providers_with_outlook_config(self) -> None:
+        """Test that Outlook is returned when properly configured."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.github_client_id = ""
+            mock_settings.github_client_secret = ""
+            mock_settings.google_client_id = ""
+            mock_settings.google_client_secret = ""
+            mock_settings.microsoft_client_id = "test_microsoft_client_id"
+            mock_settings.microsoft_client_secret = "test_microsoft_client_secret"
+
+            providers = OAuth2ProviderFactory.get_supported_providers()
+            assert "outlook" in providers
+
+    def test_is_provider_configured_outlook_with_credentials(self) -> None:
+        """Test provider configuration check with Outlook/Microsoft credentials."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.microsoft_client_id = "test_client_id"
+            mock_settings.microsoft_client_secret = "test_client_secret"
+
+            assert OAuth2ProviderFactory._is_provider_configured("outlook") is True
+
+    def test_is_provider_configured_outlook_without_credentials(self) -> None:
+        """Test provider configuration check without Outlook/Microsoft credentials."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.microsoft_client_id = ""
+            mock_settings.microsoft_client_secret = ""
+
+            assert OAuth2ProviderFactory._is_provider_configured("outlook") is False
+
+    def test_create_provider_outlook_success(self) -> None:
+        """Test creating Outlook provider successfully."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.microsoft_client_id = "test_client_id"
+            mock_settings.microsoft_client_secret = "test_client_secret"
+            mock_settings.oauth_redirect_base_url = "http://localhost:8080/api/v1/oauth"
+
+            provider = OAuth2ProviderFactory.create_provider("outlook")
+            assert isinstance(provider, OutlookOAuth2Provider)
+
+    def test_get_provider_config_outlook(self) -> None:
+        """Test getting Outlook provider configuration."""
+        with patch('app.integrations.oauth.factory.settings') as mock_settings:
+            mock_settings.microsoft_client_id = "test_microsoft_client_id"
+            mock_settings.microsoft_client_secret = "test_microsoft_client_secret"
+            mock_settings.oauth_redirect_base_url = "http://localhost:8080/api/v1/oauth"
+
+            config = OAuth2ProviderFactory._get_provider_config("outlook")
+
+            assert config.client_id == "test_microsoft_client_id"
+            assert config.client_secret == "test_microsoft_client_secret"
+            assert config.authorization_url == "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+            assert config.token_url == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+            assert "User.Read" in config.scopes
+            assert "Mail.ReadWrite" in config.scopes
+            assert "offline_access" in config.scopes
