@@ -159,6 +159,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^github_/, '');
     paramName = paramName.replace(/^gmail_fwd_/, '');
     paramName = paramName.replace(/^gmail_/, '');
+    paramName = paramName.replace(/^outlook_fwd_/, '');
+    paramName = paramName.replace(/^outlook_/, '');
     paramName = paramName.replace(/^weather_/, '');
     paramName = paramName.replace(/^forecast_/, '');
     paramName = paramName.replace(/^openai_/, '');
@@ -367,12 +369,12 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </p>
                             </div>
 
-                            {/* Trigger params: Gmail new_email_from_sender requires sender_email */}
-                            {nodeConfig.serviceId === 'gmail' && nodeConfig.actionId === 'new_email_from_sender' && (
+                            {/* Trigger params: Gmail and Outlook new_email_from_sender requires sender_email */}
+                            {(nodeConfig.serviceId === 'gmail' || nodeConfig.serviceId === 'outlook') && nodeConfig.actionId === 'new_email_from_sender' && (
                               <div>
-                                <Label htmlFor="gmail_sender_email">Sender Email</Label>
+                                <Label htmlFor={`${nodeConfig.serviceId}_sender_email`}>Sender Email</Label>
                                 <Input
-                                  id="gmail_sender_email"
+                                  id={`${nodeConfig.serviceId}_sender_email`}
                                   type="email"
                                   placeholder="name@example.com"
                                   value={(nodeConfig as TriggerNodeData).params?.sender_email as string || ''}
@@ -771,6 +773,121 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
                                       onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Outlook send_email */}
+                            {nodeConfig.serviceId === 'outlook' && nodeConfig.actionId === 'send_email' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="outlook_to">To</Label>
+                                  <Input
+                                    id="outlook_to"
+                                    type="text"
+                                    placeholder="recipient@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.to as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, to: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_subject">Subject</Label>
+                                  <Input
+                                    id="outlook_subject"
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={(nodeConfig as ActionNodeData).params?.subject as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, subject: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_body">Body</Label>
+                                  <textarea
+                                    id="outlook_body"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Message body (supports variables like {{outlook.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.body as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, body: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Outlook mark_as_read needs message_id */}
+                            {nodeConfig.serviceId === 'outlook' && nodeConfig.actionId === 'mark_as_read' && (
+                              <div>
+                                <Label htmlFor="outlook_message_id">Message ID</Label>
+                                <Input
+                                  id="outlook_message_id"
+                                  type="text"
+                                  placeholder="{{outlook.message_id}}"
+                                  value={(nodeConfig as ActionNodeData).params?.message_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, message_id: e.target.value } } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Provide a message ID or use a variable from the trigger.</p>
+                              </div>
+                            )}
+
+                            {/* Action params: Outlook forward_email needs message_id, to, comment (optional) */}
+                            {nodeConfig.serviceId === 'outlook' && nodeConfig.actionId === 'forward_email' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="outlook_fwd_message_id">Message ID</Label>
+                                  <Input
+                                    id="outlook_fwd_message_id"
+                                    type="text"
+                                    placeholder="{{outlook.message_id}}"
+                                    value={(nodeConfig as ActionNodeData).params?.message_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, message_id: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_fwd_to">Forward To</Label>
+                                  <Input
+                                    id="outlook_fwd_to"
+                                    type="text"
+                                    placeholder="recipient@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.to as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, to: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="outlook_fwd_comment">Comment (optional)</Label>
+                                  <textarea
+                                    id="outlook_fwd_comment"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="Add a note before the forwarded content"
+                                    value={(nodeConfig as ActionNodeData).params?.comment as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, comment: e.target.value } } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
@@ -1956,6 +2073,23 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   { id: 'gmail.message_id', name: 'Message ID', description: 'The Gmail message ID', category: 'Gmail', type: 'text' as const },
                                   { id: 'gmail.thread_id', name: 'Thread ID', description: 'The Gmail thread ID', category: 'Gmail', type: 'text' as const },
                                   { id: 'gmail.snippet', name: 'Snippet', description: 'A short preview of the email', category: 'Gmail', type: 'text' as const },
+                                ] : []),
+                                ...(nodeConfig.serviceId === 'outlook' ? [
+                                  { id: 'outlook.sender', name: 'Email Sender', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.sender_email', name: 'Sender Email', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.sender_name', name: 'Sender Name', description: 'The sender display name', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.snippet', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.body_preview', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.message_id', name: 'Message ID', description: 'The Outlook message ID', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.conversation_id', name: 'Conversation ID', description: 'The Outlook conversation/thread ID', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.received_datetime', name: 'Received Date/Time', description: 'When the email was received', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.sent_datetime', name: 'Sent Date/Time', description: 'When the email was sent', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.timestamp', name: 'Timestamp', description: 'Email received timestamp', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.is_read', name: 'Is Read', description: 'Whether the email has been read', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.importance', name: 'Importance', description: 'Email importance level', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.has_attachments', name: 'Has Attachments', description: 'Whether the email has attachments', category: 'Outlook', type: 'text' as const },
+                                  { id: 'outlook.web_link', name: 'Web Link', description: 'Link to view the email in Outlook web', category: 'Outlook', type: 'text' as const },
                                 ] : []),
                                 ...(nodeConfig.serviceId === 'openai' ? [
                                   { id: 'openai.response', name: 'AI Response', description: 'The generated text from OpenAI', category: 'OpenAI', type: 'text' as const },

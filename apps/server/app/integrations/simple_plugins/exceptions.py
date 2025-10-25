@@ -27,6 +27,30 @@ class GmailConnectionError(GmailError):
     pass
 
 
+class OutlookError(Exception):
+    """Base exception for Outlook operations."""
+
+    pass
+
+
+class OutlookAuthError(OutlookError):
+    """Outlook authentication/authorization failed."""
+
+    pass
+
+
+class OutlookAPIError(OutlookError):
+    """Outlook API request failed."""
+
+    pass
+
+
+class OutlookConnectionError(OutlookError):
+    """Outlook service connection not found or invalid."""
+
+    pass
+
+
 class WeatherError(Exception):
     """Base exception for Weather operations."""
 
@@ -75,30 +99,6 @@ class OpenAIConfigError(OpenAIError):
     pass
 
 
-class CalendarError(Exception):
-    """Base exception for Calendar operations."""
-
-    pass
-
-
-class CalendarAuthError(CalendarError):
-    """Calendar authentication/authorization failed."""
-
-    pass
-
-
-class CalendarAPIError(CalendarError):
-    """Calendar API request failed."""
-
-    pass
-
-
-class CalendarConnectionError(CalendarError):
-    """Calendar service connection not found or invalid."""
-
-    pass
-
-
 class GitHubError(Exception):
     """Base exception for GitHub operations."""
 
@@ -123,11 +123,39 @@ class GitHubConnectionError(GitHubError):
     pass
 
 
+class CalendarError(Exception):
+    """Base exception for Calendar operations."""
+
+    pass
+
+
+class CalendarAuthError(CalendarError):
+    """Calendar authentication/authorization failed."""
+
+    pass
+
+
+class CalendarAPIError(CalendarError):
+    """Calendar API request failed."""
+
+    pass
+
+
+class CalendarConnectionError(CalendarError):
+    """Calendar service connection not found or invalid."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
     "GmailAPIError",
     "GmailConnectionError",
+    "OutlookError",
+    "OutlookAuthError",
+    "OutlookAPIError",
+    "OutlookConnectionError",
     "WeatherError",
     "WeatherAPIError",
     "WeatherConfigError",
@@ -136,12 +164,12 @@ __all__ = [
     "OpenAIAPIError",
     "OpenAIConnectionError",
     "OpenAIConfigError",
-    "CalendarError",
-    "CalendarAuthError",
-    "CalendarAPIError",
-    "CalendarConnectionError",
     "GitHubError",
     "GitHubAuthError",
     "GitHubAPIError",
     "GitHubConnectionError",
+    "CalendarError",
+    "CalendarAuthError",
+    "CalendarAPIError",
+    "CalendarConnectionError",
 ]
