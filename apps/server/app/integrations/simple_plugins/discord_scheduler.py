@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict
 
@@ -20,6 +22,113 @@ from app.services.step_executor import execute_area
 
 logger = logging.getLogger("area")
 
+
+# Rate limiter for Discord API calls in scheduler
+class DiscordRateLimiter:
+    def __init__(self, max_requests: int = 50, time_window: int = 1):
+        """
+        Initialize rate limiter.
+        
+        Args:
+            max_requests: Maximum number of requests allowed per time window
+            time_window: Time window in seconds
+        """
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.requests = []
+    
+    def can_make_request(self) -> bool:
+        """Check if a request can be made based on rate limits."""
+        current_time = time.time()
+        
+        # Remove requests that are outside the time window
+        self.requests = [req_time for req_time in self.requests if current_time - req_time < self.time_window]
+        
+        # Check if we're under the limit
+        return len(self.requests) < self.max_requests
+    
+    def record_request(self):
+        """Record that a request was made."""
+        self.requests.append(time.time())
+    
+    async def wait_if_needed(self):
+        """Wait if rate limit would be exceeded."""
+        if not self.can_make_request():
+            sleep_time = self.time_window  # Wait for the time window to reset
+            logger.warning(f"Discord API rate limit approaching in scheduler, sleeping for {sleep_time}s")
+            await asyncio.sleep(sleep_time)
+        
+        # Record the request that will be made
+        self.record_request()
+
+
+# LRU Cache implementation for tracking seen messages and reactions
+class LRUCache:
+    def __init__(self, max_size: int = 1000):
+        """
+        Initialize an LRU cache with a maximum size.
+        
+        Args:
+            max_size: Maximum number of items to keep in the cache
+        """
+        self.max_size = max_size
+        self.cache = OrderedDict()
+    
+    def add(self, key: str) -> None:
+        """Add a key to the cache."""
+        if key in self.cache:
+            # Move existing key to end (mark as most recently used)
+            self.cache.move_to_end(key)
+        else:
+            # Add new key
+            self.cache[key] = time.time()
+            
+            # If cache is too large, remove oldest item
+            if len(self.cache) > self.max_size:
+                self.cache.popitem(last=False)  # Remove oldest (first) item
+    
+    def contains(self, key: str) -> bool:
+        """Check if a key exists in the cache."""
+        return key in self.cache
+    
+    def remove_area_cache(self, area_id: str) -> None:
+        """Remove cache entries for a specific area ID (when area is deleted/disabled)."""
+        keys_to_remove = [key for key in self.cache.keys() if key.startswith(f"{area_id}:")]
+        for key in keys_to_remove:
+            self.cache.pop(key, None)
+
+
+# Global cache instances with reasonable limits
+_last_seen_messages = LRUCache(max_size=10000)  # Max 10k message IDs across all areas
+_last_seen_reactions = LRUCache(max_size=5000)  # Max 5k reaction records across all areas
+_discord_scheduler_task: asyncio.Task | None = None
+
+
+def validate_discord_id(value: str | None) -> str:
+    """Validate a Discord ID to ensure it's a valid snowflake ID format.
+    
+    Discord IDs are 64-bit integers typically 17-19 digits long.
+    
+    Args:
+        value: The ID to validate
+        
+    Returns:
+        The validated ID
+        
+    Raises:
+        ValueError: If the ID is invalid
+    """
+    if value is None:
+        raise ValueError("Discord ID cannot be None")
+    
+    if not isinstance(value, str):
+        value = str(value)
+    
+    if not value.isdigit() or len(value) < 17 or len(value) > 19:
+        raise ValueError(f"Invalid Discord ID format: {value}. Must be 17-19 digits.")
+    
+    return value
+
 # In-memory storage for last seen message IDs per AREA
 _last_seen_messages: Dict[str, set[str]] = {}
 # In-memory storage for last seen reactions per AREA (key: area_id, value: dict[message_id, set[reaction_ids]])
@@ -27,7 +136,7 @@ _last_seen_reactions: Dict[str, Dict[str, set[str]]] = {}
 _discord_scheduler_task: asyncio.Task | None = None
 
 
-def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
+async def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
     """Fetch recent messages from a Discord channel.
 
     Args:
@@ -37,20 +146,43 @@ def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
     Returns:
         List of message objects from Discord API
     """
-    if not settings.discord_bot_token:
+    from app.core.encryption import get_discord_bot_token
+    
+    bot_token = get_discord_bot_token()
+    if not bot_token:
         logger.error("Discord bot token not configured")
         return []
 
     try:
+        # Wait if needed due to rate limiting, then fetch messages
+        await _discord_scheduler_rate_limiter.wait_if_needed()
+        
         with httpx.Client() as client:
             response = client.get(
                 f"https://discord.com/api/v10/channels/{channel_id}/messages",
                 headers={
-                    "Authorization": f"Bot {settings.discord_bot_token}",
+                    "Authorization": f"Bot {bot_token}",
                 },
                 params={"limit": limit},
                 timeout=10.0
             )
+            
+            # Check for rate limit response (429)
+            if response.status_code == 429:
+                retry_after = response.json().get("retry_after", 1.0)
+                logger.warning(f"Discord API rate limited in scheduler, waiting {retry_after}s")
+                await asyncio.sleep(retry_after)
+                
+                # Retry the request
+                response = client.get(
+                    f"https://discord.com/api/v10/channels/{channel_id}/messages",
+                    headers={
+                        "Authorization": f"Bot {bot_token}",
+                    },
+                    params={"limit": limit},
+                    timeout=10.0
+                )
+            
             response.raise_for_status()
             return response.json()
     except httpx.HTTPError as e:
@@ -58,7 +190,7 @@ def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
         return []
 
 
-def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dict]:
+async def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dict]:
     """Fetch a specific message with its reactions from Discord.
 
     Args:
@@ -68,19 +200,41 @@ def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dict]:
     Returns:
         List of reaction objects from the message
     """
-    if not settings.discord_bot_token:
+    from app.core.encryption import get_discord_bot_token
+    
+    bot_token = get_discord_bot_token()
+    if not bot_token:
         logger.error("Discord bot token not configured")
         return []
 
     try:
+        # Wait if needed due to rate limiting, then fetch reactions
+        await _discord_scheduler_rate_limiter.wait_if_needed()
+        
         with httpx.Client() as client:
             response = client.get(
                 f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
                 headers={
-                    "Authorization": f"Bot {settings.discord_bot_token}",
+                    "Authorization": f"Bot {bot_token}",
                 },
                 timeout=10.0
             )
+            
+            # Check for rate limit response (429)
+            if response.status_code == 429:
+                retry_after = response.json().get("retry_after", 1.0)
+                logger.warning(f"Discord API rate limited in scheduler, waiting {retry_after}s")
+                await asyncio.sleep(retry_after)
+                
+                # Retry the request
+                response = client.get(
+                    f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
+                    headers={
+                        "Authorization": f"Bot {bot_token}",
+                    },
+                    timeout=10.0
+                )
+            
             response.raise_for_status()
             message_data = response.json()
             return message_data.get('reactions', [])
@@ -200,10 +354,6 @@ async def discord_scheduler_task() -> None:
             for area in message_areas:
                 area_id_str = str(area.id)
 
-                # Initialize last seen messages set for this area
-                if area_id_str not in _last_seen_messages:
-                    _last_seen_messages[area_id_str] = set()
-
                 try:
                     # Use scoped session for this area's processing
                     with SessionLocal() as db:
@@ -217,35 +367,50 @@ async def discord_scheduler_task() -> None:
                             )
                             continue
 
-                        # Fetch recent messages from the channel
-                        messages = await asyncio.to_thread(_fetch_channel_messages, channel_id)
+                        # Validate Discord channel ID
+                        try:
+                            channel_id = validate_discord_id(channel_id)
+                        except ValueError as e:
+                            logger.error(f"Invalid channel_id for area {area_id_str}: {str(e)}, skipping")
+                            continue
 
-                        # On first run for this area, prime the seen set with fetched IDs to avoid backlog
-                        if len(_last_seen_messages[area_id_str]) == 0 and messages:
-                            _last_seen_messages[area_id_str].update(m['id'] for m in messages)
+                        # Fetch recent messages from the channel
+                        messages = await _fetch_channel_messages(channel_id)
+
+                        # Check if this is the first run for this area by checking if any messages from this area exist in the cache
+                        first_run = True
+                        for msg in messages:
+                            cache_key = f"{area_id_str}:{msg['id']}"
+                            if _last_seen_messages.contains(cache_key):
+                                first_run = False
+                                break
+
+                        # On first run for this area, prime the seen cache with fetched IDs to avoid backlog
+                        if first_run and messages:
+                            for msg in messages:
+                                cache_key = f"{area_id_str}:{msg['id']}"
+                                _last_seen_messages.add(cache_key)
                             logger.info(
-                                f"Initialized seen set for Discord message area {area_id_str} with {len(messages)} message(s)"
+                                f"Initialized seen cache for Discord message area {area_id_str} with {len(messages)} message(s)"
                             )
 
                         logger.debug(
-                            f"Discord fetched {len(messages)} message(s) for area {area_id_str}, "
-                            f"already seen: {len(_last_seen_messages[area_id_str])}",
+                            f"Discord fetched {len(messages)} message(s) for area {area_id_str}",
                             extra={
                                 "area_id": area_id_str,
                                 "area_name": area.name,
                                 "user_id": str(area.user_id),
                                 "messages_fetched": len(messages),
-                                "messages_already_seen": len(_last_seen_messages[area_id_str]),
                                 "channel_id": channel_id,
                             }
                         )
 
                         # Filter for new messages (exclude bot messages to prevent infinite loops)
-                        new_messages = [
-                            msg for msg in messages
-                            if msg['id'] not in _last_seen_messages[area_id_str]
-                            and not msg.get('author', {}).get('bot', False)
-                        ]
+                        new_messages = []
+                        for msg in messages:
+                            cache_key = f"{area_id_str}:{msg['id']}"
+                            if not _last_seen_messages.contains(cache_key) and not msg.get('author', {}).get('bot', False):
+                                new_messages.append(msg)
 
                         if new_messages:
                             logger.info(
@@ -262,8 +427,9 @@ async def discord_scheduler_task() -> None:
                         # Process each new message (oldest first)
                         for message in reversed(new_messages):
                             await _process_discord_trigger(db, area, message, now)
-                            # Mark as seen
-                            _last_seen_messages[area_id_str].add(message['id'])
+                            # Mark as seen by adding to cache
+                            cache_key = f"{area_id_str}:{message['id']}"
+                            _last_seen_messages.add(cache_key)
 
                 except Exception as e:
                     logger.error(
@@ -279,10 +445,6 @@ async def discord_scheduler_task() -> None:
             for area in reaction_areas:
                 area_id_str = str(area.id)
 
-                # Initialize last seen reactions dict for this area
-                if area_id_str not in _last_seen_reactions:
-                    _last_seen_reactions[area_id_str] = {}
-
                 try:
                     # Use scoped session for this area's processing
                     with SessionLocal() as db:
@@ -297,17 +459,34 @@ async def discord_scheduler_task() -> None:
                             )
                             continue
 
-                        # Fetch reactions from the specific message
-                        reactions = await asyncio.to_thread(_fetch_message_reactions, channel_id, message_id)
+                        # Validate Discord IDs
+                        try:
+                            channel_id = validate_discord_id(channel_id)
+                            message_id = validate_discord_id(message_id)
+                        except ValueError as e:
+                            logger.error(f"Invalid Discord IDs for area {area_id_str}: {str(e)}, skipping")
+                            continue
 
-                        # On first run, prime the seen set with fetched reactions to avoid backlog
-                        if message_id not in _last_seen_reactions[area_id_str]:
-                            _last_seen_reactions[area_id_str][message_id] = set()
+                        # Fetch reactions from the specific message
+                        reactions = await _fetch_message_reactions(channel_id, message_id)
+
+                        # Check if this is the first run by checking if any reactions from this area/message exist in the cache
+                        first_run = True
+                        for reaction in reactions:
+                            emoji_key = reaction.get('emoji', {}).get('name', '')
+                            cache_key = f"{area_id_str}:{message_id}:{emoji_key}"
+                            if _last_seen_reactions.contains(cache_key):
+                                first_run = False
+                                break
+
+                        # On first run, prime the seen cache with fetched reactions to avoid backlog
+                        if first_run and reactions:
                             for reaction in reactions:
                                 emoji_key = reaction.get('emoji', {}).get('name', '')
-                                _last_seen_reactions[area_id_str][message_id].add(emoji_key)
+                                cache_key = f"{area_id_str}:{message_id}:{emoji_key}"
+                                _last_seen_reactions.add(cache_key)
                             logger.info(
-                                f"Initialized reaction set for Discord reaction area {area_id_str} with {len(reactions)} reaction(s)"
+                                f"Initialized reaction cache for Discord reaction area {area_id_str} with {len(reactions)} reaction(s)"
                             )
                             continue  # Skip processing on first run
 
@@ -326,9 +505,10 @@ async def discord_scheduler_task() -> None:
                         # Check for new reactions
                         for reaction in reactions:
                             emoji_key = reaction.get('emoji', {}).get('name', '')
+                            cache_key = f"{area_id_str}:{message_id}:{emoji_key}"
                             
                             # Check if this is a new reaction (not seen before)
-                            if emoji_key not in _last_seen_reactions[area_id_str][message_id]:
+                            if not _last_seen_reactions.contains(cache_key):
                                 logger.info(
                                     f"Found NEW Discord reaction for area {area_id_str}: {emoji_key}",
                                     extra={
@@ -341,8 +521,8 @@ async def discord_scheduler_task() -> None:
                                 )
                                 
                                 await _process_discord_reaction_trigger(db, area, reaction, message_id, channel_id, now)
-                                # Mark as seen
-                                _last_seen_reactions[area_id_str][message_id].add(emoji_key)
+                                # Mark as seen by adding to cache
+                                _last_seen_reactions.add(cache_key)
 
                 except Exception as e:
                     logger.error(
@@ -612,8 +792,15 @@ def is_discord_scheduler_running() -> bool:
 def clear_discord_seen_state() -> None:
     """Clear the in-memory seen messages and reactions state (useful for testing)."""
     global _last_seen_messages, _last_seen_reactions
-    _last_seen_messages.clear()
-    _last_seen_reactions.clear()
+    _last_seen_messages = LRUCache(max_size=10000)  # Reset to empty cache
+    _last_seen_reactions = LRUCache(max_size=5000)  # Reset to empty cache
+
+
+def clear_area_from_seen_state(area_id: str) -> None:
+    """Remove all cache entries for a specific area ID (when area is deleted/disabled)."""
+    global _last_seen_messages, _last_seen_reactions
+    _last_seen_messages.remove_area_cache(area_id)
+    _last_seen_reactions.remove_area_cache(area_id)
 
 
 __all__ = [
@@ -622,4 +809,5 @@ __all__ = [
     "is_discord_scheduler_running",
     "stop_discord_scheduler",
     "clear_discord_seen_state",
+    "clear_area_from_seen_state",
 ]
