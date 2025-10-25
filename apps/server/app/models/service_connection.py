@@ -40,9 +40,9 @@ class ServiceConnection(Base):
         nullable=False,
     )
     service_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    encrypted_access_token: Mapped[str] = mapped_column(String(1024), nullable=False)
+    encrypted_access_token: Mapped[str] = mapped_column(String(2048), nullable=False)
     encrypted_refresh_token: Mapped[Optional[str]] = mapped_column(
-        String(1024), nullable=True
+        String(2048), nullable=True
     )
     expires_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
