@@ -34,7 +34,7 @@ class TestOutlookPlugin:
         mock_connection.expires_at = None
 
         with patch("app.integrations.simple_plugins.outlook_plugin.get_service_connection_by_user_and_service") as mock_get_conn, \
-             patch("app.integrations.simple_plugins.outlook_plugin.decrypt_token") as mock_decrypt, \
+             patch("app.integrations.simple_plugins.outlook_utils.decrypt_token") as mock_decrypt, \
              patch("app.integrations.simple_plugins.outlook_plugin.SessionLocal"):
 
             mock_get_conn.return_value = mock_connection
