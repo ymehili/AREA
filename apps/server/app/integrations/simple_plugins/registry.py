@@ -43,6 +43,16 @@ class PluginsRegistry:
         self._handlers[("gmail", "mark_as_read")] = mark_as_read_handler
         self._handlers[("gmail", "forward_email")] = forward_email_handler
 
+        # Outlook handlers
+        from app.integrations.simple_plugins.outlook_plugin import (
+            send_email_handler as outlook_send_email,
+            mark_as_read_handler as outlook_mark_as_read,
+            forward_email_handler as outlook_forward_email,
+        )
+        self._handlers[("outlook", "send_email")] = outlook_send_email
+        self._handlers[("outlook", "mark_as_read")] = outlook_mark_as_read
+        self._handlers[("outlook", "forward_email")] = outlook_forward_email
+
         # Weather handlers
         from app.integrations.simple_plugins.weather_plugin import (
             get_current_weather_handler,
@@ -63,20 +73,6 @@ class PluginsRegistry:
         self._handlers[("openai", "generate_image")] = image_generation_handler
         self._handlers[("openai", "analyze_text")] = content_moderation_handler
 
-        # Google Calendar handlers
-        from app.integrations.simple_plugins.calendar_plugin import (
-            create_event_handler,
-            update_event_handler,
-            delete_event_handler,
-            create_all_day_event_handler,
-            quick_add_event_handler,
-        )
-        self._handlers[("google_calendar", "create_event")] = create_event_handler
-        self._handlers[("google_calendar", "update_event")] = update_event_handler
-        self._handlers[("google_calendar", "delete_event")] = delete_event_handler
-        self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
-        self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
-
         # GitHub handlers
         from app.integrations.simple_plugins.github_plugin import (
             create_issue_handler,
@@ -90,6 +86,20 @@ class PluginsRegistry:
         self._handlers[("github", "close_issue")] = close_issue_handler
         self._handlers[("github", "add_label")] = add_label_handler
         self._handlers[("github", "create_branch")] = create_branch_handler
+
+        # Google Calendar handlers
+        from app.integrations.simple_plugins.calendar_plugin import (
+            create_event_handler,
+            update_event_handler,
+            delete_event_handler,
+            create_all_day_event_handler,
+            quick_add_event_handler,
+        )
+        self._handlers[("google_calendar", "create_event")] = create_event_handler
+        self._handlers[("google_calendar", "update_event")] = update_event_handler
+        self._handlers[("google_calendar", "delete_event")] = delete_event_handler
+        self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
+        self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
 
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:

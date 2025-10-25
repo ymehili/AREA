@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch, AsyncMock
 import pytest
+import httpx
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 
@@ -11,6 +12,7 @@ from app.integrations.oauth.base import OAuth2Config
 from app.integrations.oauth.exceptions import OAuth2RefreshError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
+from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 
 
 class TestGitHubOAuth2Provider:
@@ -317,3 +319,315 @@ class TestGmailOAuth2Provider:
 
             with pytest.raises(Exception):
                 await provider.refresh_tokens("invalid_refresh_token")
+
+
+class TestOutlookOAuth2Provider:
+    """Test Outlook OAuth2 provider functionality."""
+
+    def test_get_authorization_url(self):
+        """Test Outlook authorization URL generation."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        url = provider.get_authorization_url("test_state")
+
+        assert "https://login.microsoftonline.com/common/oauth2/v2.0/authorize" in url
+        assert "client_id=test_client_id" in url
+        assert "state=test_state" in url
+        assert "response_type=code" in url
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_for_token(self):
+        """Test Outlook code exchange for token."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {
+                "access_token": "test_token",
+                "refresh_token": "refresh_token",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+                "scope": "User.Read Mail.ReadWrite Mail.Send"
+            }
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            result = await provider.exchange_code_for_tokens("test_code")
+
+            assert result.access_token == "test_token"
+            assert result.refresh_token == "refresh_token"
+            assert result.token_type == "Bearer"
+
+    @pytest.mark.asyncio
+    async def test_refresh_token(self):
+        """Test Outlook token refresh."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {
+                "access_token": "new_token",
+                "refresh_token": "new_refresh_token",
+                "token_type": "Bearer",
+                "expires_in": 3600
+            }
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            result = await provider.refresh_tokens("refresh_token")
+
+            assert result.access_token == "new_token"
+            assert result.refresh_token == "new_refresh_token"
+            assert result.token_type == "Bearer"
+
+    @pytest.mark.asyncio
+    async def test_get_user_info(self):
+        """Test Outlook user info retrieval."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.json.return_value = {
+                "id": "12345",
+                "userPrincipalName": "test@example.com",
+                "displayName": "Test User",
+                "mail": "test@example.com"
+            }
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.get_user_info("test_token")
+
+            assert result["id"] == "12345"
+            assert result["userPrincipalName"] == "test@example.com"
+            assert result["displayName"] == "Test User"
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_for_token_error(self):
+        """Test Outlook code exchange with error response."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.raise_for_status.side_effect = Exception("Bad Request")
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(Exception):
+                await provider.exchange_code_for_tokens("invalid_code")
+
+    @pytest.mark.asyncio
+    async def test_get_user_info_error(self):
+        """Test Outlook user info retrieval with error."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.raise_for_status.side_effect = Exception("Unauthorized")
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(Exception):
+                await provider.get_user_info("invalid_token")
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_error(self):
+        """Test Outlook token refresh with error."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.raise_for_status.side_effect = Exception("Bad Request")
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(Exception):
+                await provider.refresh_tokens("invalid_refresh_token")
+
+    @pytest.mark.asyncio
+    async def test_validate_token_success(self):
+        """Test Outlook token validation success."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"id": "12345"}
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("valid_token")
+
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_validate_token_expired(self):
+        """Test Outlook token validation with expired token."""
+        from app.integrations.oauth.exceptions import OAuth2ValidationError
+        
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.status_code = 401
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "401 Unauthorized",
+                request=Mock(),
+                response=mock_response
+            )
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            result = await provider.validate_token("expired_token")
+
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_test_api_access_success(self):
+        """Test Outlook API access test success."""
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            # Mock user profile response
+            mock_user_response = Mock()
+            mock_user_response.status_code = 200
+            mock_user_response.raise_for_status = Mock()
+            mock_user_response.json.return_value = {
+                "id": "12345",
+                "userPrincipalName": "test@example.com",
+                "displayName": "Test User"
+            }
+            
+            # Mock folders response
+            mock_folders_response = Mock()
+            mock_folders_response.status_code = 200
+            mock_folders_response.raise_for_status = Mock()
+            mock_folders_response.json.return_value = {
+                "value": [
+                    {"id": "folder1", "displayName": "Inbox", "totalItemCount": 10, "unreadItemCount": 2}
+                ]
+            }
+            
+            # Mock inbox response
+            mock_inbox_response = Mock()
+            mock_inbox_response.status_code = 200
+            mock_inbox_response.raise_for_status = Mock()
+            mock_inbox_response.json.return_value = {
+                "totalItemCount": 100,
+                "unreadItemCount": 5
+            }
+
+            mock_client_instance = AsyncMock()
+            mock_client_instance.get.side_effect = [
+                mock_user_response,
+                mock_folders_response,
+                mock_inbox_response
+            ]
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            result = await provider.test_api_access("valid_token")
+
+            assert "profile" in result
+            assert "mailbox" in result
+            assert "folders" in result
+            assert result["profile"]["id"] == "12345"
+
+    @pytest.mark.asyncio
+    async def test_test_api_access_failure(self):
+        """Test Outlook API access test failure."""
+        from app.integrations.oauth.exceptions import OAuth2ValidationError
+        
+        config = OAuth2Config(
+            client_id="test_client_id",
+            client_secret="test_client_secret",
+            authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+            token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+            scopes=["User.Read", "Mail.ReadWrite", "Mail.Send"],
+            redirect_uri="http://localhost:8080/callback"
+        )
+        provider = OutlookOAuth2Provider(config)
+
+        with patch("app.integrations.oauth.providers.outlook.httpx.AsyncClient") as mock_client:
+            mock_response = Mock()
+            mock_response.status_code = 403
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "403 Forbidden",
+                request=Mock(),
+                response=mock_response
+            )
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
+
+            with pytest.raises(OAuth2ValidationError):
+                await provider.test_api_access("invalid_token")

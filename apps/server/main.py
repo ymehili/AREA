@@ -32,15 +32,20 @@ from app.integrations.simple_plugins.gmail_scheduler import (
     stop_gmail_scheduler,
     is_gmail_scheduler_running,
 )
-from app.integrations.simple_plugins.calendar_scheduler import (
-    start_calendar_scheduler,
-    stop_calendar_scheduler,
-    is_calendar_scheduler_running,
+from app.integrations.simple_plugins.outlook_scheduler import (
+    start_outlook_scheduler,
+    stop_outlook_scheduler,
+    is_outlook_scheduler_running,
 )
 from app.integrations.simple_plugins.github_scheduler import (
     start_github_scheduler,
     stop_github_scheduler,
     is_github_scheduler_running,
+)
+from app.integrations.simple_plugins.calendar_scheduler import (
+    start_calendar_scheduler,
+    stop_calendar_scheduler,
+    is_calendar_scheduler_running,
 )
 
 
@@ -86,17 +91,18 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.warning("Startup: Unable to verify Gmail scheduler status; continuing")
 
-        # Start the Google Calendar polling scheduler (non-blocking)
-        logger.info("Startup: starting Calendar scheduler")
-        start_calendar_scheduler()
+        # Start the Outlook polling scheduler (non-blocking)
+        logger.info("Startup: starting Outlook scheduler")
+        start_outlook_scheduler()
+        # Do not hard-fail app startup if Outlook scheduler validation is inconclusive
         try:
             await asyncio.sleep(0.1)
-            if not is_calendar_scheduler_running():
-                logger.warning("Startup: Calendar scheduler not running yet; continuing")
+            if not is_outlook_scheduler_running():
+                logger.warning("Startup: Outlook scheduler not running yet; continuing")
             else:
-                logger.info("Startup: Calendar scheduler started successfully")
+                logger.info("Startup: Outlook scheduler started successfully")
         except Exception:
-            logger.warning("Startup: Unable to verify Calendar scheduler status; continuing")
+            logger.warning("Startup: Unable to verify Outlook scheduler status; continuing")
 
         # Start the GitHub polling scheduler (non-blocking)
         logger.info("Startup: starting GitHub scheduler")
@@ -109,6 +115,18 @@ async def lifespan(app: FastAPI):
                 logger.info("Startup: GitHub scheduler started successfully")
         except Exception:
             logger.warning("Startup: Unable to verify GitHub scheduler status; continuing")
+
+        # Start the Google Calendar polling scheduler (non-blocking)
+        logger.info("Startup: starting Calendar scheduler")
+        start_calendar_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_calendar_scheduler_running():
+                logger.warning("Startup: Calendar scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Calendar scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Calendar scheduler status; continuing")
     except Exception as exc:  # pragma: no cover - defensive logging only
         logger.error("Startup failure", exc_info=True)
         raise
@@ -124,13 +142,17 @@ async def lifespan(app: FastAPI):
     stop_gmail_scheduler()
     logger.info("Shutdown: Gmail scheduler stopped")
 
-    logger.info("Shutdown: stopping Calendar scheduler")
-    stop_calendar_scheduler()
-    logger.info("Shutdown: Calendar scheduler stopped")
+    logger.info("Shutdown: stopping Outlook scheduler")
+    stop_outlook_scheduler()
+    logger.info("Shutdown: Outlook scheduler stopped")
 
     logger.info("Shutdown: stopping GitHub scheduler")
     stop_github_scheduler()
     logger.info("Shutdown: GitHub scheduler stopped")
+
+    logger.info("Shutdown: stopping Calendar scheduler")
+    stop_calendar_scheduler()
+    logger.info("Shutdown: Calendar scheduler stopped")
 
 
 
