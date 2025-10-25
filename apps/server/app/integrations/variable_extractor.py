@@ -252,3 +252,73 @@ def extract_github_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info("No GitHub variables extracted from trigger_data", extra={"trigger_data": trigger_data})
 
     return variables
+
+
+def extract_outlook_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract common variables from Outlook/Microsoft Graph email events.
+    
+    Args:
+        trigger_data: Dictionary containing Outlook message data
+        
+    Returns:
+        Dictionary mapping variable names to their values
+    """
+    if not trigger_data:
+        logger.warning("extract_outlook_variables called with empty trigger_data")
+        return {}
+
+    variables = {}
+    
+    # Extract message ID
+    if 'id' in trigger_data:
+        variables['outlook.message_id'] = trigger_data['id']
+    
+    # Extract conversation ID (thread)
+    if 'conversationId' in trigger_data:
+        variables['outlook.conversation_id'] = trigger_data['conversationId']
+    
+    # Extract subject
+    if 'subject' in trigger_data:
+        variables['outlook.subject'] = trigger_data['subject']
+    
+    # Extract sender information
+    if 'sender_email' in trigger_data:
+        variables['outlook.sender'] = trigger_data['sender_email']
+        variables['outlook.sender_email'] = trigger_data['sender_email']
+    
+    if 'sender_name' in trigger_data:
+        variables['outlook.sender_name'] = trigger_data['sender_name']
+    
+    # Extract body preview (snippet)
+    if 'bodyPreview' in trigger_data:
+        variables['outlook.snippet'] = trigger_data['bodyPreview']
+        variables['outlook.body_preview'] = trigger_data['bodyPreview']
+    
+    # Extract timestamps
+    if 'received_datetime' in trigger_data:
+        variables['outlook.received_datetime'] = trigger_data['received_datetime']
+        variables['outlook.timestamp'] = trigger_data['received_datetime']
+    
+    if 'sent_datetime' in trigger_data:
+        variables['outlook.sent_datetime'] = trigger_data['sent_datetime']
+    
+    # Extract read status
+    if 'isRead' in trigger_data:
+        variables['outlook.is_read'] = str(trigger_data['isRead']).lower()
+    
+    # Extract importance level
+    if 'importance' in trigger_data:
+        variables['outlook.importance'] = trigger_data['importance']
+    
+    # Extract attachment flag
+    if 'hasAttachments' in trigger_data:
+        variables['outlook.has_attachments'] = str(trigger_data['hasAttachments']).lower()
+    
+    # Extract web link
+    if 'webLink' in trigger_data:
+        variables['outlook.web_link'] = trigger_data['webLink']
+    
+    if not variables:
+        logger.info("No Outlook variables extracted from trigger_data", extra={"trigger_data": trigger_data})
+
+    return variables

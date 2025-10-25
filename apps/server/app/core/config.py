@@ -143,6 +143,21 @@ class Settings(BaseSettings):
         description="API key for OpenWeatherMap API (get free key at https://openweathermap.org/api)",
     )
 
+    # Microsoft Graph API / Outlook Configuration
+    microsoft_client_id: str = Field(
+        default="",
+        alias="MICROSOFT_CLIENT_ID",
+    )
+    microsoft_client_secret: str = Field(
+        default="",
+        alias="MICROSOFT_CLIENT_SECRET",
+    )
+    outlook_poll_interval_seconds: int = Field(
+        default=15,
+        alias="OUTLOOK_POLL_INTERVAL_SECONDS",
+        description="Outlook polling interval in seconds (default: 15).",
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
