@@ -121,6 +121,11 @@ class Settings(BaseSettings):
         alias="DISCORD_BOT_TOKEN",
         description="Discord Bot Token for sending messages - get this from Bot section in Developer Portal",
     )
+    encrypted_discord_bot_token: str = Field(
+        default="",
+        alias="ENCRYPTED_DISCORD_BOT_TOKEN",
+        description="Encrypted Discord Bot Token (takes precedence over DISCORD_BOT_TOKEN if set)",
+    )
 
     # Gmail Scheduler Configuration
     gmail_poll_interval_seconds: int = Field(
