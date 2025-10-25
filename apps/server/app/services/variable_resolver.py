@@ -138,6 +138,23 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "gmail.attachments",
             "gmail.timestamp"
         ],
+        "outlook": [
+            "outlook.message_id",
+            "outlook.conversation_id",
+            "outlook.subject",
+            "outlook.sender",
+            "outlook.sender_email",
+            "outlook.sender_name",
+            "outlook.snippet",
+            "outlook.body_preview",
+            "outlook.received_datetime",
+            "outlook.sent_datetime",
+            "outlook.timestamp",
+            "outlook.is_read",
+            "outlook.importance",
+            "outlook.has_attachments",
+            "outlook.web_link"
+        ],
         "google_drive": [
             "drive.file_id",
             "drive.file_name",

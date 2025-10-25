@@ -10,6 +10,7 @@ from app.integrations.oauth.exceptions import UnsupportedProviderError
 from app.integrations.oauth.providers.github import GitHubOAuth2Provider
 from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
 from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
+from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 from app.integrations.oauth.providers.google_calendar import GoogleCalendarOAuth2Provider
 
 
@@ -21,6 +22,7 @@ class OAuth2ProviderFactory:
         "gmail": GmailOAuth2Provider,
         "discord": DiscordOAuth2Provider,
         "google_calendar": GoogleCalendarOAuth2Provider,
+        "outlook": OutlookOAuth2Provider,
     }
 
     @classmethod
@@ -88,6 +90,24 @@ class OAuth2ProviderFactory:
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/discord",
             )
+        elif provider_name == "outlook":
+            # Microsoft Graph API scopes for Outlook:
+            # - User.Read: Get user profile information
+            # - Mail.ReadWrite: Read and write access to user mail
+            # - Mail.Send: Send mail as user
+            return OAuth2Config(
+                client_id=settings.microsoft_client_id,
+                client_secret=settings.microsoft_client_secret,
+                authorization_url="https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                token_url="https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                scopes=[
+                    "User.Read",
+                    "Mail.ReadWrite",
+                    "Mail.Send",
+                    "offline_access",  # Required for refresh tokens
+                ],
+                redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/outlook",
+            )
         elif provider_name == "google_calendar":
             # Google Calendar API scopes:
             # - userinfo.email/profile: Get user identity for account linking
@@ -123,6 +143,8 @@ class OAuth2ProviderFactory:
             return bool(settings.discord_client_id and settings.discord_client_secret)
         elif provider_name == "google_calendar":
             return bool(settings.google_client_id and settings.google_client_secret)
+        elif provider_name == "outlook":
+            return bool(settings.microsoft_client_id and settings.microsoft_client_secret)
 
         return False
 
