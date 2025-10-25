@@ -13,6 +13,7 @@ class AutomationOption:
     key: str
     name: str
     description: str
+    outputs: tuple[str, ...] = ()  # Variables produced by this trigger/action
 
 
 @dataclass(frozen=True)

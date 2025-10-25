@@ -1,9 +1,60 @@
 """Service-specific variable extraction functions."""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def extract_variables_from_event_data(
+    event_data: Dict[str, Any],
+    namespace_prefix: Optional[str] = None
+) -> Dict[str, Any]:
+    """Extract all variables from event data (trigger or action output).
+
+    This universal extractor detects:
+    - Variables already namespaced (e.g., openai.response, calendar.title)
+    - Nested data structures that need flattening
+
+    Args:
+        event_data: Dictionary containing event/trigger/action data
+        namespace_prefix: Optional prefix to namespace extracted variables
+
+    Returns:
+        Dictionary mapping variable names to their values
+    """
+    if not event_data:
+        return {}
+
+    variables = {}
+
+    # Extract already-namespaced variables (e.g., "openai.response", "calendar.title")
+    # These are typically added by handlers or extractors
+    for key, value in event_data.items():
+        if isinstance(key, str) and '.' in key:
+            # Already namespaced, use as-is
+            variables[key] = value
+        elif namespace_prefix and isinstance(key, str):
+            # Add namespace prefix if provided
+            namespaced_key = f"{namespace_prefix}.{key}"
+            variables[namespaced_key] = value
+
+    # Also extract common fields that aren't namespaced
+    common_fields = ["now", "timestamp", "area_id", "user_id"]
+    for field in common_fields:
+        if field in event_data and field not in variables:
+            variables[field] = event_data[field]
+
+    logger.debug(
+        "Extracted variables from event data",
+        extra={
+            "num_variables": len(variables),
+            "variable_keys": list(variables.keys()),
+            "namespace_prefix": namespace_prefix,
+        }
+    )
+
+    return variables
 
 
 def extract_gmail_variables(trigger_data: Dict[str, Any]) -> Dict[str, Any]:
