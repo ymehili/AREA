@@ -45,12 +45,14 @@ def extract_variables_from_event_data(
         if field in event_data and field not in variables:
             variables[field] = event_data[field]
 
-    logger.debug(
+    logger.info(
         "Extracted variables from event data",
         extra={
             "num_variables": len(variables),
             "variable_keys": list(variables.keys()),
+            "event_data_keys": list(event_data.keys()),
             "namespace_prefix": namespace_prefix,
+            "extracted_values": {k: str(v)[:100] for k, v in variables.items()},
         }
     )
 

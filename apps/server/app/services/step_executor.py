@@ -392,13 +392,17 @@ class StepExecutor:
             # This allows any step to access variables from the trigger AND all previous actions
             params = substitute_variables_in_params(params, self.accumulated_variables)
 
-            logger.debug(
+            logger.info(
                 "Substituting variables in action params",
                 extra={
                     "area_id": str(self.area.id),
                     "step_id": str(step.id),
+                    "service": step.service,
+                    "action": step.action,
+                    "params_before_substitution": step.config or {},
+                    "params_after_substitution": params,
                     "available_variables": list(self.accumulated_variables.keys()),
-                    "params_before": params,
+                    "accumulated_variable_values": {k: str(v)[:100] for k, v in self.accumulated_variables.items()},
                 },
             )
 
@@ -450,13 +454,25 @@ class StepExecutor:
             # Handlers may add namespaced variables to trigger_data (e.g., openai.response, weather.temperature)
             from app.integrations.variable_extractor import extract_variables_from_event_data
 
+            # Log trigger_data keys after handler execution for debugging
+            logger.info(
+                "After handler execution - trigger_data keys",
+                extra={
+                    "area_id": str(self.area.id),
+                    "step_id": str(step.id),
+                    "service": step.service,
+                    "action": step.action,
+                    "trigger_data_keys": list(trigger_data.keys()),
+                },
+            )
+
             new_variables = extract_variables_from_event_data(trigger_data)
 
             # Accumulate the new variables for use in subsequent steps
             if new_variables:
                 self.accumulated_variables.update(new_variables)
 
-                logger.debug(
+                logger.info(
                     "Accumulated new variables from action execution",
                     extra={
                         "area_id": str(self.area.id),
@@ -464,7 +480,19 @@ class StepExecutor:
                         "service": step.service,
                         "action": step.action,
                         "new_variables": list(new_variables.keys()),
+                        "new_variable_values": {k: str(v)[:100] for k, v in new_variables.items()},
                         "total_accumulated": list(self.accumulated_variables.keys()),
+                    },
+                )
+            else:
+                logger.info(
+                    "No new variables extracted from action execution",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": str(step.id),
+                        "service": step.service,
+                        "action": step.action,
+                        "trigger_data_keys": list(trigger_data.keys()),
                     },
                 )
 
@@ -502,6 +530,22 @@ class StepExecutor:
                     if "response" in trigger_data["openai_data"]:
                         step_log["output"] = trigger_data["openai_data"]["response"]
                     logger.info("OpenAI data added to step log", extra={"openai_data": trigger_data["openai_data"]})
+
+            # If this is a deepl action, include deepl data in the log
+            # Check after handler execution as the handler adds this data
+            if step.service == "deepl":
+                logger.info(
+                    "DeepL action executed, checking for deepl_data",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": str(step.id),
+                        "trigger_data_keys": list(trigger_data.keys()),
+                        "has_deepl_data": "deepl_data" in trigger_data,
+                    }
+                )
+                if "deepl_data" in trigger_data:
+                    step_log["deepl_data"] = trigger_data["deepl_data"]
+                    logger.info("DeepL data added to step log", extra={"deepl_data": trigger_data["deepl_data"]})
 
             self.execution_log.append(step_log)
 
