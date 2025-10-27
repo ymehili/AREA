@@ -43,11 +43,11 @@ class TestDiscordSendMessageHandler:
     @pytest.mark.asyncio
     async def test_send_message_success(self, mock_area, base_params, event_data):
         """Test successful message sending."""
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template  # Return template as-is
             
             mock_response = Mock()
@@ -61,7 +61,7 @@ class TestDiscordSendMessageHandler:
             mock_client.return_value.__enter__.return_value.post.assert_called_once()
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             
-            assert "https://discord.com/api/v10/channels/123456789/messages" in call_args[0]
+            assert "https://discord.com/api/v10/channels/123456789012345678/messages" in call_args[0]
             assert call_args[1]["headers"]["Authorization"] == "Bot test_bot_token"
             assert call_args[1]["json"]["content"] == "Test message"
 
@@ -70,11 +70,11 @@ class TestDiscordSendMessageHandler:
         """Test message sending with variable resolution."""
         base_params["message"] = "Hello {{data.value}}!"
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.return_value = "Hello test_value!"
             
             mock_response = Mock()
@@ -93,11 +93,11 @@ class TestDiscordSendMessageHandler:
         """Test message sending with image attachment."""
         base_params["attachment_url"] = "https://example.com/image.png"
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -117,11 +117,11 @@ class TestDiscordSendMessageHandler:
         """Test message sending with video attachment."""
         base_params["attachment_url"] = "https://example.com/video.mp4"
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -141,11 +141,11 @@ class TestDiscordSendMessageHandler:
         """Test message sending with non-image/video attachment URL."""
         base_params["attachment_url"] = "https://example.com/document.pdf"
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -166,8 +166,8 @@ class TestDiscordSendMessageHandler:
         """Test send_message with missing channel_id."""
         params = {"message": "Test message"}
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await send_message_handler(mock_area, params, event_data)
@@ -180,8 +180,8 @@ class TestDiscordSendMessageHandler:
         """Test send_message with missing message."""
         params = {"channel_id": "102030405060708091"}
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await send_message_handler(mock_area, params, event_data)
@@ -193,8 +193,8 @@ class TestDiscordSendMessageHandler:
         """Test send_message with empty message."""
         params = {"channel_id": "102030405060708091", "message": ""}
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await send_message_handler(mock_area, params, event_data)
@@ -204,8 +204,8 @@ class TestDiscordSendMessageHandler:
     @pytest.mark.asyncio
     async def test_send_message_no_bot_token(self, mock_area, base_params, event_data):
         """Test send_message when bot token is not configured."""
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = None
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = None
             
             with pytest.raises(ValueError) as exc_info:
                 await send_message_handler(mock_area, base_params, event_data)
@@ -215,11 +215,11 @@ class TestDiscordSendMessageHandler:
     @pytest.mark.asyncio
     async def test_send_message_http_error(self, mock_area, base_params, event_data):
         """Test send_message with HTTP error from Discord API."""
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -250,7 +250,7 @@ class TestDiscordCreateChannelHandler:
     def base_params(self):
         """Base parameters for create_channel."""
         return {
-            "guild_id": "987654321",
+            "guild_id": "123456789012345678",  # Valid Discord ID (18 digits)
             "name": "new-channel"
         }
 
@@ -265,11 +265,11 @@ class TestDiscordCreateChannelHandler:
     @pytest.mark.asyncio
     async def test_create_channel_success(self, mock_area, base_params, event_data):
         """Test successful channel creation."""
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -284,7 +284,7 @@ class TestDiscordCreateChannelHandler:
             mock_client.return_value.__enter__.return_value.post.assert_called_once()
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             
-            assert "https://discord.com/api/v10/guilds/987654321/channels" in call_args[0]
+            assert "https://discord.com/api/v10/guilds/123456789012345678/channels" in call_args[0]
             assert call_args[1]["headers"]["Authorization"] == "Bot test_bot_token"
             assert call_args[1]["json"]["name"] == "new-channel"
             assert call_args[1]["json"]["type"] == 0  # Text channel
@@ -294,11 +294,11 @@ class TestDiscordCreateChannelHandler:
         """Test channel creation with variable resolution."""
         base_params["name"] = "{{data.channel_name}}"
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.return_value = "dynamic-channel"
             
             mock_response = Mock()
@@ -318,11 +318,11 @@ class TestDiscordCreateChannelHandler:
         """Test voice channel creation."""
         base_params["type"] = 2  # Voice channel
         
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()
@@ -340,8 +340,8 @@ class TestDiscordCreateChannelHandler:
         """Test create_channel with missing guild_id."""
         params = {"name": "new-channel"}
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await create_channel_handler(mock_area, params, event_data)
@@ -352,10 +352,10 @@ class TestDiscordCreateChannelHandler:
     @pytest.mark.asyncio
     async def test_create_channel_missing_name(self, mock_area, event_data):
         """Test create_channel with missing name."""
-        params = {"guild_id": "102030405060708091"}
+        params = {"guild_id": "102030405060708091"}  # Valid Discord ID (17 digits)
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await create_channel_handler(mock_area, params, event_data)
@@ -365,10 +365,10 @@ class TestDiscordCreateChannelHandler:
     @pytest.mark.asyncio
     async def test_create_channel_empty_name(self, mock_area, event_data):
         """Test create_channel with empty name."""
-        params = {"guild_id": "102030405060708091", "name": ""}
+        params = {"guild_id": "102030405060708091", "name": ""}  # Valid Discord ID (17 digits)
         
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = "test_bot_token"
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
                 await create_channel_handler(mock_area, params, event_data)
@@ -378,8 +378,8 @@ class TestDiscordCreateChannelHandler:
     @pytest.mark.asyncio
     async def test_create_channel_no_bot_token(self, mock_area, base_params, event_data):
         """Test create_channel when bot token is not configured."""
-        with patch("app.core.config.settings") as mock_settings:
-            mock_settings.discord_bot_token = ""
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token:
+            mock_get_token.return_value = ""
             
             with pytest.raises(ValueError) as exc_info:
                 await create_channel_handler(mock_area, base_params, event_data)
@@ -389,11 +389,11 @@ class TestDiscordCreateChannelHandler:
     @pytest.mark.asyncio
     async def test_create_channel_http_error(self, mock_area, base_params, event_data):
         """Test create_channel with HTTP error from Discord API."""
-        with patch("app.core.config.settings") as mock_settings, \
+        with patch("app.core.encryption.get_discord_bot_token") as mock_get_token, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
              patch("app.services.variable_resolver.resolve_variables") as mock_resolve:
             
-            mock_settings.discord_bot_token = "test_bot_token"
+            mock_get_token.return_value = "test_bot_token"
             mock_resolve.side_effect = lambda template, event: template
             
             mock_response = Mock()

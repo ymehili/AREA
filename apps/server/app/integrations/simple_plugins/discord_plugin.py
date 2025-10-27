@@ -136,6 +136,13 @@ async def send_message_handler(area: Area, params: dict, event: dict) -> None:
     message_template = params.get("message", "")
     attachment_url = params.get("attachment_url", "")
     
+    # Check bot token first before processing other parameters
+    bot_token = get_discord_bot_token()
+    if not bot_token:
+        error_msg = "Discord bot token not configured. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
     if not channel_id or not message_template:
         error_msg = f"Discord send_message missing required params: channel_id={channel_id}, message={bool(message_template)}"
         logger.error(error_msg)
@@ -147,12 +154,6 @@ async def send_message_handler(area: Area, params: dict, event: dict) -> None:
     except ValueError as e:
         logger.error(f"Invalid channel_id: {str(e)}")
         raise
-    
-    bot_token = get_discord_bot_token()
-    if not bot_token:
-        error_msg = "Discord bot token not configured. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file."
-        logger.error(error_msg)
-        raise ValueError(error_msg)
     
     # Resolve variables in message and attachment URL
     message = resolve_variables(message_template, event)
@@ -225,6 +226,13 @@ async def create_channel_handler(area: Area, params: dict, event: dict) -> None:
     name_template = params.get("name", "")
     channel_type = params.get("type", 0)  # 0 = text channel, 2 = voice channel
     
+    # Check bot token first before processing other parameters
+    bot_token = get_discord_bot_token()
+    if not bot_token:
+        error_msg = "Discord bot token not configured. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
     if not guild_id or not name_template:
         error_msg = f"Discord create_channel missing required params: guild_id={guild_id}, name={bool(name_template)}"
         logger.error(error_msg)
@@ -237,30 +245,26 @@ async def create_channel_handler(area: Area, params: dict, event: dict) -> None:
         logger.error(f"Invalid guild_id: {str(e)}")
         raise
     
-    bot_token = get_discord_bot_token()
-    if not bot_token:
-        error_msg = "Discord bot token not configured. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file."
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-    
     # Resolve variables in channel name
     channel_name = resolve_variables(name_template, event)
     
-    # Wait if needed due to rate limiting, then create the channel
+    # Wait if needed due to rate limiting
     await _discord_rate_limiter.wait_if_needed()
-    response = _make_discord_api_request(
-        "POST",
-        f"https://discord.com/api/v10/guilds/{guild_id}/channels",
-        headers={
-            "Authorization": f"Bot {bot_token}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "name": channel_name,
-            "type": channel_type,
-        },
-        timeout=10.0
-    )
+    
+    # Use httpx directly in a context manager to match send_message_handler approach for testability
+    with httpx.Client() as client:
+        response = client.post(
+            f"https://discord.com/api/v10/guilds/{guild_id}/channels",
+            headers={
+                "Authorization": f"Bot {bot_token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "name": channel_name,
+                "type": channel_type,
+            },
+            timeout=10.0
+        )
     
     try:
         response.raise_for_status()
