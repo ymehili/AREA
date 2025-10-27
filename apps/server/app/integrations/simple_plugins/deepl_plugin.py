@@ -18,7 +18,6 @@ import deepl
 from deepl.exceptions import DeepLException, AuthorizationException, QuotaExceededException
 
 from app.models.area import Area
-from app.db.session import SessionLocal
 from app.services.service_connections import get_service_connection_by_user_and_service
 from app.core.encryption import decrypt_token
 from app.integrations.simple_plugins.exceptions import (
@@ -83,7 +82,7 @@ def _get_deepl_api_key(area: Area, db: Session) -> str:
     return api_key
 
 
-def translate_text_handler(area: Area, params: dict, event: dict) -> None:
+def translate_text_handler(area: Area, params: dict, event: dict, db: Session) -> None:
     """Translate text from source language to target language using DeepL.
 
     This action translates text with explicitly specified source and target languages.
@@ -96,6 +95,7 @@ def translate_text_handler(area: Area, params: dict, event: dict) -> None:
             - target_lang (str): Target language code (e.g., "EN", "FR", "DE", "ES", "IT", "JA")
             - text (str): Text to translate
         event: Event data from trigger
+        db: Database session (injected by dependency injection)
 
     Raises:
         ValueError: If required parameters are missing or invalid
@@ -123,9 +123,7 @@ def translate_text_handler(area: Area, params: dict, event: dict) -> None:
     source_lang = _normalize_language_code(source_lang)
     target_lang = _normalize_language_code(target_lang)
 
-    # Only create DB session when we know params are valid
     try:
-        db = SessionLocal()
 
         logger.info(
             "Starting DeepL translate action",
@@ -245,11 +243,9 @@ def translate_text_handler(area: Area, params: dict, event: dict) -> None:
             exc_info=True
         )
         raise DeepLAPIError(f"DeepL translation failed: {str(e)}") from e
-    finally:
-        db.close()
 
 
-def auto_translate_handler(area: Area, params: dict, event: dict) -> None:
+def auto_translate_handler(area: Area, params: dict, event: dict, db: Session) -> None:
     """Automatically detect source language and translate to target language using DeepL.
 
     This action omits the source language parameter, letting DeepL automatically detect
@@ -261,6 +257,7 @@ def auto_translate_handler(area: Area, params: dict, event: dict) -> None:
             - target_lang (str): Target language code (e.g., "EN", "FR", "DE", "ES", "IT", "JA")
             - text (str): Text to translate (source language will be auto-detected)
         event: Event data from trigger
+        db: Database session (injected by dependency injection)
 
     Raises:
         ValueError: If required parameters are missing or invalid
@@ -285,9 +282,7 @@ def auto_translate_handler(area: Area, params: dict, event: dict) -> None:
     # Normalize language code (handles deprecated codes like "EN" -> "EN-US")
     target_lang = _normalize_language_code(target_lang)
 
-    # Only create DB session when we know params are valid
     try:
-        db = SessionLocal()
 
         logger.info(
             "Starting DeepL auto-translate action",
@@ -400,11 +395,9 @@ def auto_translate_handler(area: Area, params: dict, event: dict) -> None:
             exc_info=True
         )
         raise DeepLAPIError(f"DeepL auto-translation failed: {str(e)}") from e
-    finally:
-        db.close()
 
 
-def detect_language_handler(area: Area, params: dict, event: dict) -> None:
+def detect_language_handler(area: Area, params: dict, event: dict, db: Session) -> None:
     """Detect the language of a text using DeepL.
 
     Note: DeepL does not provide a dedicated language detection endpoint. This handler
@@ -418,6 +411,7 @@ def detect_language_handler(area: Area, params: dict, event: dict) -> None:
             - text (str): Text to detect the language of
             - sample_length (int, optional): Number of characters to use for detection (default: 100)
         event: Event data from trigger
+        db: Database session (injected by dependency injection)
 
     Raises:
         ValueError: If required parameters are missing or invalid
@@ -443,9 +437,7 @@ def detect_language_handler(area: Area, params: dict, event: dict) -> None:
     # Use only a sample of the text for detection (to save API quota)
     text_sample = text[:sample_length]
 
-    # Only create DB session when we know params are valid
     try:
-        db = SessionLocal()
 
         logger.info(
             "Starting DeepL detect language action",
@@ -555,8 +547,6 @@ def detect_language_handler(area: Area, params: dict, event: dict) -> None:
             exc_info=True
         )
         raise DeepLAPIError(f"DeepL language detection failed: {str(e)}") from e
-    finally:
-        db.close()
 
 
 __all__ = [
