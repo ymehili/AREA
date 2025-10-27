@@ -212,6 +212,13 @@ async def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict
     Returns:
         List of message objects from Discord API
     """
+    # Validate Discord channel ID
+    try:
+        channel_id = validate_discord_id(channel_id)
+    except ValueError as e:
+        logger.error(f"Invalid channel_id in _fetch_channel_messages: {str(e)}")
+        return []
+    
     from app.core.encryption import get_discord_bot_token
     
     bot_token = get_discord_bot_token()
@@ -281,6 +288,14 @@ async def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dic
     Returns:
         List of reaction objects from the message
     """
+    # Validate Discord IDs
+    try:
+        channel_id = validate_discord_id(channel_id)
+        message_id = validate_discord_id(message_id)
+    except ValueError as e:
+        logger.error(f"Invalid Discord IDs in _fetch_message_reactions: {str(e)}")
+        return []
+    
     from app.core.encryption import get_discord_bot_token
     
     bot_token = get_discord_bot_token()
