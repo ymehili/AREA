@@ -51,10 +51,33 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
     registry = get_plugins_registry()
     catalog = get_service_catalog()
 
+    # Dynamically detect which services have schedulers running
+    services_with_schedulers = set()
+    try:
+        from app.integrations.simple_plugins import scheduler
+        services_with_schedulers.add('time')
+    except ImportError:
+        pass
+    try:
+        from app.integrations.simple_plugins import gmail_scheduler
+        services_with_schedulers.add('gmail')
+    except ImportError:
+        pass
+    try:
+        from app.integrations.simple_plugins import discord_scheduler
+        services_with_schedulers.add('discord')
+    except ImportError:
+        pass
+    try:
+        from app.integrations.simple_plugins import weather_scheduler
+        services_with_schedulers.add('weather')
+    except ImportError:
+        pass
+
     filtered_services = []
     for service in catalog:
-        # Include all triggers (actions) from the catalog
-        # The catalog is the source of truth for what's implemented
+        # Include all triggers (actions) - not just those with schedulers
+        # Some services may use webhooks or other event-based mechanisms instead of continuous polling
         filtered_actions = list(service.actions)
 
         # Filter reactions to only those with registered handlers
@@ -64,7 +87,8 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
             if handler is not None:
                 filtered_reactions.append(reaction)
 
-        # Only include service if it has at least one trigger (action) OR one reaction with a registered handler
+        # Include service if it has at least one trigger (action) OR at least one reaction
+        # This allows reaction-only services like Debug and Delay to be available
         if filtered_actions or filtered_reactions:
             filtered_service = ServiceIntegration(
                 slug=service.slug,
