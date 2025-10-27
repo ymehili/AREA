@@ -371,12 +371,7 @@ class TestDiscordSchedulerTask:
             "embeds": []
         }
 
-        # Reset the seen messages state - make sure the message is already in the seen set
-        # so we can add a NEW message that will trigger processing
         area_id_str = str(area_id)
-        old_cache = discord_scheduler._last_seen_messages
-        # Create a temporary empty cache for this test
-        # We'll clear this specific area's entries using the proper cache methods
 
         with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
@@ -393,28 +388,34 @@ class TestDiscordSchedulerTask:
             mock_session.return_value = mock_db
             
             mock_fetch.return_value = [mock_area]
-            # Return empty list first time (to initialize seen set), then return the message on second call
-            # But since we cancel on second sleep, we need to return the message on first call
-            # and ensure it's NOT in the seen set initially (which we did above)
-            # However, the scheduler initializes the seen set with ALL messages on first run
-            # So we need to mock it differently - return the message AFTER seen set is initialized
             
-            # Solution: Pre-populate the seen set with an old message, then return a new one
-            old_message_id = "old_msg_id"
-            # Clear any existing entries and add the old message ID to the cache
-            discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
-            cache_key = f"{area_id_str}:{old_message_id}"
+            # For this test, we need to simulate that some messages have already been cached,
+            # so that new messages are processed (not treated as initial backlog)
+            # Pre-populate the cache with an existing message
+            existing_msg_id = "existing_msg"
+            cache_key = f"{area_id_str}:{existing_msg_id}"
             discord_scheduler._last_seen_messages.add(cache_key)
-            mock_messages.return_value = [message]
+            
+            # Return both the existing message (in cache) and a new one
+            existing_message_in_cache = {
+                "id": existing_msg_id,
+                "channel_id": "123456789012345678",
+                "content": "Existing message",
+                "timestamp": "2023-01-01T00:00:00.000000+00:00",
+                "author": {"id": "user789", "username": "testuser", "bot": False},
+                "mentions": [], "attachments": [], "embeds": []
+            }
+            
+            mock_messages.return_value = [existing_message_in_cache, message]
 
             await discord_scheduler_task()
 
-            # Verify area was processed
+            # Verify that the new message (not in cache) was processed
+            # Since existing_message_in_cache is in cache, only the new message should be processed
             mock_process.assert_called_once()
             
             # Clean up
-            if area_id_str in discord_scheduler._last_seen_messages:
-                del discord_scheduler._last_seen_messages[area_id_str]
+            discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
 
     @pytest.mark.asyncio
     async def test_scheduler_skips_areas_without_channel_id(self):
@@ -493,13 +494,7 @@ class TestDiscordSchedulerTask:
         }
 
         area_id_str = str(area_id)
-        # Pre-populate with an old message to avoid initialization logic
-        # Clear any existing entries and add the old message ID to the cache
-        discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
-        old_message_id = "old_msg"
-        cache_key = f"{area_id_str}:{old_message_id}"
-        discord_scheduler._last_seen_messages.add(cache_key)
-
+        
         with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
              patch("app.integrations.simple_plugins.discord_scheduler._fetch_due_discord_areas") as mock_fetch, \
@@ -515,8 +510,24 @@ class TestDiscordSchedulerTask:
             mock_session.return_value = mock_db
             
             mock_fetch.return_value = [mock_area]
-            # Return both human and bot messages
-            mock_messages.return_value = [bot_message, human_message]
+            
+            # Similar to the previous test, we need to pre-populate the cache to avoid first-run logic
+            # Pre-populate cache with a message that's not the ones we're testing
+            existing_msg_id = "existing_cached_msg"
+            cache_key = f"{area_id_str}:{existing_msg_id}"
+            discord_scheduler._last_seen_messages.add(cache_key)
+            
+            existing_message_in_cache = {
+                "id": existing_msg_id,
+                "channel_id": "123456789012345678",
+                "content": "Existing cached message",
+                "timestamp": "2023-01-01T00:00:00.000000+00:00",
+                "author": {"id": "user789", "username": "testuser", "bot": False},
+                "mentions": [], "attachments": [], "embeds": []
+            }
+            
+            # Return the existing cached message, plus the bot and human messages
+            mock_messages.return_value = [existing_message_in_cache, bot_message, human_message]
 
             await discord_scheduler_task()
 
@@ -528,8 +539,7 @@ class TestDiscordSchedulerTask:
             assert processed_message["author"]["bot"] == False
             
             # Clean up
-            if area_id_str in discord_scheduler._last_seen_messages:
-                del discord_scheduler._last_seen_messages[area_id_str]
+            discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
 
 
 class TestExtractMessageData:
