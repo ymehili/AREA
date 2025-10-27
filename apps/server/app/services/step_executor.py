@@ -51,6 +51,8 @@ class StepExecutor:
         self.registry = get_plugins_registry()
         self.execution_context: Dict[str, Any] = {}
         self.execution_log: List[Dict[str, Any]] = []
+        # Accumulated variables from all previous steps (propagation cascade)
+        self.accumulated_variables: Dict[str, Any] = {}
 
     def execute(self, trigger_data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the area workflow starting from trigger.
@@ -125,6 +127,26 @@ class StepExecutor:
                     "execution_log": self.execution_log,
                     "error": "No steps found in area",
                 }
+
+        # Initialize accumulated variables with trigger data
+        # Extract variables from trigger using service-specific extractor
+        from app.services.variable_resolver import extract_variables_by_service
+
+        trigger_data = self.execution_context.get('trigger', {})
+        trigger_service = trigger_step.service if trigger_step else None
+
+        if trigger_service:
+            initial_variables = extract_variables_by_service(trigger_data, trigger_service)
+            self.accumulated_variables.update(initial_variables)
+
+            logger.debug(
+                "Initialized accumulated variables from trigger",
+                extra={
+                    "area_id": str(self.area.id),
+                    "trigger_service": trigger_service,
+                    "variables": list(initial_variables.keys()),
+                },
+            )
 
         # Execute starting from trigger step
         self._execute_step(trigger_step)
@@ -363,15 +385,22 @@ class StepExecutor:
             params = step.config or {}
 
             # Import variable resolver and substitute variables
-            from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
+            from app.services.variable_resolver import substitute_variables_in_params
             trigger_data = self.execution_context.get('trigger', {})
 
-            # Use service-specific extractor based on trigger service, not action service
-            # The trigger data should be parsed according to the trigger service type
-            trigger_service = self.area.trigger_service
-            variables_from_context = extract_variables_by_service(trigger_data, trigger_service)
+            # Use accumulated variables from all previous steps (propagation cascade)
+            # This allows any step to access variables from the trigger AND all previous actions
+            params = substitute_variables_in_params(params, self.accumulated_variables)
 
-            params = substitute_variables_in_params(params, variables_from_context)
+            logger.debug(
+                "Substituting variables in action params",
+                extra={
+                    "area_id": str(self.area.id),
+                    "step_id": str(step.id),
+                    "available_variables": list(self.accumulated_variables.keys()),
+                    "params_before": params,
+                },
+            )
 
             # Execute handler - pass the trigger_data as the event parameter
             logger.info(
@@ -416,7 +445,29 @@ class StepExecutor:
             step_log["status"] = "success"
             step_log["output"] = f"Executed {step.service}.{step.action}"
             step_log["params_used"] = params
-            
+
+            # Extract and accumulate new variables from the handler's output
+            # Handlers may add namespaced variables to trigger_data (e.g., openai.response, weather.temperature)
+            from app.integrations.variable_extractor import extract_variables_from_event_data
+
+            new_variables = extract_variables_from_event_data(trigger_data)
+
+            # Accumulate the new variables for use in subsequent steps
+            if new_variables:
+                self.accumulated_variables.update(new_variables)
+
+                logger.debug(
+                    "Accumulated new variables from action execution",
+                    extra={
+                        "area_id": str(self.area.id),
+                        "step_id": str(step.id),
+                        "service": step.service,
+                        "action": step.action,
+                        "new_variables": list(new_variables.keys()),
+                        "total_accumulated": list(self.accumulated_variables.keys()),
+                    },
+                )
+
             # If this is a weather action, include weather data in the log
             # Check after handler execution as the handler adds this data
             if step.service == "weather":
@@ -432,7 +483,7 @@ class StepExecutor:
                 if "weather_data" in trigger_data:
                     step_log["weather_data"] = trigger_data["weather_data"]
                     logger.info("Weather data added to step log", extra={"weather_data": trigger_data["weather_data"]})
-            
+
             # If this is an openai action, include openai data in the log
             # Check after handler execution as the handler adds this data
             if step.service == "openai":
@@ -451,7 +502,7 @@ class StepExecutor:
                     if "response" in trigger_data["openai_data"]:
                         step_log["output"] = trigger_data["openai_data"]["response"]
                     logger.info("OpenAI data added to step log", extra={"openai_data": trigger_data["openai_data"]})
-            
+
             self.execution_log.append(step_log)
 
             logger.info(
@@ -583,12 +634,14 @@ class StepExecutor:
             from app.services.variable_resolver import substitute_variables_in_params, extract_variables_by_service
             trigger_data = self.execution_context.get("trigger", {})
 
-            # Use service-specific extractor based on trigger service, not reaction service
-            variables_from_context = extract_variables_by_service(trigger_data, self.area.trigger_service)
+            # Initialize accumulated variables from trigger (for legacy compatibility)
+            if not self.accumulated_variables:
+                variables_from_context = extract_variables_by_service(trigger_data, self.area.trigger_service)
+                self.accumulated_variables.update(variables_from_context)
 
-            # Process reaction params with variable substitution
+            # Process reaction params with variable substitution using accumulated variables
             reaction_params = self.area.reaction_params or {}
-            reaction_params = substitute_variables_in_params(reaction_params, variables_from_context)
+            reaction_params = substitute_variables_in_params(reaction_params, self.accumulated_variables)
 
             # Execute reaction with params
             # Check if handler accepts db parameter and pass it

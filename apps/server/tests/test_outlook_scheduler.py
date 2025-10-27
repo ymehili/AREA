@@ -32,7 +32,7 @@ class TestOutlookScheduler:
         mock_connection.expires_at = None
 
         with patch("app.integrations.simple_plugins.outlook_scheduler.get_service_connection_by_user_and_service") as mock_get_conn, \
-             patch("app.integrations.simple_plugins.outlook_scheduler.decrypt_token") as mock_decrypt:
+             patch("app.integrations.simple_plugins.outlook_utils.decrypt_token") as mock_decrypt:
 
             mock_get_conn.return_value = mock_connection
             mock_decrypt.side_effect = ["decrypted_access_token", "decrypted_refresh_token"]

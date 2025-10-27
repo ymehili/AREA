@@ -13,6 +13,7 @@ class AutomationOption:
     key: str
     name: str
     description: str
+    outputs: tuple[str, ...] = ()  # Variables produced by this trigger/action
 
 
 @dataclass(frozen=True)
@@ -419,6 +420,15 @@ def service_catalog_payload() -> list[dict[str, object]]:
         service_dict = asdict(service)
         service_dict["actions"] = [asdict(action) for action in service.actions]
         service_dict["reactions"] = [asdict(reaction) for reaction in service.reactions]
+
+        # Convert tuple outputs to lists for JSON serialization consistency
+        for action in service_dict["actions"]:
+            if isinstance(action.get("outputs"), tuple):
+                action["outputs"] = list(action["outputs"])
+        for reaction in service_dict["reactions"]:
+            if isinstance(reaction.get("outputs"), tuple):
+                reaction["outputs"] = list(reaction["outputs"])
+
         payload.append(service_dict)
     return payload
 
