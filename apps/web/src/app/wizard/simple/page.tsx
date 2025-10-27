@@ -197,9 +197,6 @@ export default function SimpleWizardPage() {
     }
     setSubmitting(true);
     try {
-      const selectedTriggerObj = selectedTriggerService?.actions.find(a => a.key === trigger); // Used for debugging if needed
-      const selectedActionObj = selectedActionService?.reactions.find(r => r.key === action); // Used for debugging if needed
-      
       const areaData = {
         name: areaName,
         description: areaDescription,
@@ -266,7 +263,7 @@ export default function SimpleWizardPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [auth, triggerService, trigger, actionService, action, router, selectedTriggerService, selectedActionService, areaName, areaDescription, triggerParams, actionParams]);
+  }, [auth, triggerService, trigger, actionService, action, router, areaName, areaDescription, triggerParams, actionParams]);
 
   if (loading) {
     return (
