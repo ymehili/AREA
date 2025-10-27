@@ -61,6 +61,11 @@ async def _get_outlook_client(user_id, db: Session) -> httpx.AsyncClient | None:
                 },
                 exc_info=True,
             )
+            # Log a more specific message to help with troubleshooting
+            logger.warning(
+                "Outlook connection may need to be re-established. "
+                "Please reconnect your Outlook account in the application settings."
+            )
             return None
 
         # Log token info (masked)
@@ -117,7 +122,14 @@ async def _fetch_messages(client: httpx.AsyncClient, filter_query: str, max_resu
 
         return data.get("value", [])
     except httpx.HTTPError as e:
-        logger.error(f"Outlook API error fetching messages: {e}", exc_info=True)
+        if response.status_code == 401:
+            logger.error(
+                "Outlook API authentication error (401 Unauthorized) - token may be expired or invalid. "
+                "Please check your Microsoft credentials and re-authenticate your Outlook connection.",
+                extra={"error": str(e), "status_code": response.status_code}
+            )
+        else:
+            logger.error(f"Outlook API error fetching messages: {e}", exc_info=True)
         return []
 
 
