@@ -568,6 +568,9 @@ async def add_api_key_connection(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=error_detail
                     )
+        except HTTPException:
+            # Re-raise HTTPException as-is
+            raise
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=status.HTTP_408_REQUEST_TIMEOUT,
