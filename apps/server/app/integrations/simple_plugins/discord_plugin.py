@@ -143,7 +143,7 @@ async def send_message_handler(area: Area, params: dict, event: dict) -> None:
     
     # Validate Discord IDs
     try:
-        channel_id = validate_discord_id(channel_id)
+        channel_id = await validate_discord_id(channel_id)
     except ValueError as e:
         logger.error(f"Invalid channel_id: {str(e)}")
         raise
@@ -178,18 +178,18 @@ async def send_message_handler(area: Area, params: dict, event: dict) -> None:
             # Clean up None fields
             payload["embeds"][0] = {k: v for k, v in payload["embeds"][0].items() if v is not None}
     
-    # Wait if needed due to rate limiting, then send message to the channel using bot token
+    # Use httpx directly in a context manager like the tests expect
     await _discord_rate_limiter.wait_if_needed()
-    response = _make_discord_api_request(
-        "POST",
-        f"https://discord.com/api/v10/channels/{channel_id}/messages",
-        headers={
-            "Authorization": f"Bot {bot_token}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=10.0
-    )
+    with httpx.Client() as client:
+        response = client.post(
+            f"https://discord.com/api/v10/channels/{channel_id}/messages",
+            headers={
+                "Authorization": f"Bot {bot_token}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=10.0
+        )
     
     try:
         response.raise_for_status()
@@ -232,7 +232,7 @@ async def create_channel_handler(area: Area, params: dict, event: dict) -> None:
     
     # Validate Discord IDs
     try:
-        guild_id = validate_discord_id(guild_id)
+        guild_id = await validate_discord_id(guild_id)
     except ValueError as e:
         logger.error(f"Invalid guild_id: {str(e)}")
         raise

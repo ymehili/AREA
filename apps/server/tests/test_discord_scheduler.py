@@ -24,7 +24,8 @@ from app.models.area import Area
 class TestFetchChannelMessages:
     """Test _fetch_channel_messages function."""
 
-    def test_fetch_messages_success(self):
+    @pytest.mark.asyncio
+    async def test_fetch_messages_success(self):
         """Test successful message fetching from Discord."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_scheduler.httpx.Client") as mock_client:
@@ -44,22 +45,24 @@ class TestFetchChannelMessages:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            messages = _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789")
 
             assert len(messages) == 1
             assert messages[0]["id"] == "msg1"
             assert messages[0]["content"] == "Hello"
 
-    def test_fetch_messages_no_bot_token(self):
+    @pytest.mark.asyncio
+    async def test_fetch_messages_no_bot_token(self):
         """Test fetching messages without bot token configured."""
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = None
 
-            messages = _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789")
 
             assert messages == []
 
-    def test_fetch_messages_http_error(self):
+    @pytest.mark.asyncio
+    async def test_fetch_messages_http_error(self):
         """Test handling HTTP error when fetching messages."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_scheduler.httpx.Client") as mock_client:
@@ -71,7 +74,7 @@ class TestFetchChannelMessages:
             mock_client.return_value.__enter__.return_value.get.side_effect = \
                 httpx.HTTPError("Network error")
 
-            messages = _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789")
 
             assert messages == []
 
@@ -349,11 +352,11 @@ class TestDiscordSchedulerTask:
         mock_area.id = area_id
         mock_area.user_id = uuid4()
         mock_area.trigger_action = "new_message_in_channel"
-        mock_area.trigger_params = {"channel_id": "123456789"}
+        mock_area.trigger_params = {"channel_id": "123456789012345678"}  # Use valid Discord ID
 
         message = {
             "id": "msg123",
-            "channel_id": "123456789",
+            "channel_id": "123456789012345678",  # Use valid Discord ID
             "content": "Test message",
             "timestamp": "2023-01-01T00:00:00.000000+00:00",
             "author": {
@@ -371,7 +374,9 @@ class TestDiscordSchedulerTask:
         # Reset the seen messages state - make sure the message is already in the seen set
         # so we can add a NEW message that will trigger processing
         area_id_str = str(area_id)
-        discord_scheduler._last_seen_messages[area_id_str] = set()
+        old_cache = discord_scheduler._last_seen_messages
+        # Create a temporary empty cache for this test
+        # We'll clear this specific area's entries using the proper cache methods
 
         with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
@@ -396,7 +401,10 @@ class TestDiscordSchedulerTask:
             
             # Solution: Pre-populate the seen set with an old message, then return a new one
             old_message_id = "old_msg_id"
-            discord_scheduler._last_seen_messages[area_id_str] = {old_message_id}
+            # Clear any existing entries and add the old message ID to the cache
+            discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
+            cache_key = f"{area_id_str}:{old_message_id}"
+            discord_scheduler._last_seen_messages.add(cache_key)
             mock_messages.return_value = [message]
 
             await discord_scheduler_task()
@@ -451,12 +459,12 @@ class TestDiscordSchedulerTask:
         mock_area.id = area_id
         mock_area.user_id = uuid4()
         mock_area.trigger_action = "new_message_in_channel"
-        mock_area.trigger_params = {"channel_id": "123456789"}
+        mock_area.trigger_params = {"channel_id": "123456789012345678"}  # Use valid Discord ID
 
         # Create a human message and a bot message
         human_message = {
             "id": "human_msg",
-            "channel_id": "123456789",
+            "channel_id": "123456789012345678",  # Use valid Discord ID
             "content": "Hello from human",
             "timestamp": "2023-01-01T00:00:00.000000+00:00",
             "author": {
@@ -471,7 +479,7 @@ class TestDiscordSchedulerTask:
 
         bot_message = {
             "id": "bot_msg",
-            "channel_id": "123456789",
+            "channel_id": "123456789012345678",  # Use valid Discord ID
             "content": "Hello from bot",
             "timestamp": "2023-01-01T00:01:00.000000+00:00",
             "author": {
@@ -486,7 +494,11 @@ class TestDiscordSchedulerTask:
 
         area_id_str = str(area_id)
         # Pre-populate with an old message to avoid initialization logic
-        discord_scheduler._last_seen_messages[area_id_str] = {"old_msg"}
+        # Clear any existing entries and add the old message ID to the cache
+        discord_scheduler._last_seen_messages.remove_area_cache(area_id_str)
+        old_message_id = "old_msg"
+        cache_key = f"{area_id_str}:{old_message_id}"
+        discord_scheduler._last_seen_messages.add(cache_key)
 
         with patch("app.db.session.SessionLocal") as mock_session, \
              patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep, \
@@ -617,7 +629,8 @@ class TestExtractMessageData:
 class TestFetchMessageReactions:
     """Test _fetch_message_reactions function."""
 
-    def test_fetch_reactions_success(self):
+    @pytest.mark.asyncio
+    async def test_fetch_reactions_success(self):
         """Test successful reaction fetching from Discord."""
         from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
         
@@ -645,7 +658,7 @@ class TestFetchMessageReactions:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            reactions = _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("channel123", "msg123")
 
             assert len(reactions) == 2
             assert reactions[0]["emoji"]["name"] == "👍"
@@ -653,18 +666,20 @@ class TestFetchMessageReactions:
             assert reactions[1]["emoji"]["name"] == "heart"
             assert reactions[1]["emoji"]["animated"] == True
 
-    def test_fetch_reactions_no_bot_token(self):
+    @pytest.mark.asyncio
+    async def test_fetch_reactions_no_bot_token(self):
         """Test fetch reactions with no bot token configured."""
         from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
         
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = None
             
-            reactions = _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("channel123", "msg123")
             
             assert reactions == []
 
-    def test_fetch_reactions_http_error(self):
+    @pytest.mark.asyncio
+    async def test_fetch_reactions_http_error(self):
         """Test fetch reactions with HTTP error."""
         from app.integrations.simple_plugins.discord_scheduler import _fetch_message_reactions
         import httpx
@@ -675,7 +690,7 @@ class TestFetchMessageReactions:
             mock_settings.discord_bot_token = "test_bot_token"
             mock_client.return_value.__enter__.return_value.get.side_effect = httpx.HTTPError("Network error")
             
-            reactions = _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("channel123", "msg123")
             
             assert reactions == []
 
