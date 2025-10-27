@@ -334,6 +334,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^openai_image_/, '');
     paramName = paramName.replace(/^openai_text_/, '');
     paramName = paramName.replace(/^openai_moderate_/, '');
+    paramName = paramName.replace(/^drive_copy_/, '');
+    paramName = paramName.replace(/^drive_move_/, '');
+    paramName = paramName.replace(/^drive_delete_/, '');
+    paramName = paramName.replace(/^drive_trigger_/, '');
+    paramName = paramName.replace(/^drive_/, '');
+    paramName = paramName.replace(/^calendar_/, '');
+    paramName = paramName.replace(/^calendar_create_/, '');
+    paramName = paramName.replace(/^calendar_update_/, '');
+    paramName = paramName.replace(/^calendar_delete_/, '');
+    paramName = paramName.replace(/^calendar_quick_/, '');
 
     if (inputId === 'debugMessage') {
       paramName = 'message';
