@@ -23,43 +23,99 @@ from app.services.step_executor import execute_area
 logger = logging.getLogger("area")
 
 
-# Rate limiter for Discord API calls in scheduler
+# Rate limiter for Discord API calls in scheduler that respects Discord's rate limits
 class DiscordRateLimiter:
-    def __init__(self, max_requests: int = 50, time_window: int = 1):
-        """
-        Initialize rate limiter.
-        
-        Args:
-            max_requests: Maximum number of requests allowed per time window
-            time_window: Time window in seconds
-        """
-        self.max_requests = max_requests
-        self.time_window = time_window
-        self.requests = []
+    def __init__(self):
+        """Initialize rate limiter with Discord's rate limit parameters."""
+        self.global_limit_reset_time = 0  # Time when global rate limit resets
+        self.route_limits = {}  # Store rate limits for each endpoint
+        self.lock = asyncio.Lock()  # To prevent race conditions
     
-    def can_make_request(self) -> bool:
-        """Check if a request can be made based on rate limits."""
-        current_time = time.time()
-        
-        # Remove requests that are outside the time window
-        self.requests = [req_time for req_time in self.requests if current_time - req_time < self.time_window]
-        
-        # Check if we're under the limit
-        return len(self.requests) < self.max_requests
+    async def wait_if_needed(self, route: str = "general") -> None:
+        """Wait if rate limit would be exceeded for the given route."""
+        async with self.lock:
+            current_time = time.time()
+            
+            # Check if global rate limit is active
+            if current_time < self.global_limit_reset_time:
+                sleep_time = self.global_limit_reset_time - current_time
+                logger.warning(f"Discord API global rate limit active in scheduler, sleeping for {sleep_time:.2f}s")
+                await asyncio.sleep(sleep_time)
+                return
+            
+            # Check if route-specific rate limit is active
+            if route in self.route_limits:
+                route_info = self.route_limits[route]
+                
+                # If we're past the reset time for this route, reset counters
+                if current_time >= route_info['reset_time']:
+                    route_info['remaining'] = route_info['limit']
+                    route_info['reset_time'] = current_time + (route_info.get('reset_after', 1))
+                
+                # If no requests remaining, wait until reset
+                if route_info['remaining'] <= 0:
+                    sleep_time = route_info['reset_time'] - current_time
+                    if sleep_time > 0:
+                        logger.warning(f"Discord API rate limit for route {route} in scheduler, sleeping for {sleep_time:.2f}s")
+                        await asyncio.sleep(sleep_time)
     
-    def record_request(self):
-        """Record that a request was made."""
-        self.requests.append(time.time())
+    async def update_rate_limit_info(self, route: str, response: httpx.Response) -> None:
+        """Update rate limit info based on response headers."""
+        async with self.lock:
+            current_time = time.time()
+            
+            # Check for global rate limit
+            if response.status_code == 429:
+                try:
+                    data = response.json()
+                    retry_after = data.get('retry_after', 1.0)
+                    is_global = data.get('global', False)
+                    
+                    if is_global:
+                        self.global_limit_reset_time = current_time + retry_after
+                        logger.warning(f"Global rate limit hit in scheduler, reset in {retry_after}s")
+                    else:
+                        # Update route-specific rate limit
+                        self.route_limits[route] = {
+                            'limit': data.get('limit', 1),
+                            'remaining': 0,
+                            'reset_time': current_time + retry_after,
+                            'reset_after': retry_after
+                        }
+                except Exception:
+                    # Fallback if response is not JSON
+                    self.global_limit_reset_time = current_time + 1.0
+            
+            # Check for rate limit headers - properly handle mocked responses
+            else:
+                try:
+                    # Check if the header exists in the response
+                    if hasattr(response.headers, '__contains__') and 'X-RateLimit-Limit' in response.headers:
+                        limit = int(response.headers['X-RateLimit-Limit'])
+                        remaining = int(response.headers['X-RateLimit-Remaining'])
+                        reset_after = float(response.headers.get('X-RateLimit-Reset-After', 1.0))
+                        
+                        # Calculate reset time (Discord sends reset_after as seconds from now)
+                        reset_time = current_time + reset_after
+                        
+                        self.route_limits[route] = {
+                            'limit': limit,
+                            'remaining': remaining,
+                            'reset_time': reset_time,
+                            'reset_after': reset_after
+                        }
+                        
+                        logger.debug(f"Updated rate limit info for {route} in scheduler: {remaining}/{limit} remaining, resets in {reset_after}s")
+                except (ValueError, KeyError):
+                    # Headers might be missing or malformed
+                    pass
     
-    async def wait_if_needed(self):
-        """Wait if rate limit would be exceeded."""
-        if not self.can_make_request():
-            sleep_time = self.time_window  # Wait for the time window to reset
-            logger.warning(f"Discord API rate limit approaching in scheduler, sleeping for {sleep_time}s")
-            await asyncio.sleep(sleep_time)
-        
-        # Record the request that will be made
-        self.record_request()
+    async def decrement_remaining(self, route: str) -> None:
+        """Decrement the remaining count for the given route."""
+        async with self.lock:
+            if route in self.route_limits:
+                if self.route_limits[route]['remaining'] > 0:
+                    self.route_limits[route]['remaining'] -= 1
 
 
 # LRU Cache implementation for tracking seen messages and reactions
@@ -164,8 +220,8 @@ async def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict
         return []
 
     try:
-        # Wait if needed due to rate limiting, then fetch messages
-        await _discord_scheduler_rate_limiter.wait_if_needed()
+        route = f"GET:/channels/{channel_id}/messages"
+        await _discord_scheduler_rate_limiter.wait_if_needed(route)
         
         with httpx.Client() as client:
             response = client.get(
@@ -177,21 +233,36 @@ async def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict
                 timeout=10.0
             )
             
-            # Check for rate limit response (429)
+            # Update rate limit info based on response
+            await _discord_scheduler_rate_limiter.update_rate_limit_info(route, response)
+            
+            # Handle rate limit response (429) with exponential backoff
             if response.status_code == 429:
-                retry_after = response.json().get("retry_after", 1.0)
-                logger.warning(f"Discord API rate limited in scheduler, waiting {retry_after}s")
-                await asyncio.sleep(retry_after)
-                
-                # Retry the request
-                response = client.get(
-                    f"https://discord.com/api/v10/channels/{channel_id}/messages",
-                    headers={
-                        "Authorization": f"Bot {bot_token}",
-                    },
-                    params={"limit": limit},
-                    timeout=10.0
-                )
+                try:
+                    data = response.json()
+                    retry_after = data.get('retry_after', 1.0)
+                    is_global = data.get('global', False)
+                    
+                    logger.warning(f"Discord API rate limited in scheduler (global: {is_global}), waiting {retry_after}s")
+                    
+                    # Sleep for the required time
+                    await asyncio.sleep(retry_after)
+                    
+                    # Retry the request
+                    response = client.get(
+                        f"https://discord.com/api/v10/channels/{channel_id}/messages",
+                        headers={
+                            "Authorization": f"Bot {bot_token}",
+                        },
+                        params={"limit": limit},
+                        timeout=10.0
+                    )
+                    
+                    # Update rate limit info for the retry
+                    await _discord_scheduler_rate_limiter.update_rate_limit_info(route, response)
+                except Exception as e:
+                    logger.error(f"Error handling rate limit response: {e}")
+                    return []
             
             response.raise_for_status()
             return response.json()
@@ -218,8 +289,8 @@ async def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dic
         return []
 
     try:
-        # Wait if needed due to rate limiting, then fetch reactions
-        await _discord_scheduler_rate_limiter.wait_if_needed()
+        route = f"GET:/channels/{channel_id}/messages/{message_id}"
+        await _discord_scheduler_rate_limiter.wait_if_needed(route)
         
         with httpx.Client() as client:
             response = client.get(
@@ -230,20 +301,35 @@ async def _fetch_message_reactions(channel_id: str, message_id: str) -> list[dic
                 timeout=10.0
             )
             
-            # Check for rate limit response (429)
+            # Update rate limit info based on response
+            await _discord_scheduler_rate_limiter.update_rate_limit_info(route, response)
+            
+            # Handle rate limit response (429) with exponential backoff
             if response.status_code == 429:
-                retry_after = response.json().get("retry_after", 1.0)
-                logger.warning(f"Discord API rate limited in scheduler, waiting {retry_after}s")
-                await asyncio.sleep(retry_after)
-                
-                # Retry the request
-                response = client.get(
-                    f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
-                    headers={
-                        "Authorization": f"Bot {bot_token}",
-                    },
-                    timeout=10.0
-                )
+                try:
+                    data = response.json()
+                    retry_after = data.get('retry_after', 1.0)
+                    is_global = data.get('global', False)
+                    
+                    logger.warning(f"Discord API rate limited in scheduler (global: {is_global}), waiting {retry_after}s")
+                    
+                    # Sleep for the required time
+                    await asyncio.sleep(retry_after)
+                    
+                    # Retry the request
+                    response = client.get(
+                        f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}",
+                        headers={
+                            "Authorization": f"Bot {bot_token}",
+                        },
+                        timeout=10.0
+                    )
+                    
+                    # Update rate limit info for the retry
+                    await _discord_scheduler_rate_limiter.update_rate_limit_info(route, response)
+                except Exception as e:
+                    logger.error(f"Error handling rate limit response: {e}")
+                    return []
             
             response.raise_for_status()
             message_data = response.json()
