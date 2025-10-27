@@ -161,26 +161,56 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         description="Manage files and folders stored in Google Drive.",
         actions=(
             AutomationOption(
-                key="file_created",
-                name="File Created",
-                description="Triggers when a new file is added to the drive.",
+                key="new_file",
+                name="New File Created",
+                description="Triggers when any new file is created in your Drive.",
             ),
             AutomationOption(
-                key="file_deleted",
-                name="File Deleted",
-                description="Triggers when a file is deleted from the drive.",
+                key="file_modified",
+                name="File Modified",
+                description="Triggers when an existing file is modified in your Drive.",
+            ),
+            AutomationOption(
+                key="file_in_folder",
+                name="New File in Folder",
+                description="Triggers when a new file is added to a specific folder (requires folder_id parameter).",
+            ),
+            AutomationOption(
+                key="file_shared_with_me",
+                name="File Shared With Me",
+                description="Triggers when someone shares a file with you.",
+            ),
+            AutomationOption(
+                key="file_trashed",
+                name="File Trashed",
+                description="Triggers when a file is moved to trash.",
             ),
         ),
         reactions=(
             AutomationOption(
                 key="upload_file",
                 name="Upload File",
-                description="Upload a new file into a specified folder.",
+                description="Upload a new file to Drive (requires file_name, content; optional folder_id, mime_type).",
             ),
             AutomationOption(
                 key="create_folder",
                 name="Create Folder",
-                description="Create a folder at the root or within another folder.",
+                description="Create a new folder in Drive (requires folder_name; optional parent_folder_id).",
+            ),
+            AutomationOption(
+                key="copy_file",
+                name="Copy File",
+                description="Create a copy of an existing file (requires file_id; optional new_name).",
+            ),
+            AutomationOption(
+                key="move_file",
+                name="Move File",
+                description="Move a file to another folder (requires file_id, destination_folder_id).",
+            ),
+            AutomationOption(
+                key="delete_file",
+                name="Delete File",
+                description="Move a file to trash (requires file_id).",
             ),
         ),
     ),
