@@ -96,12 +96,28 @@ class LRUCache:
         keys_to_remove = [key for key in self.cache.keys() if key.startswith(f"{area_id}:")]
         for key in keys_to_remove:
             self.cache.pop(key, None)
+    
+    def clear_area_entries(self, area_id: str) -> None:
+        """Clear all cache entries for a specific area ID."""
+        self.remove_area_cache(area_id)
+    
+    def set_area_entries(self, area_id: str, message_ids: set[str]) -> None:
+        """Set cache entries for a specific area ID with given message IDs (for testing)."""
+        # Clear existing entries for this area
+        self.remove_area_cache(area_id)
+        # Add each message ID to the cache
+        for msg_id in message_ids:
+            cache_key = f"{area_id}:{msg_id}"
+            self.add(cache_key)
 
 
 # Global cache instances with reasonable limits
 _last_seen_messages = LRUCache(max_size=10000)  # Max 10k message IDs across all areas
 _last_seen_reactions = LRUCache(max_size=5000)  # Max 5k reaction records across all areas
 _discord_scheduler_task: asyncio.Task | None = None
+
+# Global rate limiter instance
+_discord_scheduler_rate_limiter = DiscordRateLimiter()
 
 
 def validate_discord_id(value: str | None) -> str:
@@ -128,12 +144,6 @@ def validate_discord_id(value: str | None) -> str:
         raise ValueError(f"Invalid Discord ID format: {value}. Must be 17-19 digits.")
     
     return value
-
-# In-memory storage for last seen message IDs per AREA
-_last_seen_messages: Dict[str, set[str]] = {}
-# In-memory storage for last seen reactions per AREA (key: area_id, value: dict[message_id, set[reaction_ids]])
-_last_seen_reactions: Dict[str, Dict[str, set[str]]] = {}
-_discord_scheduler_task: asyncio.Task | None = None
 
 
 async def _fetch_channel_messages(channel_id: str, limit: int = 10) -> list[dict]:
@@ -341,14 +351,7 @@ async def discord_scheduler_task() -> None:
                 message_areas = await asyncio.to_thread(_fetch_due_discord_areas, db, "new_message_in_channel")
                 reaction_areas = await asyncio.to_thread(_fetch_due_discord_areas, db, "reaction_added")
 
-                logger.info(
-                    "Discord scheduler tick",
-                    extra={
-                        "utc_now": now.isoformat(),
-                        "message_areas_count": len(message_areas),
-                        "reaction_areas_count": len(reaction_areas),
-                    },
-                )
+                logger.info("Discord scheduler tick")
 
             # Process message trigger areas
             for area in message_areas:
@@ -363,7 +366,7 @@ async def discord_scheduler_task() -> None:
                         
                         if not channel_id:
                             logger.warning(
-                                f"No channel_id configured for Discord message area {area_id_str}, skipping"
+                                f"Missing channel_id for Discord message area {area_id_str}, skipping"
                             )
                             continue
 
@@ -396,32 +399,20 @@ async def discord_scheduler_task() -> None:
 
                         logger.debug(
                             f"Discord fetched {len(messages)} message(s) for area {area_id_str}",
-                            extra={
-                                "area_id": area_id_str,
-                                "area_name": area.name,
-                                "user_id": str(area.user_id),
-                                "messages_fetched": len(messages),
-                                "channel_id": channel_id,
-                            }
                         )
 
                         # Filter for new messages (exclude bot messages to prevent infinite loops)
                         new_messages = []
                         for msg in messages:
                             cache_key = f"{area_id_str}:{msg['id']}"
-                            if not _last_seen_messages.contains(cache_key) and not msg.get('author', {}).get('bot', False):
+                            # Also check if author exists to prevent errors when author is missing
+                            author_data = msg.get('author', {})
+                            if not _last_seen_messages.contains(cache_key) and not author_data.get('bot', False):
                                 new_messages.append(msg)
 
                         if new_messages:
                             logger.info(
                                 f"Found {len(new_messages)} NEW Discord message(s) for area {area_id_str}",
-                                extra={
-                                    "area_id": area_id_str,
-                                    "area_name": area.name,
-                                    "user_id": str(area.user_id),
-                                    "new_messages_count": len(new_messages),
-                                    "message_ids": [msg['id'] for msg in new_messages],
-                                }
                             )
 
                         # Process each new message (oldest first)
@@ -433,11 +424,7 @@ async def discord_scheduler_task() -> None:
 
                 except Exception as e:
                     logger.error(
-                        "Error processing Discord message area",
-                        extra={
-                            "area_id": area_id_str,
-                            "error": str(e),
-                        },
+                        f"Error processing Discord message area {area_id_str}: {str(e)}",
                         exc_info=True,
                     )
 
@@ -492,14 +479,6 @@ async def discord_scheduler_task() -> None:
 
                         logger.debug(
                             f"Discord fetched {len(reactions)} reaction(s) for area {area_id_str}",
-                            extra={
-                                "area_id": area_id_str,
-                                "area_name": area.name,
-                                "user_id": str(area.user_id),
-                                "reactions_fetched": len(reactions),
-                                "message_id": message_id,
-                                "channel_id": channel_id,
-                            }
                         )
 
                         # Check for new reactions
@@ -511,13 +490,6 @@ async def discord_scheduler_task() -> None:
                             if not _last_seen_reactions.contains(cache_key):
                                 logger.info(
                                     f"Found NEW Discord reaction for area {area_id_str}: {emoji_key}",
-                                    extra={
-                                        "area_id": area_id_str,
-                                        "area_name": area.name,
-                                        "user_id": str(area.user_id),
-                                        "message_id": message_id,
-                                        "emoji": emoji_key,
-                                    }
                                 )
                                 
                                 await _process_discord_reaction_trigger(db, area, reaction, message_id, channel_id, now)
@@ -526,11 +498,7 @@ async def discord_scheduler_task() -> None:
 
                 except Exception as e:
                     logger.error(
-                        "Error processing Discord reaction area",
-                        extra={
-                            "area_id": area_id_str,
-                            "error": str(e),
-                        },
+                        f"Error processing Discord reaction area {area_id_str}: {str(e)}",
                         exc_info=True,
                     )
 
@@ -539,7 +507,7 @@ async def discord_scheduler_task() -> None:
             break
 
         except Exception as e:
-            logger.error("Discord scheduler task error", extra={"error": str(e)}, exc_info=True)
+            logger.error(f"Discord scheduler task error: {str(e)}", exc_info=True)
             await asyncio.sleep(30)  # Back off on error
 
     logger.info("Discord scheduler task stopped")
