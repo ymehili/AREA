@@ -28,7 +28,7 @@ class TestDiscordSendMessageHandler:
     def base_params(self):
         """Base parameters for send_message."""
         return {
-            "channel_id": "123456789",
+            "channel_id": "123456789012345678",
             "message": "Test message"
         }
 
@@ -40,7 +40,8 @@ class TestDiscordSendMessageHandler:
             "data": {"value": "test_value"}
         }
 
-    def test_send_message_success(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_success(self, mock_area, base_params, event_data):
         """Test successful message sending."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
@@ -54,7 +55,7 @@ class TestDiscordSendMessageHandler:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
             # Should not raise any exception
-            send_message_handler(mock_area, base_params, event_data)
+            await send_message_handler(mock_area, base_params, event_data)
 
             # Verify the API call was made correctly
             mock_client.return_value.__enter__.return_value.post.assert_called_once()
@@ -64,7 +65,8 @@ class TestDiscordSendMessageHandler:
             assert call_args[1]["headers"]["Authorization"] == "Bot test_bot_token"
             assert call_args[1]["json"]["content"] == "Test message"
 
-    def test_send_message_with_variable_resolution(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_with_variable_resolution(self, mock_area, base_params, event_data):
         """Test message sending with variable resolution."""
         base_params["message"] = "Hello {{data.value}}!"
         
@@ -79,14 +81,15 @@ class TestDiscordSendMessageHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            send_message_handler(mock_area, base_params, event_data)
+            await send_message_handler(mock_area, base_params, event_data)
 
             # Verify variable resolution was called
             mock_resolve.assert_called()
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             assert call_args[1]["json"]["content"] == "Hello test_value!"
 
-    def test_send_message_with_image_attachment(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_with_image_attachment(self, mock_area, base_params, event_data):
         """Test message sending with image attachment."""
         base_params["attachment_url"] = "https://example.com/image.png"
         
@@ -101,7 +104,7 @@ class TestDiscordSendMessageHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            send_message_handler(mock_area, base_params, event_data)
+            await send_message_handler(mock_area, base_params, event_data)
 
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             payload = call_args[1]["json"]
@@ -109,7 +112,8 @@ class TestDiscordSendMessageHandler:
             assert "embeds" in payload
             assert payload["embeds"][0]["image"]["url"] == "https://example.com/image.png"
 
-    def test_send_message_with_video_attachment(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_with_video_attachment(self, mock_area, base_params, event_data):
         """Test message sending with video attachment."""
         base_params["attachment_url"] = "https://example.com/video.mp4"
         
@@ -124,7 +128,7 @@ class TestDiscordSendMessageHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            send_message_handler(mock_area, base_params, event_data)
+            await send_message_handler(mock_area, base_params, event_data)
 
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             payload = call_args[1]["json"]
@@ -132,7 +136,8 @@ class TestDiscordSendMessageHandler:
             assert "embeds" in payload
             assert payload["embeds"][0]["video"]["url"] == "https://example.com/video.mp4"
 
-    def test_send_message_with_non_media_attachment(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_with_non_media_attachment(self, mock_area, base_params, event_data):
         """Test message sending with non-image/video attachment URL."""
         base_params["attachment_url"] = "https://example.com/document.pdf"
         
@@ -147,7 +152,7 @@ class TestDiscordSendMessageHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            send_message_handler(mock_area, base_params, event_data)
+            await send_message_handler(mock_area, base_params, event_data)
 
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             payload = call_args[1]["json"]
@@ -156,7 +161,8 @@ class TestDiscordSendMessageHandler:
             assert "embeds" not in payload
             assert "https://example.com/document.pdf" in payload["content"]
 
-    def test_send_message_missing_channel_id(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_missing_channel_id(self, mock_area, event_data):
         """Test send_message with missing channel_id."""
         params = {"message": "Test message"}
         
@@ -164,46 +170,50 @@ class TestDiscordSendMessageHandler:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                send_message_handler(mock_area, params, event_data)
+                await send_message_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
             assert "channel_id" in str(exc_info.value)
 
-    def test_send_message_missing_message(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_missing_message(self, mock_area, event_data):
         """Test send_message with missing message."""
-        params = {"channel_id": "123456789"}
+        params = {"channel_id": "102030405060708091"}
         
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                send_message_handler(mock_area, params, event_data)
+                await send_message_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
 
-    def test_send_message_empty_message(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_empty_message(self, mock_area, event_data):
         """Test send_message with empty message."""
-        params = {"channel_id": "123456789", "message": ""}
+        params = {"channel_id": "102030405060708091", "message": ""}
         
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                send_message_handler(mock_area, params, event_data)
+                await send_message_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
 
-    def test_send_message_no_bot_token(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_no_bot_token(self, mock_area, base_params, event_data):
         """Test send_message when bot token is not configured."""
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = None
             
             with pytest.raises(ValueError) as exc_info:
-                send_message_handler(mock_area, base_params, event_data)
+                await send_message_handler(mock_area, base_params, event_data)
             
             assert "bot token not configured" in str(exc_info.value)
 
-    def test_send_message_http_error(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_send_message_http_error(self, mock_area, base_params, event_data):
         """Test send_message with HTTP error from Discord API."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
@@ -222,7 +232,7 @@ class TestDiscordSendMessageHandler:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
             with pytest.raises(httpx.HTTPStatusError):
-                send_message_handler(mock_area, base_params, event_data)
+                await send_message_handler(mock_area, base_params, event_data)
 
 
 class TestDiscordCreateChannelHandler:
@@ -252,7 +262,8 @@ class TestDiscordCreateChannelHandler:
             "data": {"channel_name": "dynamic-channel"}
         }
 
-    def test_create_channel_success(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_success(self, mock_area, base_params, event_data):
         """Test successful channel creation."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
@@ -267,7 +278,7 @@ class TestDiscordCreateChannelHandler:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
             # Should not raise any exception
-            create_channel_handler(mock_area, base_params, event_data)
+            await create_channel_handler(mock_area, base_params, event_data)
 
             # Verify the API call was made correctly
             mock_client.return_value.__enter__.return_value.post.assert_called_once()
@@ -278,7 +289,8 @@ class TestDiscordCreateChannelHandler:
             assert call_args[1]["json"]["name"] == "new-channel"
             assert call_args[1]["json"]["type"] == 0  # Text channel
 
-    def test_create_channel_with_variable_resolution(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_with_variable_resolution(self, mock_area, base_params, event_data):
         """Test channel creation with variable resolution."""
         base_params["name"] = "{{data.channel_name}}"
         
@@ -294,14 +306,15 @@ class TestDiscordCreateChannelHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            create_channel_handler(mock_area, base_params, event_data)
+            await create_channel_handler(mock_area, base_params, event_data)
 
             # Verify variable resolution was called
             mock_resolve.assert_called_once()
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             assert call_args[1]["json"]["name"] == "dynamic-channel"
 
-    def test_create_channel_voice_type(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_voice_type(self, mock_area, base_params, event_data):
         """Test voice channel creation."""
         base_params["type"] = 2  # Voice channel
         
@@ -317,12 +330,13 @@ class TestDiscordCreateChannelHandler:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            create_channel_handler(mock_area, base_params, event_data)
+            await create_channel_handler(mock_area, base_params, event_data)
 
             call_args = mock_client.return_value.__enter__.return_value.post.call_args
             assert call_args[1]["json"]["type"] == 2
 
-    def test_create_channel_missing_guild_id(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_missing_guild_id(self, mock_area, event_data):
         """Test create_channel with missing guild_id."""
         params = {"name": "new-channel"}
         
@@ -330,46 +344,50 @@ class TestDiscordCreateChannelHandler:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                create_channel_handler(mock_area, params, event_data)
+                await create_channel_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
             assert "guild_id" in str(exc_info.value)
 
-    def test_create_channel_missing_name(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_missing_name(self, mock_area, event_data):
         """Test create_channel with missing name."""
-        params = {"guild_id": "987654321"}
+        params = {"guild_id": "102030405060708091"}
         
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                create_channel_handler(mock_area, params, event_data)
+                await create_channel_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
 
-    def test_create_channel_empty_name(self, mock_area, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_empty_name(self, mock_area, event_data):
         """Test create_channel with empty name."""
-        params = {"guild_id": "987654321", "name": ""}
+        params = {"guild_id": "102030405060708091", "name": ""}
         
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = "test_bot_token"
             
             with pytest.raises(ValueError) as exc_info:
-                create_channel_handler(mock_area, params, event_data)
+                await create_channel_handler(mock_area, params, event_data)
             
             assert "missing required params" in str(exc_info.value)
 
-    def test_create_channel_no_bot_token(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_no_bot_token(self, mock_area, base_params, event_data):
         """Test create_channel when bot token is not configured."""
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = ""
             
             with pytest.raises(ValueError) as exc_info:
-                create_channel_handler(mock_area, base_params, event_data)
+                await create_channel_handler(mock_area, base_params, event_data)
             
             assert "bot token not configured" in str(exc_info.value)
 
-    def test_create_channel_http_error(self, mock_area, base_params, event_data):
+    @pytest.mark.asyncio
+    async def test_create_channel_http_error(self, mock_area, base_params, event_data):
         """Test create_channel with HTTP error from Discord API."""
         with patch("app.core.config.settings") as mock_settings, \
              patch("app.integrations.simple_plugins.discord_plugin.httpx.Client") as mock_client, \
@@ -388,4 +406,4 @@ class TestDiscordCreateChannelHandler:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
             with pytest.raises(httpx.HTTPStatusError):
-                create_channel_handler(mock_area, base_params, event_data)
+                await create_channel_handler(mock_area, base_params, event_data)
