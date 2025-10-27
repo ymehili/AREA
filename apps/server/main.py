@@ -101,6 +101,17 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.warning("Startup: Unable to verify Gmail scheduler status; continuing")
 
+        # Validate Discord bot token if Discord features are enabled
+        from app.core.encryption import get_discord_bot_token
+        bot_token = get_discord_bot_token()
+        if any([settings.discord_client_id, settings.discord_client_secret, settings.discord_bot_token, settings.encrypted_discord_bot_token]):
+            # Discord features are configured, check if bot token exists
+            if not bot_token:
+                logger.error("Discord bot token is required when Discord features are enabled. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file.")
+                raise RuntimeError("Discord bot token not configured but Discord features are enabled")
+            else:
+                logger.info("Startup: Discord bot token validated successfully")
+        
         # Start the Discord polling scheduler (non-blocking)
         logger.info("Startup: starting Discord scheduler")
         start_discord_scheduler()
