@@ -120,32 +120,58 @@ class DiscordRateLimiter:
 
 # LRU Cache implementation for tracking seen messages and reactions
 class LRUCache:
-    def __init__(self, max_size: int = 1000):
+    def __init__(self, max_size: int = 1000, ttl_seconds: int = 7 * 24 * 3600):  # 7 days default
         """
-        Initialize an LRU cache with a maximum size.
+        Initialize an LRU cache with a maximum size and time-to-live.
         
         Args:
             max_size: Maximum number of items to keep in the cache
+            ttl_seconds: Time-to-live for cache entries in seconds (default 7 days)
         """
         self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
         self.cache = OrderedDict()
     
     def add(self, key: str) -> None:
         """Add a key to the cache."""
+        current_time = time.time()
+        
         if key in self.cache:
-            # Move existing key to end (mark as most recently used)
+            # Move existing key to end (mark as most recently used) and update timestamp
             self.cache.move_to_end(key)
+            self.cache[key] = current_time
         else:
-            # Add new key
-            self.cache[key] = time.time()
+            # Add new key with current timestamp
+            self.cache[key] = current_time
+            
+            # Clean up expired entries before checking size
+            self._cleanup_expired()
             
             # If cache is too large, remove oldest item
             if len(self.cache) > self.max_size:
                 self.cache.popitem(last=False)  # Remove oldest (first) item
     
     def contains(self, key: str) -> bool:
-        """Check if a key exists in the cache."""
-        return key in self.cache
+        """Check if a key exists in the cache and is not expired."""
+        if key not in self.cache:
+            return False
+        
+        # Check if entry has expired
+        if time.time() - self.cache[key] > self.ttl_seconds:
+            del self.cache[key]
+            return False
+        
+        return True
+    
+    def _cleanup_expired(self) -> None:
+        """Remove expired entries from the cache."""
+        current_time = time.time()
+        expired_keys = [
+            key for key, timestamp in self.cache.items()
+            if current_time - timestamp > self.ttl_seconds
+        ]
+        for key in expired_keys:
+            del self.cache[key]
     
     def remove_area_cache(self, area_id: str) -> None:
         """Remove cache entries for a specific area ID (when area is deleted/disabled)."""
@@ -165,6 +191,11 @@ class LRUCache:
         for msg_id in message_ids:
             cache_key = f"{area_id}:{msg_id}"
             self.add(cache_key)
+    
+    def get_cache_size(self) -> int:
+        """Get the current size of the cache after cleaning up expired entries."""
+        self._cleanup_expired()
+        return len(self.cache)
 
 
 # Global cache instances with reasonable limits
@@ -440,6 +471,8 @@ async def discord_scheduler_task() -> None:
 
     logger.info("Starting Discord polling scheduler task")
 
+    cleanup_counter = 0  # Counter to track how many iterations since last cleanup
+
     while True:
         try:
             # Poll every 10 seconds (Discord API rate limits apply)
@@ -602,6 +635,12 @@ async def discord_scheduler_task() -> None:
                         f"Error processing Discord reaction area {area_id_str}: {str(e)}",
                         exc_info=True,
                     )
+
+            # Perform cleanup every 60 iterations (every 10 minutes at 10s intervals)
+            cleanup_counter += 1
+            if cleanup_counter >= 60:  # ~10 minutes
+                cleanup_discord_scheduler_caches()
+                cleanup_counter = 0  # Reset counter
 
         except asyncio.CancelledError:
             logger.info("Discord scheduler task cancelled, shutting down gracefully")
@@ -865,6 +904,13 @@ def clear_discord_seen_state() -> None:
     _last_seen_reactions = LRUCache(max_size=5000)  # Reset to empty cache
 
 
+def cleanup_discord_scheduler_caches() -> None:
+    """Clean up expired entries from the Discord scheduler caches."""
+    global _last_seen_messages, _last_seen_reactions
+    _last_seen_messages._cleanup_expired()
+    _last_seen_reactions._cleanup_expired()
+
+
 def clear_area_from_seen_state(area_id: str) -> None:
     """Remove all cache entries for a specific area ID (when area is deleted/disabled)."""
     global _last_seen_messages, _last_seen_reactions
@@ -879,4 +925,5 @@ __all__ = [
     "stop_discord_scheduler",
     "clear_discord_seen_state",
     "clear_area_from_seen_state",
+    "cleanup_discord_scheduler_caches",
 ]
