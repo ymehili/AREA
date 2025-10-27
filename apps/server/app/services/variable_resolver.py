@@ -7,6 +7,8 @@ from app.integrations.variable_extractor import (
     extract_gmail_variables,
     extract_google_drive_variables,
     extract_github_variables,
+    extract_calendar_variables,
+    extract_outlook_variables,
 )
 
 
@@ -164,6 +166,24 @@ def get_available_variables_for_service(service_id: str, action_id: str) -> List
             "drive.created_time",
             "drive.modified_time"
         ],
+        "google_calendar": [
+            "calendar.event_id",
+            "calendar.title",
+            "calendar.summary",
+            "calendar.description",
+            "calendar.location",
+            "calendar.start_time",
+            "calendar.end_time",
+            "calendar.timezone",
+            "calendar.attendees",
+            "calendar.organizer",
+            "calendar.status",
+            "calendar.link",
+            "calendar.html_link",
+            "calendar.created",
+            "calendar.updated",
+            "calendar.is_all_day"
+        ],
         "github": [
             "github.repo",
             "github.owner",
@@ -211,9 +231,11 @@ def extract_variables_by_service(trigger_data: Dict[str, Any], service_type: str
     service_extractors = {
         'gmail': extract_gmail_variables,
         'google_drive': extract_google_drive_variables,
-        'github': extract_github_variables
+        'github': extract_github_variables,
+        'google_calendar': extract_calendar_variables,
+        'outlook': extract_outlook_variables,
     }
-    
+
     # Use service-specific extractor if available, otherwise use generic one
     if service_type in service_extractors:
         return service_extractors[service_type](trigger_data)

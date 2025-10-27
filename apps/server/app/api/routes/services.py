@@ -64,8 +64,9 @@ def list_service_actions_reactions() -> ServiceCatalogResponse:
             if handler is not None:
                 filtered_reactions.append(reaction)
 
-        # Only include service if it has at least one trigger (action)
-        if filtered_actions:
+        # Include service if it has at least one trigger (action) OR at least one reaction
+        # This allows reaction-only services like Debug and Delay to be available
+        if filtered_actions or filtered_reactions:
             filtered_service = ServiceIntegration(
                 slug=service.slug,
                 name=service.name,

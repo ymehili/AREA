@@ -259,11 +259,13 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
             <Background gap={12} size={1} />
           </ReactFlow>
         </div>
-        <ControlsPanel 
+        <ControlsPanel
           onAddNode={addNode}
           selectedNodeId={selectedNodeId || undefined}
           onNodeConfigChange={updateNodeConfig}
           nodeConfig={selectedNode?.data}
+          nodes={nodes}
+          edges={edges}
         />
       </ReactFlowProvider>
     </div>
