@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Node, Edge } from 'reactflow';
 
 import VariablePicker from '@/components/VariablePicker';
 import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, isActionNode, isTriggerNode } from './node-types';
@@ -17,6 +18,8 @@ interface ControlsPanelProps {
   selectedNodeId?: string;
   onNodeConfigChange?: (id: string, config: Partial<NodeData>) => void;
   nodeConfig?: Partial<NodeData>;
+  nodes?: Node<NodeData>[];  // Add nodes to compute propagated variables
+  edges?: Edge[];  // Add edges to determine execution order
 }
 
 // Type for service catalog
@@ -37,7 +40,9 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   onAddNode,
   selectedNodeId,
   onNodeConfigChange,
-  nodeConfig
+  nodeConfig,
+  nodes = [],
+  edges = []
 }) => {
   const auth = useRequireAuth();
 
@@ -79,6 +84,148 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     };
     fetchData();
   }, [auth.token]);
+
+  // Helper function to get all variables available to a node (propagated from previous steps)
+  const getPropagatedVariables = (currentNodeId: string | undefined) => {
+    if (!currentNodeId || nodes.length === 0) {
+      return [];
+    }
+
+    const variablesMap: Record<string, { id: string; name: string; description: string; category: string; type: 'text' | 'number' }> = {};
+
+    // Add common variables always available
+    variablesMap['now'] = { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const };
+    variablesMap['user_id'] = { id: 'user_id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const };
+    variablesMap['area_id'] = { id: 'area_id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const };
+
+    // Find all nodes that execute before the current node
+    const getPrecedingNodes = (nodeId: string, visited = new Set<string>()): Set<string> => {
+      if (visited.has(nodeId)) return visited;
+      visited.add(nodeId);
+
+      // Find edges that point TO this node
+      const incomingEdges = edges.filter(edge => edge.target === nodeId);
+      incomingEdges.forEach(edge => {
+        getPrecedingNodes(edge.source, visited);
+      });
+
+      return visited;
+    };
+
+    const precedingNodeIds = getPrecedingNodes(currentNodeId);
+    precedingNodeIds.delete(currentNodeId); // Remove current node from the list
+
+    // Collect variables from all preceding nodes
+    precedingNodeIds.forEach(nodeId => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node || !node.data) return;
+
+      // Check if the node has serviceId property (only trigger and action nodes have it)
+      const nodeData = node.data;
+      if (!('serviceId' in nodeData) || typeof nodeData.serviceId !== 'string') return;
+
+      const serviceId: string = nodeData.serviceId;
+      if (!serviceId) return;
+
+      // Add service-specific variables based on the service type
+      const serviceVariables = getVariablesForService(serviceId);
+      serviceVariables.forEach(v => {
+        variablesMap[v.id] = v;
+      });
+    });
+
+    return Object.values(variablesMap);
+  };
+
+  // Helper function to get variables for a specific service
+  const getVariablesForService = (serviceId: string) => {
+    const variables: { id: string; name: string; description: string; category: string; type: 'text' | 'number' }[] = [];
+
+    if (serviceId === 'gmail') {
+      variables.push(
+        { id: 'gmail.sender', name: 'Email Sender', description: 'The sender of the email', category: 'Gmail', type: 'text' as const },
+        { id: 'gmail.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Gmail', type: 'text' as const },
+        { id: 'gmail.body', name: 'Email Body', description: 'The body content of the email', category: 'Gmail', type: 'text' as const },
+        { id: 'gmail.message_id', name: 'Message ID', description: 'The Gmail message ID', category: 'Gmail', type: 'text' as const },
+        { id: 'gmail.thread_id', name: 'Thread ID', description: 'The Gmail thread ID', category: 'Gmail', type: 'text' as const },
+        { id: 'gmail.snippet', name: 'Snippet', description: 'A short preview of the email', category: 'Gmail', type: 'text' as const }
+      );
+    } else if (serviceId === 'outlook') {
+      variables.push(
+        { id: 'outlook.sender', name: 'Email Sender', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.sender_email', name: 'Sender Email', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.sender_name', name: 'Sender Name', description: 'The sender display name', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.snippet', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.body_preview', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.message_id', name: 'Message ID', description: 'The Outlook message ID', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.conversation_id', name: 'Conversation ID', description: 'The Outlook conversation/thread ID', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.received_datetime', name: 'Received Date/Time', description: 'When the email was received', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.sent_datetime', name: 'Sent Date/Time', description: 'When the email was sent', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.timestamp', name: 'Timestamp', description: 'Email received timestamp', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.is_read', name: 'Is Read', description: 'Whether the email has been read', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.importance', name: 'Importance', description: 'Email importance level', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.has_attachments', name: 'Has Attachments', description: 'Whether the email has attachments', category: 'Outlook', type: 'text' as const },
+        { id: 'outlook.web_link', name: 'Web Link', description: 'Link to view the email in Outlook web', category: 'Outlook', type: 'text' as const }
+      );
+    } else if (serviceId === 'openai') {
+      variables.push(
+        { id: 'openai.response', name: 'AI Response', description: 'The generated text from OpenAI', category: 'OpenAI', type: 'text' as const },
+        { id: 'openai.image_urls', name: 'Image URLs', description: 'Generated image URLs (DALL-E)', category: 'OpenAI', type: 'text' as const },
+        { id: 'openai.moderation.flagged', name: 'Content Flagged', description: 'Whether content was flagged', category: 'OpenAI', type: 'text' as const },
+        { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
+        { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const }
+      );
+    } else if (serviceId === 'google_calendar') {
+      variables.push(
+        { id: 'calendar.event_id', name: 'Event ID', description: 'The unique event identifier', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.title', name: 'Event Title', description: 'The event title/summary', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.description', name: 'Description', description: 'Event description/details', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.location', name: 'Location', description: 'Event location', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.start_time', name: 'Start Time', description: 'Event start time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.end_time', name: 'End Time', description: 'Event end time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.attendees', name: 'Attendees', description: 'Comma-separated attendee emails', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.organizer', name: 'Organizer', description: 'Event organizer email', category: 'Google Calendar', type: 'text' as const },
+        { id: 'calendar.link', name: 'Event Link', description: 'Google Calendar web link', category: 'Google Calendar', type: 'text' as const }
+      );
+    } else if (serviceId === 'github') {
+      variables.push(
+        { id: 'github.repo', name: 'Repository Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
+        { id: 'github.repo_full_name', name: 'Repository Full Name', description: 'The full name of the repository (owner/repo)', category: 'GitHub', type: 'text' as const },
+        { id: 'github.repo_url', name: 'Repository URL', description: 'The HTML URL of the repository', category: 'GitHub', type: 'text' as const },
+        { id: 'github.sender', name: 'Sender', description: 'The user who triggered the event', category: 'GitHub', type: 'text' as const },
+        { id: 'github.issue_number', name: 'Issue Number', description: 'The issue number', category: 'GitHub', type: 'text' as const },
+        { id: 'github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
+        { id: 'github.issue_body', name: 'Issue Body', description: 'The body content of the issue', category: 'GitHub', type: 'text' as const },
+        { id: 'github.issue_author', name: 'Issue Author', description: 'The author of the issue', category: 'GitHub', type: 'text' as const },
+        { id: 'github.pull_request_number', name: 'PR Number', description: 'The pull request number', category: 'GitHub', type: 'text' as const },
+        { id: 'github.pull_request_title', name: 'PR Title', description: 'The title of the pull request', category: 'GitHub', type: 'text' as const },
+        { id: 'github.pull_request_body', name: 'PR Body', description: 'The body content of the pull request', category: 'GitHub', type: 'text' as const },
+        { id: 'github.pull_request_author', name: 'PR Author', description: 'The author of the pull request', category: 'GitHub', type: 'text' as const },
+        { id: 'github.branch', name: 'Branch', description: 'The branch name', category: 'GitHub', type: 'text' as const },
+        { id: 'github.action', name: 'Action', description: 'The action that occurred (opened, closed, etc.)', category: 'GitHub', type: 'text' as const }
+      );
+    } else if (serviceId === 'weather') {
+      variables.push(
+        { id: 'weather.temperature', name: 'Temperature', description: 'Current temperature', category: 'Weather', type: 'number' as const },
+        { id: 'weather.feels_like', name: 'Feels Like', description: 'Perceived temperature', category: 'Weather', type: 'number' as const },
+        { id: 'weather.humidity', name: 'Humidity', description: 'Humidity percentage', category: 'Weather', type: 'number' as const },
+        { id: 'weather.pressure', name: 'Pressure', description: 'Atmospheric pressure', category: 'Weather', type: 'number' as const },
+        { id: 'weather.wind_speed', name: 'Wind Speed', description: 'Wind speed', category: 'Weather', type: 'number' as const },
+        { id: 'weather.wind_deg', name: 'Wind Direction', description: 'Wind direction in degrees', category: 'Weather', type: 'number' as const },
+        { id: 'weather.clouds', name: 'Cloudiness', description: 'Cloud coverage percentage', category: 'Weather', type: 'number' as const },
+        { id: 'weather.description', name: 'Description', description: 'Weather description', category: 'Weather', type: 'text' as const },
+        { id: 'weather.main', name: 'Main Condition', description: 'Main weather condition', category: 'Weather', type: 'text' as const },
+        { id: 'weather.icon', name: 'Weather Icon', description: 'Weather icon code', category: 'Weather', type: 'text' as const },
+        { id: 'weather.city', name: 'City', description: 'City name', category: 'Weather', type: 'text' as const },
+        { id: 'weather.country', name: 'Country', description: 'Country code', category: 'Weather', type: 'text' as const },
+        { id: 'weather.sunrise', name: 'Sunrise', description: 'Sunrise time', category: 'Weather', type: 'text' as const },
+        { id: 'weather.sunset', name: 'Sunset', description: 'Sunset time', category: 'Weather', type: 'text' as const }
+      );
+    }
+
+    return variables;
+  };
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     focusedInputRef.current = e.target;
@@ -1949,86 +2096,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                             )}
 
                             <VariablePicker
-                              availableVariables={[
-                                { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const },
-                                { id: 'user_id', name: 'User ID', description: 'The ID of the user who triggered the action', category: 'Trigger', type: 'text' as const },
-                                { id: 'area_id', name: 'Area ID', description: 'The ID of the automation area', category: 'Trigger', type: 'text' as const },
-                                ...(nodeConfig.serviceId === 'gmail' ? [
-                                  { id: 'gmail.message_id', name: 'Message ID', description: 'The unique message identifier', category: 'Gmail', type: 'text' as const },
-                                  { id: 'gmail.subject', name: 'Subject', description: 'The email subject line', category: 'Gmail', type: 'text' as const },
-                                  { id: 'gmail.sender', name: 'Sender', description: 'The email sender address', category: 'Gmail', type: 'text' as const },
-                                  { id: 'gmail.body', name: 'Body', description: 'The email body content', category: 'Gmail', type: 'text' as const },
-                                  { id: 'gmail.snippet', name: 'Snippet', description: 'Brief preview of email content', category: 'Gmail', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'weather' ? [
-                                  { id: 'weather.location', name: 'Location', description: 'City name and country code', category: 'Weather', type: 'text' as const },
-                                  { id: 'weather.temperature', name: 'Temperature', description: 'Current temperature in Celsius', category: 'Weather', type: 'text' as const },
-                                  { id: 'weather.condition', name: 'Condition', description: 'Current weather condition (e.g., Clear, Rain)', category: 'Weather', type: 'text' as const },
-                                  { id: 'weather.description', name: 'Description', description: 'Detailed weather description', category: 'Weather', type: 'text' as const },
-                                  { id: 'weather.humidity', name: 'Humidity', description: 'Humidity percentage', category: 'Weather', type: 'text' as const },
-                                  { id: 'weather.wind_speed', name: 'Wind Speed', description: 'Wind speed in m/s', category: 'Weather', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'outlook' ? [
-                                  { id: 'outlook.sender', name: 'Email Sender', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.sender_email', name: 'Sender Email', description: 'The sender email address', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.sender_name', name: 'Sender Name', description: 'The sender display name', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.subject', name: 'Email Subject', description: 'The subject of the email', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.snippet', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.body_preview', name: 'Body Preview', description: 'A short preview of the email body', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.message_id', name: 'Message ID', description: 'The Outlook message ID', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.conversation_id', name: 'Conversation ID', description: 'The Outlook conversation/thread ID', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.received_datetime', name: 'Received Date/Time', description: 'When the email was received', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.sent_datetime', name: 'Sent Date/Time', description: 'When the email was sent', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.timestamp', name: 'Timestamp', description: 'Email received timestamp', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.is_read', name: 'Is Read', description: 'Whether the email has been read', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.importance', name: 'Importance', description: 'Email importance level', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.has_attachments', name: 'Has Attachments', description: 'Whether the email has attachments', category: 'Outlook', type: 'text' as const },
-                                  { id: 'outlook.web_link', name: 'Web Link', description: 'Link to view the email in Outlook web', category: 'Outlook', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'openai' ? [
-                                  { id: 'openai.response', name: 'Response', description: 'AI-generated text response', category: 'OpenAI', type: 'text' as const },
-                                  { id: 'openai.image_url', name: 'Image URL', description: 'Generated image URL', category: 'OpenAI', type: 'text' as const },
-                                  { id: 'openai.moderation_result', name: 'Moderation Result', description: 'Content moderation analysis', category: 'OpenAI', type: 'text' as const },
-                                  { id: 'openai.input_tokens', name: 'Input Tokens', description: 'Number of tokens in prompt', category: 'OpenAI', type: 'text' as const },
-                                  { id: 'openai.output_tokens', name: 'Output Tokens', description: 'Number of tokens in response', category: 'OpenAI', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'discord' ? [
-                                  { id: 'discord.message.content', name: 'Message Content', description: 'The content of the Discord message', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.message.author.id', name: 'Author ID', description: 'The ID of the message author', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.message.author.username', name: 'Author Username', description: 'The username of the message author', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.channel.id', name: 'Channel ID', description: 'The ID of the Discord channel', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.channel.name', name: 'Channel Name', description: 'The name of the Discord channel', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.guild.id', name: 'Server ID', description: 'The ID of the Discord server', category: 'Discord', type: 'text' as const },
-                                  { id: 'discord.guild.name', name: 'Server Name', description: 'The name of the Discord server', category: 'Discord', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'google_calendar' ? [
-                                  { id: 'calendar.event_id', name: 'Event ID', description: 'The unique event identifier', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.title', name: 'Event Title', description: 'The event title/summary', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.description', name: 'Description', description: 'Event description/details', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.location', name: 'Location', description: 'Event location', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.start_time', name: 'Start Time', description: 'Event start time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.end_time', name: 'End Time', description: 'Event end time (ISO 8601)', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.attendees', name: 'Attendees', description: 'Comma-separated attendee emails', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.organizer', name: 'Organizer', description: 'Event organizer email', category: 'Google Calendar', type: 'text' as const },
-                                  { id: 'calendar.link', name: 'Event Link', description: 'Google Calendar web link', category: 'Google Calendar', type: 'text' as const },
-                                ] : []),
-                                ...(nodeConfig.serviceId === 'github' ? [
-                                  { id: 'github.repo', name: 'Repository Name', description: 'The name of the repository', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.repo_full_name', name: 'Repository Full Name', description: 'The full name of the repository (owner/repo)', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.repo_url', name: 'Repository URL', description: 'The HTML URL of the repository', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.sender', name: 'Sender', description: 'The user who triggered the event', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.issue_number', name: 'Issue Number', description: 'The issue number', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.issue_title', name: 'Issue Title', description: 'The title of the issue', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.issue_body', name: 'Issue Body', description: 'The body content of the issue', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.issue_author', name: 'Issue Author', description: 'The author of the issue', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.pull_request_number', name: 'PR Number', description: 'The pull request number', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.pull_request_title', name: 'PR Title', description: 'The title of the pull request', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.pull_request_body', name: 'PR Body', description: 'The body content of the pull request', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.pull_request_author', name: 'PR Author', description: 'The author of the pull request', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.branch', name: 'Branch', description: 'The branch name', category: 'GitHub', type: 'text' as const },
-                                  { id: 'github.action', name: 'Action', description: 'The action that occurred (opened, closed, etc.)', category: 'GitHub', type: 'text' as const },
-                                ] : []),
-                              ]}
+                              availableVariables={getPropagatedVariables(selectedNodeId)}
                               onInsertVariable={handleInsertVariable}
                             />
                           </>
