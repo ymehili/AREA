@@ -35,20 +35,20 @@ class TestFetchChannelMessages:
             mock_response = Mock()
             mock_response.json.return_value = [
                 {
-                    "id": "msg1",
+                    "id": "123456789012345678",
                     "content": "Hello",
                     "author": {"id": "user1", "username": "testuser"},
-                    "channel_id": "123456789",
+                    "channel_id": "123456789012345678",
                     "timestamp": "2023-01-01T00:00:00.000000+00:00"
                 }
             ]
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            messages = await _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789012345678")
 
             assert len(messages) == 1
-            assert messages[0]["id"] == "msg1"
+            assert messages[0]["id"] == "123456789012345678"
             assert messages[0]["content"] == "Hello"
 
     @pytest.mark.asyncio
@@ -57,7 +57,7 @@ class TestFetchChannelMessages:
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = None
 
-            messages = await _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789012345678")
 
             assert messages == []
 
@@ -74,7 +74,7 @@ class TestFetchChannelMessages:
             mock_client.return_value.__enter__.return_value.get.side_effect = \
                 httpx.HTTPError("Network error")
 
-            messages = await _fetch_channel_messages("123456789")
+            messages = await _fetch_channel_messages("123456789012345678")
 
             assert messages == []
 
@@ -651,7 +651,7 @@ class TestFetchMessageReactions:
             
             mock_response = Mock()
             mock_response.json.return_value = {
-                "id": "msg123",
+                "id": "123456789012345678",
                 "reactions": [
                     {
                         "emoji": {"name": "👍", "id": None, "animated": False},
@@ -668,7 +668,7 @@ class TestFetchMessageReactions:
             mock_response.raise_for_status = Mock()
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            reactions = await _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("123456789012345678", "123456789012345678")
 
             assert len(reactions) == 2
             assert reactions[0]["emoji"]["name"] == "👍"
@@ -684,7 +684,7 @@ class TestFetchMessageReactions:
         with patch("app.core.config.settings") as mock_settings:
             mock_settings.discord_bot_token = None
             
-            reactions = await _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("123456789012345678", "123456789012345678")
             
             assert reactions == []
 
@@ -700,7 +700,7 @@ class TestFetchMessageReactions:
             mock_settings.discord_bot_token = "test_bot_token"
             mock_client.return_value.__enter__.return_value.get.side_effect = httpx.HTTPError("Network error")
             
-            reactions = await _fetch_message_reactions("channel123", "msg123")
+            reactions = await _fetch_message_reactions("123456789012345678", "123456789012345678")
             
             assert reactions == []
 
