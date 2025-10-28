@@ -151,6 +151,12 @@ def update_area(db: Session, area_id: str, area_in: AreaUpdate, *, user_id: Opti
     if area is None:
         raise AreaNotFoundError(area_id)
 
+    # Check if area is being disabled and clear caches if so
+    is_being_disabled = area_in.enabled is not None and not area_in.enabled
+    if is_being_disabled:
+        from app.integrations.simple_plugins.discord_scheduler import clear_area_from_seen_state
+        clear_area_from_seen_state(area_id)
+
     # Update fields if provided
     if area_in.name is not None:
         area.name = area_in.name
@@ -187,6 +193,10 @@ def delete_area(db: Session, area_id: str) -> bool:
     if area is None:
         return False
 
+    # Import the clear_area_from_seen_state function to clean up Discord scheduler caches
+    from app.integrations.simple_plugins.discord_scheduler import clear_area_from_seen_state
+    clear_area_from_seen_state(area_id)
+    
     db.delete(area)
     db.commit()
     return True
@@ -199,6 +209,10 @@ def enable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) -> 
 
 def disable_area(db: Session, area_id: str, *, user_id: Optional[str] = None) -> Area:
     """Disable an area."""
+    # Import the clear_area_from_seen_state function to clean up Discord scheduler caches
+    from app.integrations.simple_plugins.discord_scheduler import clear_area_from_seen_state
+    clear_area_from_seen_state(area_id)
+    
     return update_area(db, area_id, AreaUpdate(enabled=False), user_id=user_id)
 
 
@@ -214,6 +228,11 @@ def update_area_with_steps(
 
     This will delete all existing steps and create new ones from the provided list.
     """
+    # Check if area is being disabled and clear caches if so
+    if area_in.enabled is not None and not area_in.enabled:
+        from app.integrations.simple_plugins.discord_scheduler import clear_area_from_seen_state
+        clear_area_from_seen_state(area_id)
+    
     # First update the area metadata
     area = update_area(db, area_id, area_in, user_id=user_id)
 

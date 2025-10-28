@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import VariablePicker from '@/components/VariablePicker';
-import { AreaStepNodeData, NodeData, ConditionNodeData, TriggerNodeData, ActionNodeData, isDelayNode, isActionNode, isTriggerNode } from './node-types';
+import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, DelayNodeData, isActionNode, isTriggerNode } from './node-types';
 import { requestJson } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-auth';
 
@@ -341,6 +341,24 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^openai_image_/, '');
     paramName = paramName.replace(/^openai_text_/, '');
     paramName = paramName.replace(/^openai_moderate_/, '');
+    // Google Drive
+    paramName = paramName.replace(/^drive_copy_/, '');
+    paramName = paramName.replace(/^drive_move_/, '');
+    paramName = paramName.replace(/^drive_delete_/, '');
+    paramName = paramName.replace(/^drive_trigger_/, '');
+    paramName = paramName.replace(/^drive_/, '');
+    // Calendar
+    paramName = paramName.replace(/^calendar_/, '');
+    paramName = paramName.replace(/^calendar_create_/, '');
+    paramName = paramName.replace(/^calendar_update_/, '');
+    paramName = paramName.replace(/^calendar_delete_/, '');
+    paramName = paramName.replace(/^calendar_quick_/, '');
+    // DeepL
+    paramName = paramName.replace(/^deepl_source_/, '');
+    paramName = paramName.replace(/^deepl_target_/, '');
+    paramName = paramName.replace(/^deepl_auto_/, '');
+    paramName = paramName.replace(/^deepl_detect_/, '');
+    paramName = paramName.replace(/^deepl_/, '');
 
     if (inputId === 'debugMessage') {
       paramName = 'message';
@@ -588,242 +606,193 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
-                            {/* Trigger params: Google Calendar event_starting_soon requires minutes_before */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'event_starting_soon' && (
+                            {/* Trigger params: Discord new_message_in_channel requires channel_id */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'new_message_in_channel' && (
                               <div>
-                                <Label htmlFor="calendar_minutes_before">Minutes Before Event</Label>
+                                <Label htmlFor="discord_trigger_channel_id">Channel ID</Label>
                                 <Input
-                                  id="calendar_minutes_before"
-                                  type="number"
-                                  min="1"
-                                  max="1440"
-                                  placeholder="15"
-                                  value={(nodeConfig as TriggerNodeData).params?.minutes_before as number || 15}
+                                  id="discord_trigger_channel_id"
+                                  type="text"
+                                  placeholder="123456789012345678"
+                                  value={(nodeConfig as TriggerNodeData).params?.channel_id as string || ''}
                                   onChange={(e) => {
                                     const currentParams = (nodeConfig as TriggerNodeData).params || {};
                                     onNodeConfigChange(selectedNodeId, {
                                       ...nodeConfig,
-                                      params: { ...currentParams, minutes_before: parseInt(e.target.value) || 15 }
+                                      params: { ...currentParams, channel_id: e.target.value }
                                     } as TriggerNodeData);
                                   }}
                                   onFocus={handleInputFocus}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Trigger X minutes before the event starts (default: 15).</p>
+                                <p className="text-xs text-gray-500 mt-1">The Discord channel ID to monitor for new messages.</p>
                               </div>
                             )}
 
-                            {/* Trigger params: GitHub triggers require repo_owner and repo_name */}
-                            {nodeConfig.serviceId === 'github' && ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'].includes(nodeConfig.actionId || '') && (
-                              <div className="space-y-3">
+                            {/* Trigger params: Discord reaction_added requires channel_id and message_id */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'reaction_added' && (
+                              <>
                                 <div>
-                                  <Label htmlFor="github_repo_owner">Repository Owner</Label>
+                                  <Label htmlFor="discord_reaction_channel_id">Channel ID</Label>
                                   <Input
-                                    id="github_repo_owner"
+                                    id="discord_reaction_channel_id"
                                     type="text"
-                                    placeholder="e.g., octocat"
-                                    value={(nodeConfig as TriggerNodeData).params?.repo_owner as string || ''}
+                                    placeholder="123456789012345678"
+                                    value={(nodeConfig as TriggerNodeData).params?.channel_id as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as TriggerNodeData).params || {};
                                       onNodeConfigChange(selectedNodeId, {
                                         ...nodeConfig,
-                                        params: { ...currentParams, repo_owner: e.target.value }
+                                        params: { ...currentParams, channel_id: e.target.value }
                                       } as TriggerNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">GitHub username or organization name</p>
+                                  <p className="text-xs text-gray-500 mt-1">The Discord channel ID where the message is located.</p>
                                 </div>
                                 <div>
-                                  <Label htmlFor="github_repo_name">Repository Name</Label>
+                                  <Label htmlFor="discord_reaction_message_id">Message ID</Label>
                                   <Input
-                                    id="github_repo_name"
+                                    id="discord_reaction_message_id"
                                     type="text"
-                                    placeholder="e.g., Hello-World"
-                                    value={(nodeConfig as TriggerNodeData).params?.repo_name as string || ''}
+                                    placeholder="987654321098765432"
+                                    value={(nodeConfig as TriggerNodeData).params?.message_id as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as TriggerNodeData).params || {};
                                       onNodeConfigChange(selectedNodeId, {
                                         ...nodeConfig,
-                                        params: { ...currentParams, repo_name: e.target.value }
+                                        params: { ...currentParams, message_id: e.target.value }
                                       } as TriggerNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Name of the repository to monitor</p>
+                                  <p className="text-xs text-gray-500 mt-1">The specific message ID to monitor for reactions. Enable Discord Developer Mode to copy message IDs.</p>
                                 </div>
-                              </div>
+                              </>
                             )}
+
+                            {/* Trigger params: Weather temperature_threshold requires location, threshold, and operator */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'temperature_threshold' && (
+                              <>
+                                <div>
+                                  <Label htmlFor="weather_location">Location</Label>
+                                  <Input
+                                    id="weather_location"
+                                    type="text"
+                                    placeholder="London,UK or Paris,FR"
+                                    value={(nodeConfig as TriggerNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, location: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., &quot;London,UK&quot;)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_threshold">Temperature Threshold (°C)</Label>
+                                  <Input
+                                    id="weather_threshold"
+                                    type="number"
+                                    placeholder="25"
+                                    value={(nodeConfig as TriggerNodeData).params?.threshold as number || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, threshold: parseFloat(e.target.value) }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Temperature in Celsius</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_operator">Condition</Label>
+                                  <Select
+                                    value={(nodeConfig as TriggerNodeData).params?.operator as string || 'above'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, operator: value }
+                                      } as TriggerNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="weather_operator">
+                                      <SelectValue placeholder="Select condition" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="above">Goes above threshold</SelectItem>
+                                      <SelectItem value="below">Goes below threshold</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Trigger when temperature crosses the threshold</p>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Trigger params: Weather weather_condition requires location and condition */}
+                            {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'weather_condition' && (
+                              <>
+                                <div>
+                                  <Label htmlFor="weather_condition_location">Location</Label>
+                                  <Input
+                                    id="weather_condition_location"
+                                    type="text"
+                                    placeholder="London,UK or Paris,FR"
+                                    value={(nodeConfig as TriggerNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, location: e.target.value }
+                                      } as TriggerNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">City name (e.g., &quot;London,UK&quot;)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="weather_condition_type">Weather Condition</Label>
+                                  <Select
+                                    value={(nodeConfig as TriggerNodeData).params?.condition as string || ''}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, condition: value }
+                                      } as TriggerNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="weather_condition_type">
+                                      <SelectValue placeholder="Select condition" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="clear">Clear</SelectItem>
+                                      <SelectItem value="clouds">Cloudy</SelectItem>
+                                      <SelectItem value="rain">Rain</SelectItem>
+                                      <SelectItem value="drizzle">Drizzle</SelectItem>
+                                      <SelectItem value="thunderstorm">Thunderstorm</SelectItem>
+                                      <SelectItem value="snow">Snow</SelectItem>
+                                      <SelectItem value="mist">Mist</SelectItem>
+                                      <SelectItem value="fog">Fog</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Trigger when weather changes to this condition</p>
+                                </div>
+                              </>
+                            )}
+
                           </>
                         )}
                       </div>
                     </>
                   )}
 
-                  {/* Condition-specific fields */}
-                  {nodeConfig.type === 'condition' && (() => {
-                    const conditionData = nodeConfig as Partial<ConditionNodeData>;
-                    const conditionType = conditionData.conditionType || 'simple';
-                    const conditionConfig = conditionData.config || {};
-
-                    return (
-                      <>
-                        <Separator className="my-3" />
-                        <div className="space-y-3">
-                          <div>
-                            <Label htmlFor="conditionType">Condition Type</Label>
-                            <Select
-                              value={conditionType}
-                              onValueChange={(value: 'simple' | 'expression') =>
-                                onNodeConfigChange(selectedNodeId, {
-                                  ...conditionData,
-                                  conditionType: value,
-                                  config: { ...conditionConfig }
-                                } as AreaStepNodeData)
-                              }
-                            >
-                              <SelectTrigger id="conditionType">
-                                <SelectValue placeholder="Select condition type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="simple">Simple Comparison</SelectItem>
-                                <SelectItem value="expression">Expression</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {conditionType === 'simple' ? (
-                            <>
-                              <div>
-                                <Label htmlFor="field">Field / Variable</Label>
-                                <Input
-                                  id="field"
-                                  type="text"
-                                  placeholder="e.g., trigger.minute"
-                                  value={(conditionConfig.field as string) || ''}
-                                  onChange={(e) =>
-                                    onNodeConfigChange(selectedNodeId, {
-                                      ...conditionData,
-                                      config: { ...conditionConfig, field: e.target.value }
-                                    } as AreaStepNodeData)
-                                  }
-                                  onFocus={handleInputFocus}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Use dot notation for nested values</p>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="operator">Operator</Label>
-                                <Select
-                                  value={(conditionConfig.operator as string) || 'eq'}
-                                  onValueChange={(value) =>
-                                    onNodeConfigChange(selectedNodeId, {
-                                      ...conditionData,
-                                      config: { ...conditionConfig, operator: value }
-                                    } as AreaStepNodeData)
-                                  }
-                                >
-                                  <SelectTrigger id="operator">
-                                    <SelectValue placeholder="Select operator" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="eq">== (equals)</SelectItem>
-                                    <SelectItem value="ne">!= (not equals)</SelectItem>
-                                    <SelectItem value="gt">&gt; (greater than)</SelectItem>
-                                    <SelectItem value="lt">&lt; (less than)</SelectItem>
-                                    <SelectItem value="gte">&gt;= (greater or equal)</SelectItem>
-                                    <SelectItem value="lte">&lt;= (less or equal)</SelectItem>
-                                    <SelectItem value="contains">contains</SelectItem>
-                                    <SelectItem value="startswith">starts with</SelectItem>
-                                    <SelectItem value="endswith">ends with</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div>
-                                <Label htmlFor="value">Expected Value</Label>
-                                <Input
-                                  id="value"
-                                  type="text"
-                                  placeholder="e.g., 0"
-                                  value={(conditionConfig.value as string) || ''}
-                                  onChange={(e) =>
-                                    onNodeConfigChange(selectedNodeId, {
-                                      ...conditionData,
-                                      config: { ...conditionConfig, value: e.target.value }
-                                    } as AreaStepNodeData)
-                                  }
-                                  onFocus={handleInputFocus}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Numbers will be auto-converted</p>
-                              </div>
-                            </>
-                          ) : (
-                            <div>
-                              <Label htmlFor="expression">Expression</Label>
-                              <textarea
-                                id="expression"
-                                className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
-                                placeholder="e.g., trigger.minute % 2 == 0"
-                                value={(conditionConfig.expression as string) || ''}
-                                onChange={(e) =>
-                                  onNodeConfigChange(selectedNodeId, {
-                                    ...conditionData,
-                                    config: { ...conditionConfig, expression: e.target.value }
-                                  } as AreaStepNodeData)
-                                }
-                                onFocus={handleInputFocus}
-                              />
-                              <p className="text-xs text-gray-500 mt-1">
-                                Write a Python-like expression that evaluates to True/False
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    );
-                  })()}
-
-                  {/* Delay-specific configuration */}
-                  {isDelayNode(nodeConfig) && (
-                    <>
-                      <Separator className="my-3" />
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="duration">Duration</Label>
-                          <Input
-                            id="duration"
-                            type="number"
-                            min="1"
-                            value={nodeConfig.duration || 1}
-                            onChange={(e) => {
-                              const newDuration = parseInt(e.target.value, 10) || 1;
-                              onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, duration: newDuration });
-                            }}
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="unit">Unit</Label>
-                          <Select
-                            value={nodeConfig.unit || 'seconds'}
-                            onValueChange={(value) => onNodeConfigChange?.(selectedNodeId, { ...nodeConfig, unit: value as 'seconds' | 'minutes' | 'hours' | 'days' })}
-                          >
-                            <SelectTrigger id="unit">
-                              <SelectValue placeholder="Select time unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="seconds">Seconds</SelectItem>
-                              <SelectItem value="minutes">Minutes</SelectItem>
-                              <SelectItem value="hours">Hours</SelectItem>
-                              <SelectItem value="days">Days</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Action-specific configuration with VariablePicker */}
+                  {/* Action-specific configuration */}
                   {isActionNode(nodeConfig) && (
                     <>
                       <Separator className="my-3" />
@@ -839,7 +808,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 serviceId: value,
                                 actionId: '',
                                 label: services.find(s => s.slug === value)?.name || nodeConfig.label
-                              } as AreaStepNodeData);
+                              } as ActionNodeData);
                             }}
                             disabled={loadingServices}
                           >
@@ -1986,254 +1955,210 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
-                            {/* Action params: Google Calendar create_event */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'create_event' && (
+                            {/* Action params: Discord send_message */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'send_message' && (
                               <div className="space-y-3">
                                 <div>
-                                  <Label htmlFor="calendar_title">Event Title</Label>
+                                  <Label htmlFor="discord_channel_id">Channel ID</Label>
                                   <Input
-                                    id="calendar_title"
+                                    id="discord_channel_id"
                                     type="text"
-                                    placeholder="Meeting with {{gmail.sender}}"
-                                    value={(nodeConfig as ActionNodeData).params?.title as string || ''}
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.channel_id as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, title: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, channel_id: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord channel to send the message to</p>
                                 </div>
                                 <div>
-                                  <Label htmlFor="calendar_start_time">Start Time (ISO 8601)</Label>
-                                  <Input
-                                    id="calendar_start_time"
-                                    type="text"
-                                    placeholder="2025-01-20T10:00:00Z"
-                                    value={(nodeConfig as ActionNodeData).params?.start_time as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, start_time: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                  <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DDTHH:MM:SSZ</p>
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_end_time">End Time (ISO 8601)</Label>
-                                  <Input
-                                    id="calendar_end_time"
-                                    type="text"
-                                    placeholder="2025-01-20T11:00:00Z"
-                                    value={(nodeConfig as ActionNodeData).params?.end_time as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, end_time: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                  <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DDTHH:MM:SSZ</p>
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_description">Description (optional)</Label>
+                                  <Label htmlFor="discord_message">Message</Label>
                                   <textarea
-                                    id="calendar_description"
-                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
-                                    placeholder="Event details..."
-                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
+                                    id="discord_message"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter message (supports variables like {{gmail.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.message as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, message: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_location">Location (optional)</Label>
-                                  <Input
-                                    id="calendar_location"
-                                    type="text"
-                                    placeholder="123 Main St, Office A"
-                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, location: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_attendees">Attendees (optional)</Label>
-                                  <Input
-                                    id="calendar_attendees"
-                                    type="text"
-                                    placeholder="email1@example.com, email2@example.com"
-                                    value={(nodeConfig as ActionNodeData).params?.attendees as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, attendees: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                  <p className="text-xs text-gray-500 mt-1">Comma-separated email addresses</p>
+                                  <p className="text-xs text-gray-500 mt-1">Message content to send to the channel</p>
                                 </div>
                               </div>
                             )}
 
-                            {/* Action params: Google Calendar update_event */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'update_event' && (
+                            {/* Action params: Discord send_dm */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'send_dm' && (
                               <div className="space-y-3">
                                 <div>
-                                  <Label htmlFor="calendar_event_id">Event ID</Label>
+                                  <Label htmlFor="discord_dm_user_id">User ID</Label>
                                   <Input
-                                    id="calendar_event_id"
+                                    id="discord_dm_user_id"
                                     type="text"
-                                    placeholder="{{calendar.event_id}}"
-                                    value={(nodeConfig as ActionNodeData).params?.event_id as string || ''}
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.user_id as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, event_id: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, user_id: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Use {'{{calendar.event_id}}'} from trigger or provide an event ID</p>
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord user to send a direct message to</p>
                                 </div>
                                 <div>
-                                  <Label htmlFor="calendar_update_title">Title (optional)</Label>
-                                  <Input
-                                    id="calendar_update_title"
-                                    type="text"
-                                    placeholder="Leave empty to keep current"
-                                    value={(nodeConfig as ActionNodeData).params?.title as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, title: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_update_start_time">Start Time (optional)</Label>
-                                  <Input
-                                    id="calendar_update_start_time"
-                                    type="text"
-                                    placeholder="2025-01-20T10:00:00Z"
-                                    value={(nodeConfig as ActionNodeData).params?.start_time as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, start_time: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_update_end_time">End Time (optional)</Label>
-                                  <Input
-                                    id="calendar_update_end_time"
-                                    type="text"
-                                    placeholder="2025-01-20T11:00:00Z"
-                                    value={(nodeConfig as ActionNodeData).params?.end_time as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, end_time: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_update_description">Description (optional)</Label>
+                                  <Label htmlFor="discord_dm_message">Message</Label>
                                   <textarea
-                                    id="calendar_update_description"
-                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
-                                    placeholder="Leave empty to keep current"
-                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
+                                    id="discord_dm_message"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Enter message (supports variables like {{gmail.subject}})"
+                                    value={(nodeConfig as ActionNodeData).params?.message as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, message: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                </div>
-                                <div>
-                                  <Label htmlFor="calendar_update_location">Location (optional)</Label>
-                                  <Input
-                                    id="calendar_update_location"
-                                    type="text"
-                                    placeholder="Leave empty to keep current"
-                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
-                                    onChange={(e) => {
-                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, location: e.target.value } } as ActionNodeData);
-                                    }}
-                                    onFocus={handleInputFocus}
-                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Direct message content to send to the user</p>
                                 </div>
                               </div>
                             )}
 
-                            {/* Action params: Google Calendar delete_event */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'delete_event' && (
-                              <div>
-                                <Label htmlFor="calendar_delete_event_id">Event ID</Label>
-                                <Input
-                                  id="calendar_delete_event_id"
-                                  type="text"
-                                  placeholder="{{calendar.event_id}}"
-                                  value={(nodeConfig as ActionNodeData).params?.event_id as string || ''}
-                                  onChange={(e) => {
-                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                    onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, event_id: e.target.value } } as ActionNodeData);
-                                  }}
-                                  onFocus={handleInputFocus}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Use {'{{calendar.event_id}}'} from trigger or provide an event ID</p>
+                            {/* Action params: Discord add_role */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'add_role' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="discord_guild_id">Server (Guild) ID</Label>
+                                  <Input
+                                    id="discord_guild_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.guild_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, guild_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord server (guild)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_role_user_id">User ID</Label>
+                                  <Input
+                                    id="discord_role_user_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.user_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, user_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the user to assign the role to</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="discord_role_id">Role ID</Label>
+                                  <Input
+                                    id="discord_role_id"
+                                    type="text"
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.role_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, role_id: e.target.value } 
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the role to assign</p>
+                                </div>
                               </div>
                             )}
 
-                            {/* Action params: Google Calendar create_all_day_event */}
-                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'create_all_day_event' && (
+                            {/* Action params: Discord create_channel */}
+                            {nodeConfig.serviceId === 'discord' && nodeConfig.actionId === 'create_channel' && (
                               <div className="space-y-3">
                                 <div>
-                                  <Label htmlFor="calendar_allday_title">Event Title</Label>
+                                  <Label htmlFor="discord_create_guild_id">Server (Guild) ID</Label>
                                   <Input
-                                    id="calendar_allday_title"
+                                    id="discord_create_guild_id"
                                     type="text"
-                                    placeholder="Birthday Party"
-                                    value={(nodeConfig as ActionNodeData).params?.title as string || ''}
+                                    placeholder="e.g., 123456789012345678"
+                                    value={(nodeConfig as ActionNodeData).params?.guild_id as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, title: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, guild_id: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
+                                  <p className="text-xs text-gray-500 mt-1">The ID of the Discord server (guild) where the channel will be created</p>
                                 </div>
                                 <div>
-                                  <Label htmlFor="calendar_allday_date">Date (YYYY-MM-DD)</Label>
+                                  <Label htmlFor="discord_channel_name">Channel Name</Label>
                                   <Input
-                                    id="calendar_allday_date"
+                                    id="discord_channel_name"
                                     type="text"
-                                    placeholder="2025-01-20"
-                                    value={(nodeConfig as ActionNodeData).params?.date as string || ''}
+                                    placeholder="e.g., new-announcements (supports variables)"
+                                    value={(nodeConfig as ActionNodeData).params?.name as string || ''}
                                     onChange={(e) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, date: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, name: e.target.value } 
+                                      } as ActionNodeData);
                                     }}
                                     onFocus={handleInputFocus}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Format: YYYY-MM-DD</p>
+                                  <p className="text-xs text-gray-500 mt-1">Name for the new channel (supports variable templates)</p>
                                 </div>
                                 <div>
-                                  <Label htmlFor="calendar_allday_description">Description (optional)</Label>
-                                  <textarea
-                                    id="calendar_allday_description"
-                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
-                                    placeholder="Event details..."
-                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
-                                    onChange={(e) => {
+                                  <Label htmlFor="discord_channel_type">Channel Type</Label>
+                                  <Select
+                                    value={String((nodeConfig as ActionNodeData).params?.type || '0')}
+                                    onValueChange={(value) => {
                                       const currentParams = (nodeConfig as ActionNodeData).params || {};
-                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                      onNodeConfigChange(selectedNodeId, { 
+                                        ...nodeConfig, 
+                                        params: { ...currentParams, type: parseInt(value) } 
+                                      } as ActionNodeData);
                                     }}
-                                    onFocus={handleInputFocus}
-                                  />
+                                  >
+                                    <SelectTrigger id="discord_channel_type">
+                                      <SelectValue placeholder="Select channel type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="0">Text Channel</SelectItem>
+                                      <SelectItem value="2">Voice Channel</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <p className="text-xs text-gray-500 mt-1">Type of channel to create</p>
                                 </div>
                               </div>
                             )}
@@ -2382,6 +2307,53 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Specific configuration for delay service when used as an action */}
+                            {nodeConfig.serviceId === 'delay' && nodeConfig.actionId === 'wait' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="delay_duration">Duration</Label>
+                                  <Input
+                                    id="delay_duration"
+                                    type="number"
+                                    min="1"
+                                    placeholder="e.g. 30"
+                                    value={(nodeConfig as ActionNodeData).params?.duration as number || 1}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, duration: parseInt(e.target.value) || 1 }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="delay_unit">Unit</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.unit as string || 'seconds'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, unit: value }
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="delay_unit">
+                                      <SelectValue placeholder="Select unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="seconds">Seconds</SelectItem>
+                                      <SelectItem value="minutes">Minutes</SelectItem>
+                                      <SelectItem value="hours">Hours</SelectItem>
+                                      <SelectItem value="days">Days</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            )}
+                            
                             <VariablePicker
                               availableVariables={getPropagatedVariables(selectedNodeId)}
                               onInsertVariable={handleInsertVariable}
@@ -2391,6 +2363,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       </div>
                     </>
                   )}
+
                 </div>
               )}
             </CardContent>

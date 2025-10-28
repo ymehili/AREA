@@ -132,11 +132,11 @@ def extract_google_drive_variables(trigger_data: Dict[str, Any]) -> Dict[str, An
     variables = {}
     
     # Extract common Drive variables
+    # Use 'fileId' if present, otherwise use 'id' as alternative field name
     if 'fileId' in trigger_data:
         variables['drive.file_id'] = trigger_data['fileId']
-    
-    if 'id' in trigger_data:
-        variables['drive.file_id'] = trigger_data['id']  # Alternative field name
+    elif 'id' in trigger_data:
+        variables['drive.file_id'] = trigger_data['id']
         
     if 'name' in trigger_data:
         variables['drive.file_name'] = trigger_data['name']
