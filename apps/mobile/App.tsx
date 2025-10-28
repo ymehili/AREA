@@ -44,15 +44,30 @@ import { ExecutionLog } from './src/utils/api';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
+  
+  // Platform-specific handling
+  const Platform = require('react-native').Platform;
+  
   if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
-    return explicit.replace(/\/$/, "");
+    let url = explicit.replace(/\/$/, "");
+    
+    // If the explicit URL uses localhost, adjust it for the platform
+    // This ensures Android uses 10.0.2.2 and iOS uses localhost
+    if (Platform.OS === "android" && url.includes("localhost")) {
+      url = url.replace("localhost", "10.0.2.2");
+    } else if (Platform.OS === "ios" && url.includes("10.0.2.2")) {
+      url = url.replace("10.0.2.2", "localhost");
+    }
+    
+    return url;
   }
+  
   // Try to derive LAN IP from Expo runtime (works in Expo Go)
   const anyConstants = Constants as unknown as Record<string, any>;
   const debuggerHost: string | undefined =
     anyConstants?.expoGoConfig?.debuggerHost || anyConstants?.manifest?.debuggerHost;
   const hostUri: string | undefined =
-    anyConstants?.expoConfig?.hostUri || anyConstants?.expoGoConfig?.hostUri;
+    anyConstants?.expoGoConfig?.hostUri || anyConstants?.expoGoConfig?.hostUri;
   const candidate = (debuggerHost || hostUri)?.split(":")[0];
   if (candidate && /^\d+\.\d+\.\d+\.\d+$/.test(candidate)) {
     return `http://${candidate}:8080/api/v1`;
