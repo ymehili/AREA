@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Node, Edge } from 'reactflow';
 
 import VariablePicker from '@/components/VariablePicker';
 import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, isActionNode, isTriggerNode } from './node-types';
@@ -342,6 +341,24 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^openai_image_/, '');
     paramName = paramName.replace(/^openai_text_/, '');
     paramName = paramName.replace(/^openai_moderate_/, '');
+    // Google Drive
+    paramName = paramName.replace(/^drive_copy_/, '');
+    paramName = paramName.replace(/^drive_move_/, '');
+    paramName = paramName.replace(/^drive_delete_/, '');
+    paramName = paramName.replace(/^drive_trigger_/, '');
+    paramName = paramName.replace(/^drive_/, '');
+    // Calendar
+    paramName = paramName.replace(/^calendar_/, '');
+    paramName = paramName.replace(/^calendar_create_/, '');
+    paramName = paramName.replace(/^calendar_update_/, '');
+    paramName = paramName.replace(/^calendar_delete_/, '');
+    paramName = paramName.replace(/^calendar_quick_/, '');
+    // DeepL
+    paramName = paramName.replace(/^deepl_source_/, '');
+    paramName = paramName.replace(/^deepl_target_/, '');
+    paramName = paramName.replace(/^deepl_auto_/, '');
+    paramName = paramName.replace(/^deepl_detect_/, '');
+    paramName = paramName.replace(/^deepl_/, '');
 
     if (inputId === 'debugMessage') {
       paramName = 'message';
