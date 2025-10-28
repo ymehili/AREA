@@ -147,6 +147,36 @@ class CalendarConnectionError(CalendarError):
     pass
 
 
+class DeepLError(Exception):
+    """Base exception for DeepL operations."""
+
+    pass
+
+
+class DeepLAuthError(DeepLError):
+    """DeepL authentication failed (invalid API key)."""
+
+    pass
+
+
+class DeepLAPIError(DeepLError):
+    """DeepL API request failed."""
+
+    pass
+
+
+class DeepLConfigError(DeepLError):
+    """DeepL configuration invalid or missing."""
+
+    pass
+
+
+class DeepLConnectionError(DeepLError):
+    """DeepL service connection not found or invalid."""
+
+    pass
+
+
 __all__ = [
     "GmailError",
     "GmailAuthError",
@@ -172,4 +202,9 @@ __all__ = [
     "CalendarAuthError",
     "CalendarAPIError",
     "CalendarConnectionError",
+    "DeepLError",
+    "DeepLAuthError",
+    "DeepLAPIError",
+    "DeepLConfigError",
+    "DeepLConnectionError",
 ]
