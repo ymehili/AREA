@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import VariablePicker from '@/components/VariablePicker';
-import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, isActionNode, isTriggerNode } from './node-types';
+import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, DelayNodeData, isActionNode, isTriggerNode } from './node-types';
 import { requestJson } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-auth';
 
@@ -2307,6 +2307,53 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Specific configuration for delay service when used as an action */}
+                            {nodeConfig.serviceId === 'delay' && nodeConfig.actionId === 'wait' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="delay_duration">Duration</Label>
+                                  <Input
+                                    id="delay_duration"
+                                    type="number"
+                                    min="1"
+                                    placeholder="e.g. 30"
+                                    value={(nodeConfig as ActionNodeData).params?.duration as number || 1}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, duration: parseInt(e.target.value) || 1 }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="delay_unit">Unit</Label>
+                                  <Select
+                                    value={(nodeConfig as ActionNodeData).params?.unit as string || 'seconds'}
+                                    onValueChange={(value) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, unit: value }
+                                      } as ActionNodeData);
+                                    }}
+                                  >
+                                    <SelectTrigger id="delay_unit">
+                                      <SelectValue placeholder="Select unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="seconds">Seconds</SelectItem>
+                                      <SelectItem value="minutes">Minutes</SelectItem>
+                                      <SelectItem value="hours">Hours</SelectItem>
+                                      <SelectItem value="days">Days</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            )}
+                            
                             <VariablePicker
                               availableVariables={getPropagatedVariables(selectedNodeId)}
                               onInsertVariable={handleInsertVariable}
@@ -2316,6 +2363,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                       </div>
                     </>
                   )}
+
                 </div>
               )}
             </CardContent>
