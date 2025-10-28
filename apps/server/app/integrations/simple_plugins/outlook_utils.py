@@ -137,18 +137,28 @@ async def get_outlook_access_token(
     Raises:
         Exception: If token refresh fails
     """
-    # Decrypt access token
-    access_token = decrypt_token(connection.encrypted_access_token)
-
-    # Check if token is expired and refresh if needed
+    # Check if token is expired first
     if is_token_expired(connection):
-        refresh_token = None
-        if connection.encrypted_refresh_token:
-            refresh_token = decrypt_token(connection.encrypted_refresh_token)
-
-        if refresh_token:
-            access_token = await refresh_outlook_token(
-                connection, db, user_id, area_id
-            )
-
-    return access_token
+        # We need to refresh the token
+        if not connection.encrypted_refresh_token:
+            raise Exception("No refresh token available to refresh expired access token")
+        
+        refresh_token = decrypt_token(connection.encrypted_refresh_token)
+        if not refresh_token:
+            raise Exception("Could not decrypt refresh token")
+        
+        access_token = await refresh_outlook_token(connection, db, user_id, area_id)
+        return access_token
+    else:
+        # Token is not expired, just return the current access token
+        access_token = decrypt_token(connection.encrypted_access_token)
+        if not access_token:
+            # If we can't decrypt the access token but the refresh token exists, try to refresh
+            if connection.encrypted_refresh_token:
+                refresh_token = decrypt_token(connection.encrypted_refresh_token)
+                if refresh_token:
+                    access_token = await refresh_outlook_token(connection, db, user_id, area_id)
+                    return access_token
+            raise Exception("Could not decrypt access token and no valid refresh token available")
+        
+        return access_token
