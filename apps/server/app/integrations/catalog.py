@@ -906,6 +906,47 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
             ),
         ),
     ),
+    ServiceIntegration(
+        slug="deepl",
+        name="DeepL Translate",
+        description="Professional translation service supporting 30+ languages with AI-powered accuracy.",
+        actions=(),
+        reactions=(
+            AutomationOption(
+                key="translate",
+                name="Translate Text",
+                description="Translate text from source language to target language.",
+                outputs=(
+                    "deepl.translated_text",
+                    "deepl.source_language",
+                    "deepl.target_language",
+                    "deepl.detected_source_language",
+                    "deepl.original_text",
+                ),
+            ),
+            AutomationOption(
+                key="auto_translate",
+                name="Auto-Translate",
+                description="Automatically detect source language and translate to target language.",
+                outputs=(
+                    "deepl.translated_text",
+                    "deepl.detected_source_language",
+                    "deepl.target_language",
+                    "deepl.original_text",
+                ),
+            ),
+            AutomationOption(
+                key="detect_language",
+                name="Detect Language",
+                description="Detect the language of a text (uses small translation sample for detection).",
+                outputs=(
+                    "deepl.detected_language",
+                    "deepl.original_text",
+                    "deepl.sample_used",
+                ),
+            ),
+        ),
+    ),
 )
 
 
