@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { NodeData, isTriggerNode, isActionNode, isConditionNode, isDelayNode } from '../../types/area-builder';
 import { Colors } from '../../constants/colors';
@@ -16,7 +17,33 @@ import CustomButton from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuth } from '../../contexts/AuthContext';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE_URL = resolveApiBaseUrl();
+
+function resolveApiBaseUrl(): string {
+  const explicit = process.env.EXPO_PUBLIC_API_URL;
+  
+  if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
+    let url = explicit.replace(/\/$/, "");
+    
+    // If the explicit URL uses localhost, adjust it for the platform
+    // This ensures Android uses 10.0.2.2 and iOS uses localhost
+    if (Platform.OS === "android" && url.includes("localhost")) {
+      url = url.replace("localhost", "10.0.2.2");
+    } else if (Platform.OS === "ios" && url.includes("10.0.2.2")) {
+      url = url.replace("10.0.2.2", "localhost");
+    }
+    
+    return url;
+  }
+  
+  // Platform-specific defaults
+  if (Platform.OS === "android") {
+    // Android emulator maps host loopback to 10.0.2.2
+    return "http://10.0.2.2:8080/api/v1";
+  }
+  // iOS Simulator usually reaches host via localhost
+  return "http://localhost:8080/api/v1";
+}
 
 async function requestJson<T>(
   path: string,
