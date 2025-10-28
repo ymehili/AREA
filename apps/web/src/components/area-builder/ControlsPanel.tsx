@@ -13,13 +13,24 @@ import { AreaStepNodeData, NodeData, TriggerNodeData, ActionNodeData, isActionNo
 import { requestJson } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-auth';
 
+// Type for nodes and edges
+type FlowNode = {
+  id: string;
+  data?: Partial<NodeData>;
+};
+
+type FlowEdge = {
+  source: string;
+  target: string;
+};
+
 interface ControlsPanelProps {
   onAddNode: (type: 'trigger' | 'action' | 'condition' | 'delay') => void;
   selectedNodeId?: string;
   onNodeConfigChange?: (id: string, config: Partial<NodeData>) => void;
   nodeConfig?: Partial<NodeData>;
-  nodes?: Node<NodeData>[];  // Add nodes to compute propagated variables
-  edges?: Edge[];  // Add edges to determine execution order
+  nodes?: FlowNode[];  // Add nodes to compute propagated variables
+  edges?: FlowEdge[];  // Add edges to determine execution order
 }
 
 // Type for service catalog
@@ -85,13 +96,22 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     fetchData();
   }, [auth.token]);
 
+  // Type for variable object
+  type VariableItem = {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    type: 'text' | 'number' | 'boolean';
+  };
+
   // Helper function to get all variables available to a node (propagated from previous steps)
   const getPropagatedVariables = (currentNodeId: string | undefined) => {
     if (!currentNodeId || nodes.length === 0) {
       return [];
     }
 
-    const variablesMap: Record<string, { id: string; name: string; description: string; category: string; type: 'text' | 'number' }> = {};
+    const variablesMap: Record<string, VariableItem> = {};
 
     // Add common variables always available
     variablesMap['now'] = { id: 'now', name: 'Current Time', description: 'The time when the trigger fired', category: 'Trigger', type: 'text' as const };
@@ -120,11 +140,10 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       const node = nodes.find(n => n.id === nodeId);
       if (!node || !node.data) return;
 
-      // Check if the node has serviceId property (only trigger and action nodes have it)
-      const nodeData = node.data;
-      if (!('serviceId' in nodeData) || typeof nodeData.serviceId !== 'string') return;
+      // Only Trigger and Action nodes have serviceId
+      if (!isTriggerNode(node.data) && !isActionNode(node.data)) return;
 
-      const serviceId: string = nodeData.serviceId;
+      const serviceId = node.data.serviceId;
       if (!serviceId) return;
 
       // Add service-specific variables based on the service type
@@ -138,8 +157,8 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
   };
 
   // Helper function to get variables for a specific service
-  const getVariablesForService = (serviceId: string) => {
-    const variables: { id: string; name: string; description: string; category: string; type: 'text' | 'number' }[] = [];
+  const getVariablesForService = (serviceId: string): VariableItem[] => {
+    const variables: VariableItem[] = [];
 
     if (serviceId === 'gmail') {
       variables.push(
@@ -221,6 +240,15 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
         { id: 'weather.country', name: 'Country', description: 'Country code', category: 'Weather', type: 'text' as const },
         { id: 'weather.sunrise', name: 'Sunrise', description: 'Sunrise time', category: 'Weather', type: 'text' as const },
         { id: 'weather.sunset', name: 'Sunset', description: 'Sunset time', category: 'Weather', type: 'text' as const }
+      );
+    } else if (serviceId === 'deepl') {
+      variables.push(
+        { id: 'deepl.translated_text', name: 'Translated Text', description: 'The translated text output', category: 'DeepL', type: 'text' as const },
+        { id: 'deepl.detected_language', name: 'Detected Language', description: 'The detected source language code (e.g., EN, FR, DE)', category: 'DeepL', type: 'text' as const },
+        { id: 'deepl.detected_source_language', name: 'Detected Source Language', description: 'The automatically detected source language', category: 'DeepL', type: 'text' as const },
+        { id: 'deepl.source_language', name: 'Source Language', description: 'The specified source language', category: 'DeepL', type: 'text' as const },
+        { id: 'deepl.target_language', name: 'Target Language', description: 'The target language for translation', category: 'DeepL', type: 'text' as const },
+        { id: 'deepl.original_text', name: 'Original Text', description: 'The original input text', category: 'DeepL', type: 'text' as const }
       );
     }
 
@@ -515,6 +543,29 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                 {services.find(s => s.slug === nodeConfig.serviceId)?.actions.find(a => a.key === nodeConfig.actionId)?.description || 'Select the event that will trigger this automation'}
                               </p>
                             </div>
+
+                            {/* Trigger params: Time every_interval requires interval_seconds */}
+                            {nodeConfig.serviceId === 'time' && nodeConfig.actionId === 'every_interval' && (
+                              <div>
+                                <Label htmlFor="time_interval_seconds">Interval (seconds)</Label>
+                                <Input
+                                  id="time_interval_seconds"
+                                  type="number"
+                                  min="1"
+                                  placeholder="60"
+                                  value={(nodeConfig as TriggerNodeData).params?.interval_seconds as number || 60}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, interval_seconds: parseInt(e.target.value) || 60 }
+                                    } as TriggerNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">How often to trigger (in seconds). Minimum: 1 second.</p>
+                              </div>
+                            )}
 
                             {/* Trigger params: Gmail and Outlook new_email_from_sender requires sender_email */}
                             {(nodeConfig.serviceId === 'gmail' || nodeConfig.serviceId === 'outlook') && nodeConfig.actionId === 'new_email_from_sender' && (
@@ -2091,6 +2142,150 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                     </SelectContent>
                                   </Select>
                                   <p className="text-xs text-gray-500 mt-1">Type of channel to create</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Calendar quick_add_event */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'quick_add_event' && (
+                              <div>
+                                <Label htmlFor="calendar_quick_text">Natural Language Event</Label>
+                                <Input
+                                  id="calendar_quick_text"
+                                  type="text"
+                                  placeholder="Meeting tomorrow at 3pm"
+                                  value={(nodeConfig as ActionNodeData).params?.text as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, text: e.target.value } } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Use natural language like &ldquo;Lunch with John tomorrow at 12pm&rdquo;</p>
+                              </div>
+                            )}
+
+                            {/* Action params: DeepL translate */}
+                            {nodeConfig.serviceId === 'deepl' && nodeConfig.actionId === 'translate' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="deepl_source_lang">Source Language</Label>
+                                  <Input
+                                    id="deepl_source_lang"
+                                    type="text"
+                                    placeholder="EN"
+                                    value={(nodeConfig as ActionNodeData).params?.source_lang as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, source_lang: e.target.value.toUpperCase() } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Source language code (e.g., EN, FR, DE, ES, IT, JA, ZH)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="deepl_target_lang">Target Language</Label>
+                                  <Input
+                                    id="deepl_target_lang"
+                                    type="text"
+                                    placeholder="FR"
+                                    value={(nodeConfig as ActionNodeData).params?.target_lang as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, target_lang: e.target.value.toUpperCase() } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Target language code (e.g., EN, FR, DE, ES, IT, JA, ZH)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="deepl_text">Text to Translate</Label>
+                                  <textarea
+                                    id="deepl_text"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
+                                    placeholder="Enter text or use variables like {{gmail.body}}"
+                                    value={(nodeConfig as ActionNodeData).params?.text as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, text: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The text to translate. You can use variables from previous steps.</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: DeepL auto_translate */}
+                            {nodeConfig.serviceId === 'deepl' && nodeConfig.actionId === 'auto_translate' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="deepl_auto_target_lang">Target Language</Label>
+                                  <Input
+                                    id="deepl_auto_target_lang"
+                                    type="text"
+                                    placeholder="FR"
+                                    value={(nodeConfig as ActionNodeData).params?.target_lang as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, target_lang: e.target.value.toUpperCase() } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Target language code (e.g., EN, FR, DE, ES, IT, JA, ZH)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="deepl_auto_text">Text to Translate</Label>
+                                  <textarea
+                                    id="deepl_auto_text"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
+                                    placeholder="Enter text or use variables like {{gmail.body}}"
+                                    value={(nodeConfig as ActionNodeData).params?.text as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, text: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The text to translate. Source language will be detected automatically.</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: DeepL detect_language */}
+                            {nodeConfig.serviceId === 'deepl' && nodeConfig.actionId === 'detect_language' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="deepl_detect_text">Text to Analyze</Label>
+                                  <textarea
+                                    id="deepl_detect_text"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px] font-mono text-sm"
+                                    placeholder="Enter text or use variables like {{gmail.body}}"
+                                    value={(nodeConfig as ActionNodeData).params?.text as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, text: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">The text to detect the language from.</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="deepl_sample_length">Sample Length (optional)</Label>
+                                  <Input
+                                    id="deepl_sample_length"
+                                    type="number"
+                                    min="10"
+                                    max="500"
+                                    placeholder="100"
+                                    value={(nodeConfig as ActionNodeData).params?.sample_length as number || 100}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, sample_length: parseInt(e.target.value) || 100 } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Number of characters to analyze (default: 100). Helps save API quota.</p>
                                 </div>
                               </div>
                             )}

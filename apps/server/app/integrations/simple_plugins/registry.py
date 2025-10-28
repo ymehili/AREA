@@ -109,6 +109,16 @@ class PluginsRegistry:
         self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
         self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
 
+        # DeepL handlers
+        from app.integrations.simple_plugins.deepl_plugin import (
+            translate_text_handler,
+            auto_translate_handler,
+            detect_language_handler,
+        )
+        self._handlers[("deepl", "translate")] = translate_text_handler
+        self._handlers[("deepl", "auto_translate")] = auto_translate_handler
+        self._handlers[("deepl", "detect_language")] = detect_language_handler
+
     @staticmethod
     def _debug_log_handler(area: Area, params: dict, event: dict) -> None:
         """Log a message with structured context.
@@ -130,6 +140,19 @@ class PluginsRegistry:
             "area.id": str(area.id),
             "area.user_id": str(area.user_id),
         }
+
+        # Log available variables for debugging
+        logger.info(
+            "Debug handler - available variables",
+            extra={
+                "area_id": str(area.id),
+                "message_template": message_template,
+                "event_keys": list(event.keys()),
+                "event_with_area_keys": list(event_with_area.keys()),
+                "deepl_detected_language": event_with_area.get("deepl.detected_language", "NOT_FOUND"),
+                "deepl_detected_source_language": event_with_area.get("deepl.detected_source_language", "NOT_FOUND"),
+            },
+        )
 
         # Use the variable resolver to replace all variables
         message = resolve_variables(message_template, event_with_area)
