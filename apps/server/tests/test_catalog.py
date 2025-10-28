@@ -31,6 +31,7 @@ def test_service_catalog_payload_shape_matches_dataclasses():
                 "key": option.key,
                 "name": option.name,
                 "description": option.description,
+                "params": option.params,
                 "outputs": list(option.outputs),  # asdict() converts tuples to lists
             }
 
@@ -40,6 +41,7 @@ def test_service_catalog_payload_shape_matches_dataclasses():
                 "key": option.key,
                 "name": option.name,
                 "description": option.description,
+                "params": option.params,
                 "outputs": list(option.outputs),  # asdict() converts tuples to lists
             }
 

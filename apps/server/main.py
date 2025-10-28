@@ -32,6 +32,16 @@ from app.integrations.simple_plugins.gmail_scheduler import (
     stop_gmail_scheduler,
     is_gmail_scheduler_running,
 )
+from app.integrations.simple_plugins.discord_scheduler import (
+    start_discord_scheduler,
+    stop_discord_scheduler,
+    is_discord_scheduler_running,
+)
+from app.integrations.simple_plugins.weather_scheduler import (
+    start_weather_scheduler,
+    stop_weather_scheduler,
+    is_weather_scheduler_running,
+)
 from app.integrations.simple_plugins.outlook_scheduler import (
     start_outlook_scheduler,
     stop_outlook_scheduler,
@@ -91,6 +101,41 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.warning("Startup: Unable to verify Gmail scheduler status; continuing")
 
+        # Validate Discord bot token if Discord features are enabled
+        from app.core.encryption import get_discord_bot_token
+        bot_token = get_discord_bot_token()
+        if any([settings.discord_client_id, settings.discord_client_secret, settings.discord_bot_token, settings.encrypted_discord_bot_token]):
+            # Discord features are configured, check if bot token exists
+            if not bot_token:
+                logger.error("Discord bot token is required when Discord features are enabled. Set DISCORD_BOT_TOKEN or ENCRYPTED_DISCORD_BOT_TOKEN in .env file.")
+                raise RuntimeError("Discord bot token not configured but Discord features are enabled")
+            else:
+                logger.info("Startup: Discord bot token validated successfully")
+        
+        # Start the Discord polling scheduler (non-blocking)
+        logger.info("Startup: starting Discord scheduler")
+        start_discord_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_discord_scheduler_running():
+                logger.warning("Startup: Discord scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Discord scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Discord scheduler status; continuing")
+
+        # Start the Weather polling scheduler (non-blocking)
+        logger.info("Startup: starting Weather scheduler")
+        start_weather_scheduler()
+        try:
+            await asyncio.sleep(0.1)
+            if not is_weather_scheduler_running():
+                logger.warning("Startup: Weather scheduler not running yet; continuing")
+            else:
+                logger.info("Startup: Weather scheduler started successfully")
+        except Exception:
+            logger.warning("Startup: Unable to verify Weather scheduler status; continuing")
+
         # Start the Outlook polling scheduler (non-blocking)
         logger.info("Startup: starting Outlook scheduler")
         start_outlook_scheduler()
@@ -141,6 +186,14 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown: stopping Gmail scheduler")
     stop_gmail_scheduler()
     logger.info("Shutdown: Gmail scheduler stopped")
+
+    logger.info("Shutdown: stopping Discord scheduler")
+    stop_discord_scheduler()
+    logger.info("Shutdown: Discord scheduler stopped")
+
+    logger.info("Shutdown: stopping Weather scheduler")
+    stop_weather_scheduler()
+    logger.info("Shutdown: Weather scheduler stopped")
 
     logger.info("Shutdown: stopping Outlook scheduler")
     stop_outlook_scheduler()

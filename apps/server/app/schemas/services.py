@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Sequence, Optional, Dict, Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,6 +15,7 @@ class AutomationOptionSchema(BaseModel):
     key: str
     name: str
     description: str
+    params: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(frozen=True, from_attributes=True)
 
