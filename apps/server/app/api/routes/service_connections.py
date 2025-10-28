@@ -448,8 +448,8 @@ async def add_api_key_connection(
     Returns:
         Connection details with success status
     """
-    # Validate provider name - support for OpenAI and Weather
-    supported_providers = ["openai", "weather"]
+    # Validate provider name - support for OpenAI, Weather, and DeepL
+    supported_providers = ["openai", "weather", "deepl"]
     if provider not in supported_providers:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -534,7 +534,54 @@ async def add_api_key_connection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to validate API key with OpenWeatherMap service: {str(e)}"
             )
-    
+
+    elif provider == "deepl":
+        # Validate the API key format (DeepL keys end with ':fx' for free tier or ':gx' for pro tier)
+        if not (api_key.endswith(':fx') or api_key.endswith(':gx')):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid API key format. DeepL API keys should end with ':fx' (free) or ':gx' (pro).",
+            )
+
+        # Test the API key by making a simple translation request to the DeepL API
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api-free.deepl.com/v2/translate" if api_key.endswith(':fx') else "https://api.deepl.com/v2/translate",
+                    headers={
+                        "Authorization": f"DeepL-Auth-Key {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "text": ["Hello"],
+                        "target_lang": "FR"
+                    },
+                    timeout=10.0
+                )
+                if response.status_code != 200:
+                    error_detail = "Invalid API key or API error. Please check your DeepL API key and try again."
+                    if response.status_code == 403:
+                        error_detail = "Authentication failed. Invalid DeepL API key."
+                    elif response.status_code == 456:
+                        error_detail = "Quota exceeded. Please check your DeepL usage limits."
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=error_detail
+                    )
+        except HTTPException:
+            # Re-raise HTTPException as-is
+            raise
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                detail="Request timed out while validating the API key with DeepL service. Please try again later."
+            )
+        except httpx.RequestError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to validate API key with DeepL service: {str(e)}"
+            )
+
     # Check if a connection already exists for this user and service
     existing_connection = get_service_connection_by_user_and_service(db, str(current_user.id), provider)
     if existing_connection:

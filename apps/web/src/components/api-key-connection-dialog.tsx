@@ -90,6 +90,12 @@ export default function ApiKeyConnectionDialog({
         isValid: apiKey.length >= 32, // OpenWeatherMap API keys are 32 characters
         helpText: 'Get your API key from OpenWeatherMap (https://openweathermap.org/api).'
       };
+    } else if (service.id === 'deepl') {
+      // DeepL API keys end with ":fx" (free tier) or ":gx" (pro tier)
+      return {
+        isValid: apiKey.length > 10 && (apiKey.endsWith(':fx') || apiKey.endsWith(':gx')),
+        helpText: 'Get your API key from DeepL (https://www.deepl.com/pro-api). Free tier keys end with ":fx".'
+      };
     }
     // Default validation for other services
     return {

@@ -61,9 +61,13 @@ class TestPluginsRegistry:
         # Verify log was created
         area_logs = [r for r in caplog.records if r.name == "area"]
         assert len(area_logs) > 0, f"Expected logs from 'area' logger, got {len(caplog.records)} total records: {[r.name for r in caplog.records]}"
-        assert "area_run" in area_logs[0].message
+
+        # Find the area_run log (should be the second log after the debug info log)
+        area_run_logs = [r for r in area_logs if "area_run" in r.message]
+        assert len(area_run_logs) > 0, f"Expected area_run log, got messages: {[r.message for r in area_logs]}"
+
         # The message should contain the resolved variable
-        assert "Test message at 2025-09-29T12:00:00Z" in area_logs[0].message
+        assert "Test message at 2025-09-29T12:00:00Z" in area_run_logs[0].message
 
     def test_debug_log_handler_with_area_name(self, caplog):
         """Test debug log handler with area name template."""
@@ -94,7 +98,12 @@ class TestPluginsRegistry:
 
         area_logs = [r for r in caplog.records if r.name == "area"]
         assert len(area_logs) > 0
-        assert "Ping from My Test Area at 2025-09-29T12:00:00Z" in area_logs[0].message
+
+        # Find the area_run log
+        area_run_logs = [r for r in area_logs if "area_run" in r.message]
+        assert len(area_run_logs) > 0, f"Expected area_run log, got messages: {[r.message for r in area_logs]}"
+
+        assert "Ping from My Test Area at 2025-09-29T12:00:00Z" in area_run_logs[0].message
 
     def test_debug_log_handler_default_message(self, caplog):
         """Test debug log handler with default message when no message provided."""
@@ -126,7 +135,12 @@ class TestPluginsRegistry:
 
         area_logs = [r for r in caplog.records if r.name == "area"]
         assert len(area_logs) > 0
-        assert "Area triggered at 2025-09-29T12:00:00Z" in area_logs[0].message
+
+        # Find the area_run log
+        area_run_logs = [r for r in area_logs if "area_run" in r.message]
+        assert len(area_run_logs) > 0, f"Expected area_run log, got messages: {[r.message for r in area_logs]}"
+
+        assert "Area triggered at 2025-09-29T12:00:00Z" in area_run_logs[0].message
 
 
 class TestSchedulerLogic:
