@@ -27,6 +27,7 @@ import Input, { PasswordInput } from './src/components/ui/Input';
 import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
 import OAuthButton from './src/components/ui/OAuthButton';
+import ApiKeyModal from './src/components/ui/ApiKeyModal';
 
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
@@ -620,6 +621,10 @@ function ConnectionsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // State for API key modal
+  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
+  const [currentService, setCurrentService] = useState<{ id: string; name: string } | null>(null);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
@@ -704,43 +709,10 @@ function ConnectionsScreen() {
 
     // Handle API key services differently
     if (isApiKeyService) {
-      Alert.prompt(
-        `Connect ${serviceId}`,
-        `Enter your ${serviceId === 'openai' ? 'OpenAI' : serviceId === 'weather' ? 'OpenWeatherMap' : serviceId} API key:`,
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Connect",
-            onPress: async (apiKey?: string) => {
-              if (!apiKey || apiKey.trim() === '') {
-                Alert.alert("Invalid API Key", "Please enter a valid API key.");
-                return;
-              }
-
-              try {
-                await requestJson(
-                  `/service-connections/api-key/${serviceId}`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({ api_key: apiKey.trim() }),
-                  },
-                  auth.token,
-                );
-
-                Alert.alert("Success", `${serviceId} connected successfully!`);
-                void loadServices();
-              } catch (err) {
-                const message = err instanceof Error ? err.message : "Unable to connect service.";
-                Alert.alert("Connection failed", message);
-              }
-            },
-          },
-        ],
-        "secure-text"
-      );
+      // Set the current service and show the modal
+      const serviceName = services.find(s => s.id === serviceId)?.name || serviceId;
+      setCurrentService({ id: serviceId, name: serviceName });
+      setApiKeyModalVisible(true);
       return;
     }
 
@@ -775,6 +747,43 @@ function ConnectionsScreen() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
       Alert.alert("Connection failed", message);
+    }
+  };
+
+  const handleApiKeySubmit = async (apiKey: string) => {
+    if (!auth.token) {
+      Alert.alert("Authentication required", "Please log in again.");
+      return;
+    }
+
+    if (!apiKey || apiKey.trim() === '') {
+      Alert.alert("Invalid API Key", "Please enter a valid API key.");
+      return;
+    }
+
+    if (!currentService) {
+      Alert.alert("Error", "Service not properly configured");
+      return;
+    }
+
+    try {
+      await requestJson(
+        `/service-connections/api-key/${currentService.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ api_key: apiKey.trim() }),
+        },
+        auth.token,
+      );
+
+      Alert.alert("Success", `${currentService.name} connected successfully!`);
+      void loadServices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to connect service.";
+      Alert.alert("Connection failed", message);
+    } finally {
+      setApiKeyModalVisible(false);
+      setCurrentService(null);
     }
   };
 
@@ -916,6 +925,12 @@ function ConnectionsScreen() {
           </Card>
         ))}
       </ScrollView>
+      <ApiKeyModal
+        visible={apiKeyModalVisible}
+        serviceName={currentService?.name || ''}
+        onClose={() => setApiKeyModalVisible(false)}
+        onConfirm={handleApiKeySubmit}
+      />
     </SafeAreaView>
   );
 }
