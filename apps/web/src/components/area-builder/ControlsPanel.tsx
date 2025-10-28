@@ -373,6 +373,14 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^calendar_delete_/, '');
     paramName = paramName.replace(/^calendar_quick_/, '');
 
+    // DeepL params: normalize ids like deepl_source_lang, deepl_target_lang,
+    // deepl_auto_target_lang, deepl_auto_text, deepl_detect_text, deepl_sample_length
+    paramName = paramName.replace(/^deepl_source_/, '');
+    paramName = paramName.replace(/^deepl_target_/, '');
+    paramName = paramName.replace(/^deepl_auto_/, '');
+    paramName = paramName.replace(/^deepl_detect_/, '');
+    paramName = paramName.replace(/^deepl_/, '');
+
     if (inputId === 'debugMessage') {
       paramName = 'message';
     }
