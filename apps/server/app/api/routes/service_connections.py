@@ -59,11 +59,22 @@ async def initiate_service_connection(
                 detail=f"Unsupported provider: {provider}",
             )
 
-        # Generate and store state in session
-        state = OAuthConnectionService.generate_oauth_state()
-        request.session[f"oauth_state_{provider}"] = state
+        # Generate state with mobile indicator encoded
+        # Format: {random_state}:{is_mobile}:{user_id}
+        import base64
+        import json
+        state_base = OAuthConnectionService.generate_oauth_state()
+        state_data = {
+            "state": state_base,
+            "is_mobile": is_mobile,
+            "user_id": str(current_user.id)
+        }
+        # Encode to base64 for URL safety
+        state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
+
+        # Store only the base state for validation
+        request.session[f"oauth_state_{provider}"] = state_base
         request.session["oauth_user_id"] = str(current_user.id)
-        request.session[f"oauth_is_mobile_{provider}"] = is_mobile
 
         # Get authorization URL
         auth_url = OAuthConnectionService.get_authorization_url(provider, state)
@@ -93,9 +104,24 @@ async def handle_service_connection_callback(
     """Handle OAuth callback for service connection."""
 
     try:
-        # Check if request came from mobile app
-        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        # Decode state parameter to extract is_mobile and user_id
+        import base64
+        import json
+        try:
+            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            state_base = state_decoded.get("state")
+            is_mobile = state_decoded.get("is_mobile", False)
+            state_user_id = state_decoded.get("user_id")
+        except Exception as e:
+            logger.warning(f"Failed to decode state parameter: {e}")
+            # Fallback to web redirect if state decode fails
+            is_mobile = False
+            state_base = state
+            state_user_id = None
+
         redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+
+        logger.info(f"Service OAuth callback - Provider: {provider}, is_mobile: {is_mobile}, state_user_id: {state_user_id}")
 
         # Handle OAuth error
         if error:
@@ -111,7 +137,8 @@ async def handle_service_connection_callback(
 
         # Validate state parameter
         session_state = request.session.get(f"oauth_state_{provider}")
-        if not session_state or session_state != state:
+        if not session_state or session_state != state_base:
+            logger.warning(f"State mismatch: session={session_state}, received={state_base}")
             if is_mobile:
                 return RedirectResponse(
                     url=f"{redirect_base}?error=invalid_state",
@@ -122,8 +149,8 @@ async def handle_service_connection_callback(
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
-        # Get user from session
-        user_id = request.session.get("oauth_user_id")
+        # Get user from state (preferred) or session (fallback)
+        user_id = state_user_id or request.session.get("oauth_user_id")
         if not user_id:
             if is_mobile:
                 return RedirectResponse(
@@ -154,7 +181,6 @@ async def handle_service_connection_callback(
         # Clean up session
         request.session.pop(f"oauth_state_{provider}", None)
         request.session.pop("oauth_user_id", None)
-        request.session.pop(f"oauth_is_mobile_{provider}", None)
 
         # Redirect to success page
         if is_mobile:
@@ -180,7 +206,14 @@ async def handle_service_connection_callback(
         )
     except OAuth2Error:
         logger.exception("OAuth error during callback for provider %s", provider)
-        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        # Try to decode state again to get is_mobile for error redirect
+        try:
+            import base64
+            import json
+            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            is_mobile = state_decoded.get("is_mobile", False)
+        except Exception:
+            is_mobile = False
         redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
         if is_mobile:
             return RedirectResponse(
@@ -193,7 +226,14 @@ async def handle_service_connection_callback(
         )
     except Exception:
         logger.exception("Unexpected error during OAuth callback for provider %s", provider)
-        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        # Try to decode state again to get is_mobile for error redirect
+        try:
+            import base64
+            import json
+            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            is_mobile = state_decoded.get("is_mobile", False)
+        except Exception:
+            is_mobile = False
         redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
         if is_mobile:
             return RedirectResponse(
