@@ -47,6 +47,7 @@ async def initiate_service_connection(
     provider: str,
     request: Request,
     current_user: User = Depends(require_active_user),
+    is_mobile: bool = Query(False, description="Whether the request comes from mobile app"),
 ) -> dict[str, str]:
     """Initiate OAuth connection flow for a service provider."""
 
@@ -62,6 +63,7 @@ async def initiate_service_connection(
         state = OAuthConnectionService.generate_oauth_state()
         request.session[f"oauth_state_{provider}"] = state
         request.session["oauth_user_id"] = str(current_user.id)
+        request.session[f"oauth_is_mobile_{provider}"] = is_mobile
 
         # Get authorization URL
         auth_url = OAuthConnectionService.get_authorization_url(provider, state)
@@ -91,26 +93,45 @@ async def handle_service_connection_callback(
     """Handle OAuth callback for service connection."""
 
     try:
+        # Check if request came from mobile app
+        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+
         # Handle OAuth error
         if error:
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error={error}",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error={error}",
+                url=f"{redirect_base}/connections?error={error}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
         # Validate state parameter
         session_state = request.session.get(f"oauth_state_{provider}")
         if not session_state or session_state != state:
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error=invalid_state",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error=invalid_state",
+                url=f"{redirect_base}/connections?error=invalid_state",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
         # Get user from session
         user_id = request.session.get("oauth_user_id")
         if not user_id:
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error=session_expired",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error=session_expired",
+                url=f"{redirect_base}/connections?error=session_expired",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
@@ -133,29 +154,54 @@ async def handle_service_connection_callback(
         # Clean up session
         request.session.pop(f"oauth_state_{provider}", None)
         request.session.pop("oauth_user_id", None)
+        request.session.pop(f"oauth_is_mobile_{provider}", None)
 
         # Redirect to success page
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?success=connected&service={provider}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?success=connected&service={provider}",
+            url=f"{redirect_base}/connections?success=connected&service={provider}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
     except DuplicateServiceConnectionError:
         logger.info("User %s already has connection for provider %s", user_id, provider)
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=already_connected&service={provider}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=already_connected&service={provider}",
+            url=f"{redirect_base}/connections?error=already_connected&service={provider}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except OAuth2Error:
         logger.exception("OAuth error during callback for provider %s", provider)
+        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=connection_failed",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=connection_failed",
+            url=f"{redirect_base}/connections?error=connection_failed",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except Exception:
         logger.exception("Unexpected error during OAuth callback for provider %s", provider)
+        is_mobile = request.session.get(f"oauth_is_mobile_{provider}", False)
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=unknown",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=unknown",
+            url=f"{redirect_base}/connections?error=unknown",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
