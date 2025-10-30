@@ -665,3 +665,108 @@ export async function deleteUserAccount(
     token,
   );
 }
+
+// ============================================================================
+// Marketplace API
+// ============================================================================
+
+export type {
+  Template,
+  PaginatedResponse,
+  TemplateSearchParams,
+  TemplatePublishRequest,
+  TemplateCloneRequest,
+  TemplateCloneResponse,
+  TemplateCategory,
+  TemplateTag,
+} from "./types/marketplace";
+
+import type {
+  Template,
+  PaginatedResponse,
+  TemplateSearchParams,
+  TemplatePublishRequest,
+  TemplateCloneRequest,
+  TemplateCloneResponse,
+  TemplateCategory,
+  TemplateTag,
+} from "./types/marketplace";
+
+/**
+ * Search and filter marketplace templates (PUBLIC - no auth required)
+ */
+export async function searchTemplates(
+  params?: TemplateSearchParams,
+): Promise<PaginatedResponse<Template>> {
+  const searchParams = new URLSearchParams();
+  
+  if (params?.q) searchParams.set("q", params.q);
+  if (params?.category) searchParams.set("category", params.category);
+  if (params?.tags) params.tags.forEach(tag => searchParams.append("tags", tag));
+  if (params?.min_rating !== undefined) searchParams.set("min_rating", params.min_rating.toString());
+  if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.page) searchParams.set("page", params.page.toString());
+  if (params?.size) searchParams.set("size", params.size.toString());
+  
+  const queryString = searchParams.toString();
+  const url = queryString ? `/marketplace/templates?${queryString}` : "/marketplace/templates";
+  
+  return requestJson<PaginatedResponse<Template>>(url);
+}
+
+/**
+ * Get a specific template by ID (PUBLIC - no auth required)
+ */
+export async function getTemplateById(templateId: string): Promise<Template> {
+  return requestJson<Template>(`/marketplace/templates/${templateId}`);
+}
+
+/**
+ * Get all available template categories (PUBLIC)
+ */
+export async function getTemplateCategories(): Promise<TemplateCategory[]> {
+  return requestJson<TemplateCategory[]>("/marketplace/categories");
+}
+
+/**
+ * Get popular template tags (PUBLIC)
+ */
+export async function getTemplateTags(limit = 50): Promise<TemplateTag[]> {
+  return requestJson<TemplateTag[]>(`/marketplace/tags?limit=${limit}`);
+}
+
+/**
+ * Publish an area as a marketplace template (requires auth)
+ */
+export async function publishTemplate(
+  token: string,
+  request: TemplatePublishRequest,
+): Promise<Template> {
+  return requestJson<Template>(
+    "/marketplace/templates",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+    token,
+  );
+}
+
+/**
+ * Clone a marketplace template to create a new area (requires auth)
+ */
+export async function cloneTemplate(
+  token: string,
+  templateId: string,
+  request: TemplateCloneRequest,
+): Promise<TemplateCloneResponse> {
+  return requestJson<TemplateCloneResponse>(
+    `/marketplace/templates/${templateId}/clone`,
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+    token,
+  );
+}
