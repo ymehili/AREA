@@ -17,6 +17,7 @@ import {
 import { cn, headingClasses } from "@/lib/utils";
 import { UnauthorizedError, requestJson, deleteArea as apiDeleteArea } from "@/lib/api";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { Share2 } from "lucide-react";
 
 type AreaFromAPI = {
   id: string;
@@ -251,27 +252,38 @@ export default function DashboardPage() {
                   <div className="mb-2">When: {area.trigger}</div>
                   <div>Then: {area.action}</div>
                 </div>
-                <div className="flex items-center justify-between pt-4">
-                  <Switch
-                    checked={area.enabled}
-                    onCheckedChange={(v) => void toggleArea(area.id, v)}
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.location.href = `/wizard/${area.id}`}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => void removeArea(area.id)}
-                    >
-                      Delete
-                    </Button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <Switch
+                      checked={area.enabled}
+                      onCheckedChange={(v) => void toggleArea(area.id, v)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.location.href = `/wizard/${area.id}`}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => void removeArea(area.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.location.href = `/marketplace/publish?area_id=${area.id}`}
+                  >
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Publish to Marketplace
+                  </Button>
                 </div>
               </CardContent>
             </Card>

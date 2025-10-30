@@ -11,6 +11,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_pagination import add_pagination
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes.auth import router as auth_router
@@ -18,6 +19,7 @@ from app.api.routes.oauth import router as oauth_router
 from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.api.routes.service_connections import router as service_connections_router
+from app.api.routes.marketplace import router as marketplace_router
 from app.api import areas_router, execution_logs_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.user_activity_logs import router as user_activity_log_router
@@ -215,6 +217,10 @@ logger.info("Creating FastAPI application instance")
 app = FastAPI(lifespan=lifespan)
 logger.info("FastAPI application created")
 
+# Initialize fastapi-pagination
+add_pagination(app)
+logger.info("Pagination initialized")
+
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -266,6 +272,7 @@ app.include_router(service_connections_router, prefix="/api/v1/service-connectio
 app.include_router(profile_router, prefix="/api/v1/users")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")
+app.include_router(marketplace_router, prefix="/api/v1")
 app.include_router(areas_router, prefix="/api/v1")
 app.include_router(execution_logs_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")
