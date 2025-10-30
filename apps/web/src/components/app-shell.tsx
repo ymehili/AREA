@@ -12,6 +12,7 @@ import { fetchProfile, UnauthorizedError } from "@/lib/api";
 // Define navigation routes
 const NAV_ROUTES = [
   { href: "/dashboard", label: "Dashboard", showInNav: true },
+  { href: "/marketplace", label: "Marketplace", showInNav: true },
   { href: "/connections", label: "Connections", showInNav: true },
   { href: "/profile", label: "Account", showInNav: true },
   { href: "/history", label: "History", showInNav: true },
