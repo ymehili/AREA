@@ -158,27 +158,52 @@ class TestMainApplication:
             assert response.status_code == 200
             data = response.json()
 
-            # Based on actual implementation in main.py
+            # Spec-compliant structure
             assert "client" in data
+            assert "host" in data["client"]
             assert "server" in data
-            assert "services" in data
+            assert "current_time" in data["server"]
+            assert "services" in data["server"]
+            
+            # current_time should be Unix timestamp (integer)
+            assert isinstance(data["server"]["current_time"], int)
 
     def test_about_endpoint_services(self):
-        """Test that about.json includes service catalog."""
+        """Test that about.json includes service catalog in simplified format."""
         with TestClient(app) as client:
             response = client.get("/about.json")
             
             assert response.status_code == 200
             data = response.json()
             
-            assert "services" in data
-            assert isinstance(data["services"], list)
+            # Services should be under server.services now
+            assert "server" in data
+            assert "services" in data["server"]
+            assert isinstance(data["server"]["services"], list)
             
-            # Check for expected services
-            service_slugs = [service["slug"] for service in data["services"]]
-            assert "time" in service_slugs
-            assert "gmail" in service_slugs
-            assert "debug" in service_slugs
+            # Check simplified format: services should only have name, actions, reactions
+            services = data["server"]["services"]
+            assert len(services) > 0
+            
+            for service in services:
+                # Should have only name, actions, reactions (no slug, description, etc.)
+                assert "name" in service
+                assert "actions" in service
+                assert "reactions" in service
+                assert "slug" not in service  # Spec-compliant: no slug
+                
+                # Check actions/reactions have only name and description
+                for action in service["actions"]:
+                    assert "name" in action
+                    assert "description" in action
+                    assert "key" not in action  # No internal keys in spec format
+                    assert "params" not in action  # No params in spec format
+                    
+                for reaction in service["reactions"]:
+                    assert "name" in reaction
+                    assert "description" in reaction
+                    assert "key" not in reaction
+                    assert "params" not in reaction
 
     def test_cors_headers(self):
         """Test that CORS headers are properly set."""
