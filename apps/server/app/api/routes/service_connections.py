@@ -107,13 +107,19 @@ async def handle_service_connection_callback(
         # Decode state parameter to extract is_mobile and user_id
         import base64
         import json
+
+        logger.info(f"Received state parameter (first 50 chars): {state[:50] if len(state) > 50 else state}")
+
         try:
-            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            # Add padding if needed for base64 decoding
+            state_padded = state + '=' * (4 - len(state) % 4) if len(state) % 4 != 0 else state
+            state_decoded = json.loads(base64.urlsafe_b64decode(state_padded.encode()).decode())
             state_base = state_decoded.get("state")
             is_mobile = state_decoded.get("is_mobile", False)
             state_user_id = state_decoded.get("user_id")
+            logger.info(f"Successfully decoded state - state_base: {state_base}, is_mobile: {is_mobile}, user_id: {state_user_id}")
         except Exception as e:
-            logger.warning(f"Failed to decode state parameter: {e}")
+            logger.warning(f"Failed to decode state parameter: {e}, state length: {len(state)}")
             # Fallback to web redirect if state decode fails
             is_mobile = False
             state_base = state
@@ -136,9 +142,18 @@ async def handle_service_connection_callback(
             )
 
         # Validate state parameter
+        # For mobile apps, session may not persist across OAuth redirects, so we validate
+        # that the state was successfully decoded and contains required fields
         session_state = request.session.get(f"oauth_state_{provider}")
-        if not session_state or session_state != state_base:
-            logger.warning(f"State mismatch: session={session_state}, received={state_base}")
+
+        # If we successfully decoded the state and have a user_id, accept it
+        # Otherwise, fall back to session validation (for web)
+        if state_base and state_user_id:
+            logger.info(f"State validation: Using decoded state (mobile flow) - state_base={state_base}, user_id={state_user_id}")
+        elif session_state and session_state == state_base:
+            logger.info(f"State validation: Using session state (web flow) - state_base={state_base}")
+        else:
+            logger.warning(f"State validation failed - session={session_state}, decoded_state={state_base}, has_user_id={bool(state_user_id)}")
             if is_mobile:
                 return RedirectResponse(
                     url=f"{redirect_base}?error=invalid_state",

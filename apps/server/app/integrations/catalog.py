@@ -956,22 +956,43 @@ def get_service_catalog() -> tuple[ServiceIntegration, ...]:
     return SERVICE_CATALOG
 
 
-def service_catalog_payload() -> list[dict[str, object]]:
-    """Return serialisable payload for API responses without mutating catalog data."""
+def service_catalog_payload(simplified: bool = False) -> list[dict[str, object]]:
+    """Return serialisable payload for API responses without mutating catalog data.
+    
+    Args:
+        simplified: If True, returns spec-compliant format with only name/description fields.
+                   If False (default), returns full catalog with all fields.
+    """
 
     payload: list[dict[str, object]] = []
     for service in SERVICE_CATALOG:
-        service_dict = asdict(service)
-        service_dict["actions"] = [asdict(action) for action in service.actions]
-        service_dict["reactions"] = [asdict(reaction) for reaction in service.reactions]
+        if simplified:
+            # Spec-compliant format: name (identifier), actions, reactions
+            # Per spec: name should be the identifier (key), not the human-readable name
+            service_dict = {
+                "name": service.slug,  # Use slug as the service identifier
+                "actions": [
+                    {"name": action.key, "description": action.description}
+                    for action in service.actions
+                ],
+                "reactions": [
+                    {"name": reaction.key, "description": reaction.description}
+                    for reaction in service.reactions
+                ],
+            }
+        else:
+            # Full format with all fields (for internal API use)
+            service_dict = asdict(service)
+            service_dict["actions"] = [asdict(action) for action in service.actions]
+            service_dict["reactions"] = [asdict(reaction) for reaction in service.reactions]
 
-        # Convert tuple outputs to lists for JSON serialization consistency
-        for action in service_dict["actions"]:
-            if isinstance(action.get("outputs"), tuple):
-                action["outputs"] = list(action["outputs"])
-        for reaction in service_dict["reactions"]:
-            if isinstance(reaction.get("outputs"), tuple):
-                reaction["outputs"] = list(reaction["outputs"])
+            # Convert tuple outputs to lists for JSON serialization consistency
+            for action in service_dict["actions"]:
+                if isinstance(action.get("outputs"), tuple):
+                    action["outputs"] = list(action["outputs"])
+            for reaction in service_dict["reactions"]:
+                if isinstance(reaction.get("outputs"), tuple):
+                    reaction["outputs"] = list(reaction["outputs"])
 
         payload.append(service_dict)
     return payload
