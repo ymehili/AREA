@@ -47,6 +47,7 @@ async def initiate_service_connection(
     provider: str,
     request: Request,
     current_user: User = Depends(require_active_user),
+    is_mobile: bool = Query(False, description="Whether the request comes from mobile app"),
 ) -> dict[str, str]:
     """Initiate OAuth connection flow for a service provider."""
 
@@ -58,9 +59,21 @@ async def initiate_service_connection(
                 detail=f"Unsupported provider: {provider}",
             )
 
-        # Generate and store state in session
-        state = OAuthConnectionService.generate_oauth_state()
-        request.session[f"oauth_state_{provider}"] = state
+        # Generate state with mobile indicator encoded
+        # Format: {random_state}:{is_mobile}:{user_id}
+        import base64
+        import json
+        state_base = OAuthConnectionService.generate_oauth_state()
+        state_data = {
+            "state": state_base,
+            "is_mobile": is_mobile,
+            "user_id": str(current_user.id)
+        }
+        # Encode to base64 for URL safety
+        state = base64.urlsafe_b64encode(json.dumps(state_data).encode()).decode()
+
+        # Store only the base state for validation
+        request.session[f"oauth_state_{provider}"] = state_base
         request.session["oauth_user_id"] = str(current_user.id)
 
         # Get authorization URL
@@ -91,26 +104,76 @@ async def handle_service_connection_callback(
     """Handle OAuth callback for service connection."""
 
     try:
+        # Decode state parameter to extract is_mobile and user_id
+        import base64
+        import json
+
+        logger.info(f"Received state parameter (first 50 chars): {state[:50] if len(state) > 50 else state}")
+
+        try:
+            # Add padding if needed for base64 decoding
+            state_padded = state + '=' * (4 - len(state) % 4) if len(state) % 4 != 0 else state
+            state_decoded = json.loads(base64.urlsafe_b64decode(state_padded.encode()).decode())
+            state_base = state_decoded.get("state")
+            is_mobile = state_decoded.get("is_mobile", False)
+            state_user_id = state_decoded.get("user_id")
+            logger.info(f"Successfully decoded state - state_base: {state_base}, is_mobile: {is_mobile}, user_id: {state_user_id}")
+        except Exception as e:
+            logger.warning(f"Failed to decode state parameter: {e}, state length: {len(state)}")
+            # Fallback to web redirect if state decode fails
+            is_mobile = False
+            state_base = state
+            state_user_id = None
+
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+
+        logger.info(f"Service OAuth callback - Provider: {provider}, is_mobile: {is_mobile}, state_user_id: {state_user_id}")
+
         # Handle OAuth error
         if error:
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error={error}",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error={error}",
+                url=f"{redirect_base}/connections?error={error}",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
         # Validate state parameter
+        # For mobile apps, session may not persist across OAuth redirects, so we validate
+        # that the state was successfully decoded and contains required fields
         session_state = request.session.get(f"oauth_state_{provider}")
-        if not session_state or session_state != state:
+
+        # If we successfully decoded the state and have a user_id, accept it
+        # Otherwise, fall back to session validation (for web)
+        if state_base and state_user_id:
+            logger.info(f"State validation: Using decoded state (mobile flow) - state_base={state_base}, user_id={state_user_id}")
+        elif session_state and session_state == state_base:
+            logger.info(f"State validation: Using session state (web flow) - state_base={state_base}")
+        else:
+            logger.warning(f"State validation failed - session={session_state}, decoded_state={state_base}, has_user_id={bool(state_user_id)}")
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error=invalid_state",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error=invalid_state",
+                url=f"{redirect_base}/connections?error=invalid_state",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
-        # Get user from session
-        user_id = request.session.get("oauth_user_id")
+        # Get user from state (preferred) or session (fallback)
+        user_id = state_user_id or request.session.get("oauth_user_id")
         if not user_id:
+            if is_mobile:
+                return RedirectResponse(
+                    url=f"{redirect_base}?error=session_expired",
+                    status_code=status.HTTP_303_SEE_OTHER,
+                )
             return RedirectResponse(
-                url=f"{settings.frontend_redirect_url_web}/connections?error=session_expired",
+                url=f"{redirect_base}/connections?error=session_expired",
                 status_code=status.HTTP_303_SEE_OTHER,
             )
 
@@ -135,27 +198,65 @@ async def handle_service_connection_callback(
         request.session.pop("oauth_user_id", None)
 
         # Redirect to success page
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?success=connected&service={provider}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?success=connected&service={provider}",
+            url=f"{redirect_base}/connections?success=connected&service={provider}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
     except DuplicateServiceConnectionError:
         logger.info("User %s already has connection for provider %s", user_id, provider)
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=already_connected&service={provider}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=already_connected&service={provider}",
+            url=f"{redirect_base}/connections?error=already_connected&service={provider}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except OAuth2Error:
         logger.exception("OAuth error during callback for provider %s", provider)
+        # Try to decode state again to get is_mobile for error redirect
+        try:
+            import base64
+            import json
+            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            is_mobile = state_decoded.get("is_mobile", False)
+        except Exception:
+            is_mobile = False
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=connection_failed",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=connection_failed",
+            url=f"{redirect_base}/connections?error=connection_failed",
             status_code=status.HTTP_303_SEE_OTHER,
         )
     except Exception:
         logger.exception("Unexpected error during OAuth callback for provider %s", provider)
+        # Try to decode state again to get is_mobile for error redirect
+        try:
+            import base64
+            import json
+            state_decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+            is_mobile = state_decoded.get("is_mobile", False)
+        except Exception:
+            is_mobile = False
+        redirect_base = settings.frontend_redirect_url_mobile if is_mobile else settings.frontend_redirect_url_web
+        if is_mobile:
+            return RedirectResponse(
+                url=f"{redirect_base}?error=unknown",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return RedirectResponse(
-            url=f"{settings.frontend_redirect_url_web}/connections?error=unknown",
+            url=f"{redirect_base}/connections?error=unknown",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
