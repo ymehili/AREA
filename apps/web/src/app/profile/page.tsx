@@ -26,6 +26,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: "Google",
   github: "GitHub",
   microsoft: "Microsoft",
+  discord: "Discord",
 };
 
 type ProfileFormState = {
@@ -374,7 +375,7 @@ export default function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {profile.login_methods.map((method) => {
+            {profile.login_methods.filter((method) => method.provider !== 'github' && method.provider !== 'microsoft').map((method) => {
               const label = PROVIDER_LABELS[method.provider] ?? method.provider;
               const pending = isProviderPending(method.provider);
               return (

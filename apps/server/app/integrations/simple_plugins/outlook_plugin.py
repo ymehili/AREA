@@ -287,17 +287,35 @@ async def mark_as_read_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
     except httpx.HTTPStatusError as e:
-        logger.error(
-            "Outlook API error marking email as read",
-            extra={
-                "area_id": str(area.id),
-                "user_id": str(area.user_id),
-                "error": str(e),
-                "status_code": e.response.status_code if e.response else None,
-            },
-            exc_info=True,
-        )
-        raise OutlookAPIError(f"Failed to mark email as read: {e}") from e
+        if e.response and e.response.status_code == 401:
+            logger.error(
+                "Outlook API authentication error (401 Unauthorized) marking email as read - token may be expired or invalid. "
+                "Please check your Microsoft credentials and re-authenticate your Outlook connection.",
+                extra={
+                    "area_id": str(area.id),
+                    "user_id": str(area.user_id),
+                    "error": str(e),
+                    "status_code": e.response.status_code if e.response else None,
+                },
+                exc_info=True,
+            )
+            raise OutlookAuthError(
+                "Failed to mark email as read: Unauthorized (401). "
+                "Your Outlook connection may need to be re-established. "
+                "Please reconnect your Outlook account in the application settings."
+            ) from e
+        else:
+            logger.error(
+                "Outlook API error marking email as read",
+                extra={
+                    "area_id": str(area.id),
+                    "user_id": str(area.user_id),
+                    "error": str(e),
+                    "status_code": e.response.status_code if e.response else None,
+                },
+                exc_info=True,
+            )
+            raise OutlookAPIError(f"Failed to mark email as read: {e}") from e
     except Exception as e:
         logger.error(
             "Error marking email as read in Outlook",
@@ -383,17 +401,35 @@ async def forward_email_handler(area: Area, params: dict, event: dict) -> None:
             },
         )
     except httpx.HTTPStatusError as e:
-        logger.error(
-            "Outlook API error forwarding email",
-            extra={
-                "area_id": str(area.id),
-                "user_id": str(area.user_id),
-                "error": str(e),
-                "status_code": e.response.status_code if e.response else None,
-            },
-            exc_info=True,
-        )
-        raise OutlookAPIError(f"Failed to forward email: {e}") from e
+        if e.response and e.response.status_code == 401:
+            logger.error(
+                "Outlook API authentication error (401 Unauthorized) forwarding email - token may be expired or invalid. "
+                "Please check your Microsoft credentials and re-authenticate your Outlook connection.",
+                extra={
+                    "area_id": str(area.id),
+                    "user_id": str(area.user_id),
+                    "error": str(e),
+                    "status_code": e.response.status_code if e.response else None,
+                },
+                exc_info=True,
+            )
+            raise OutlookAuthError(
+                "Failed to forward email: Unauthorized (401). "
+                "Your Outlook connection may need to be re-established. "
+                "Please reconnect your Outlook account in the application settings."
+            ) from e
+        else:
+            logger.error(
+                "Outlook API error forwarding email",
+                extra={
+                    "area_id": str(area.id),
+                    "user_id": str(area.user_id),
+                    "error": str(e),
+                    "status_code": e.response.status_code if e.response else None,
+                },
+                exc_info=True,
+            )
+            raise OutlookAPIError(f"Failed to forward email: {e}") from e
     except Exception as e:
         logger.error(
             "Error forwarding email via Outlook",

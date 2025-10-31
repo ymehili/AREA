@@ -1,4 +1,5 @@
 // Shared API utilities and types for the mobile app
+import { Platform } from 'react-native';
 
 export type ExecutionLog = {
   id: string;
@@ -100,14 +101,28 @@ async function requestJson<T>(
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
   console.log('EXPO_PUBLIC_API_URL:', explicit);
+  
+  // Platform-specific handling
+  const Platform = require('react-native').Platform;
+  
   if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
-    const url = explicit.replace(/\/$/, "");
+    let url = explicit.replace(/\/$/, "");
     console.log('Using explicit API URL:', url);
+    
+    // If the explicit URL uses localhost, adjust it for the platform
+    // This ensures Android uses 10.0.2.2 and iOS uses localhost
+    if (Platform.OS === "android" && url.includes("localhost")) {
+      url = url.replace("localhost", "10.0.2.2");
+      console.log('Adjusted for Android:', url);
+    } else if (Platform.OS === "ios" && url.includes("10.0.2.2")) {
+      url = url.replace("10.0.2.2", "localhost");
+      console.log('Adjusted for iOS:', url);
+    }
+    
     return url;
   }
+  
   // Platform-specific defaults
-  // Note: We need to import Platform from react-native at the top of the file
-  const Platform = require('react-native').Platform;
   // Emulators
   if (Platform.OS === "android") {
     // Android emulator maps host loopback to 10.0.2.2

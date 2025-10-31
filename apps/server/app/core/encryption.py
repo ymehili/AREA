@@ -52,7 +52,17 @@ def decrypt_token(encrypted_token: str | None) -> str | None:
     return _get_cipher_suite().decrypt(encrypted_token.encode()).decode()
 
 
+def get_discord_bot_token() -> str | None:
+    """Get the Discord bot token, decrypting it if stored encrypted."""
+    # First check if we have an encrypted token
+    if settings.encrypted_discord_bot_token:
+        return decrypt_token(settings.encrypted_discord_bot_token)
+    # Otherwise return the plaintext token (for backwards compatibility)
+    return settings.discord_bot_token if settings.discord_bot_token else None
+
+
 __all__ = [
     "encrypt_token",
     "decrypt_token",
+    "get_discord_bot_token",
 ]

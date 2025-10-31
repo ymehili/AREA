@@ -3,7 +3,7 @@ import { TouchableOpacity, Text, View, StyleSheet, Platform, Image } from 'react
 import { Svg, Path, Rect } from 'react-native-svg';
 
 interface OAuthButtonProps {
-  provider: 'google' | 'github' | 'microsoft';
+  provider: 'google';
   onPress: () => void;
   disabled?: boolean;
 }

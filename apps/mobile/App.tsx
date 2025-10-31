@@ -27,6 +27,7 @@ import Input, { PasswordInput } from './src/components/ui/Input';
 import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
 import OAuthButton from './src/components/ui/OAuthButton';
+import ApiKeyModal from './src/components/ui/ApiKeyModal';
 
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
@@ -44,15 +45,30 @@ import { ExecutionLog } from './src/utils/api';
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
+  
+  // Platform-specific handling
+  const Platform = require('react-native').Platform;
+  
   if (explicit && typeof explicit === "string" && explicit.trim() !== "") {
-    return explicit.replace(/\/$/, "");
+    let url = explicit.replace(/\/$/, "");
+    
+    // If the explicit URL uses localhost, adjust it for the platform
+    // This ensures Android uses 10.0.2.2 and iOS uses localhost
+    if (Platform.OS === "android" && url.includes("localhost")) {
+      url = url.replace("localhost", "10.0.2.2");
+    } else if (Platform.OS === "ios" && url.includes("10.0.2.2")) {
+      url = url.replace("10.0.2.2", "localhost");
+    }
+    
+    return url;
   }
+  
   // Try to derive LAN IP from Expo runtime (works in Expo Go)
   const anyConstants = Constants as unknown as Record<string, any>;
   const debuggerHost: string | undefined =
     anyConstants?.expoGoConfig?.debuggerHost || anyConstants?.manifest?.debuggerHost;
   const hostUri: string | undefined =
-    anyConstants?.expoConfig?.hostUri || anyConstants?.expoGoConfig?.hostUri;
+    anyConstants?.expoGoConfig?.hostUri || anyConstants?.expoGoConfig?.hostUri;
   const candidate = (debuggerHost || hostUri)?.split(":")[0];
   if (candidate && /^\d+\.\d+\.\d+\.\d+$/.test(candidate)) {
     return `http://${candidate}:8080/api/v1`;
@@ -379,20 +395,6 @@ function LoginScreen() {
               onPress={handleGoogleSignIn}
             />
           </View>
-          <View style={{ height: 8 }} />
-          <View style={styles.buttonContainer}>
-            <OAuthButton
-              provider="github"
-              onPress={() => Alert.alert('GitHub OAuth', 'GitHub sign-in coming soon!')}
-            />
-          </View>
-          <View style={{ height: 8 }} />
-          <View style={styles.buttonContainer}>
-            <OAuthButton
-              provider="microsoft"
-              onPress={() => Alert.alert('Microsoft OAuth', 'Microsoft sign-in coming soon!')}
-            />
-          </View>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -619,6 +621,10 @@ function ConnectionsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // State for API key modal
+  const [apiKeyModalVisible, setApiKeyModalVisible] = useState(false);
+  const [currentService, setCurrentService] = useState<{ id: string; name: string } | null>(null);
 
   const loadServices = useCallback(async () => {
     if (!auth.token) {
@@ -703,43 +709,10 @@ function ConnectionsScreen() {
 
     // Handle API key services differently
     if (isApiKeyService) {
-      Alert.prompt(
-        `Connect ${serviceId}`,
-        `Enter your ${serviceId === 'openai' ? 'OpenAI' : serviceId === 'weather' ? 'OpenWeatherMap' : serviceId} API key:`,
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Connect",
-            onPress: async (apiKey?: string) => {
-              if (!apiKey || apiKey.trim() === '') {
-                Alert.alert("Invalid API Key", "Please enter a valid API key.");
-                return;
-              }
-
-              try {
-                await requestJson(
-                  `/service-connections/api-key/${serviceId}`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({ api_key: apiKey.trim() }),
-                  },
-                  auth.token,
-                );
-
-                Alert.alert("Success", `${serviceId} connected successfully!`);
-                void loadServices();
-              } catch (err) {
-                const message = err instanceof Error ? err.message : "Unable to connect service.";
-                Alert.alert("Connection failed", message);
-              }
-            },
-          },
-        ],
-        "secure-text"
-      );
+      // Set the current service and show the modal
+      const serviceName = services.find(s => s.id === serviceId)?.name || serviceId;
+      setCurrentService({ id: serviceId, name: serviceName });
+      setApiKeyModalVisible(true);
       return;
     }
 
@@ -774,6 +747,43 @@ function ConnectionsScreen() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
       Alert.alert("Connection failed", message);
+    }
+  };
+
+  const handleApiKeySubmit = async (apiKey: string) => {
+    if (!auth.token) {
+      Alert.alert("Authentication required", "Please log in again.");
+      return;
+    }
+
+    if (!apiKey || apiKey.trim() === '') {
+      Alert.alert("Invalid API Key", "Please enter a valid API key.");
+      return;
+    }
+
+    if (!currentService) {
+      Alert.alert("Error", "Service not properly configured");
+      return;
+    }
+
+    try {
+      await requestJson(
+        `/service-connections/api-key/${currentService.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ api_key: apiKey.trim() }),
+        },
+        auth.token,
+      );
+
+      Alert.alert("Success", `${currentService.name} connected successfully!`);
+      void loadServices();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to connect service.";
+      Alert.alert("Connection failed", message);
+    } finally {
+      setApiKeyModalVisible(false);
+      setCurrentService(null);
     }
   };
 
@@ -915,6 +925,12 @@ function ConnectionsScreen() {
           </Card>
         ))}
       </ScrollView>
+      <ApiKeyModal
+        visible={apiKeyModalVisible}
+        serviceName={currentService?.name || ''}
+        onClose={() => setApiKeyModalVisible(false)}
+        onConfirm={handleApiKeySubmit}
+      />
     </SafeAreaView>
   );
 }
@@ -1679,7 +1695,7 @@ function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Login methods</Text>
-          {profile.login_methods.map((method) => {
+          {profile.login_methods.filter((method) => method.provider !== 'github' && method.provider !== 'microsoft').map((method) => {
             const label = PROVIDER_LABELS[method.provider] ?? method.provider;
             const pending = providerPending[method.provider] ?? false;
             return (
