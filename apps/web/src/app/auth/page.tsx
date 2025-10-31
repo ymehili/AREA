@@ -144,14 +144,6 @@ function AuthPageContent() {
                     provider="google"
                     onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
                   />
-                  <OAuthButton
-                    provider="github"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/service-connections/connect/github`}
-                  />
-                  <OAuthButton
-                    provider="microsoft"
-                    onClick={() => toast.info("Microsoft OAuth coming soon!")}
-                  />
                 </div>
               </form>
             </TabsContent>
@@ -202,16 +194,6 @@ function AuthPageContent() {
                     action="signup"
                     onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
                   />
-                  <OAuthButton
-                    provider="github"
-                    action="signup"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/service-connections/connect/github`}
-                  />
-                  <OAuthButton
-                    provider="microsoft"
-                    action="signup"
-                    onClick={() => toast.info("Microsoft OAuth coming soon!")}
-                  />
                 </div>
               </form>
             </TabsContent>
@@ -259,10 +241,6 @@ function AuthPageContent() {
           <p className="text-sm text-muted-foreground mb-4 font-medium">Trusted by professionals at</p>
           <div className="flex items-center justify-center space-x-6 text-foreground/70 font-semibold text-sm">
             <span className="hover:text-primary transition-colors cursor-default">Google</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="hover:text-primary transition-colors cursor-default">Microsoft</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="hover:text-primary transition-colors cursor-default">GitHub</span>
             <span className="text-muted-foreground">•</span>
             <span className="hover:text-primary transition-colors cursor-default">Discord</span>
           </div>

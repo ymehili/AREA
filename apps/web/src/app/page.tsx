@@ -17,14 +17,8 @@ import {
   MessageSquare,
   Calendar,
   Brain,
-  BookOpen,
-  Rss,
-  Users,
   CloudRain,
-  Languages,
-  Share2,
-  Gamepad2,
-  Train
+  Languages
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -61,53 +55,50 @@ export default function LandingPage() {
   ];
 
   const services = [
-    { name: "GitHub", icon: Github, color: "text-foreground" },
+    { name: "Time", icon: Zap, color: "text-primary" },
+    { name: "Debug", icon: Sparkles, color: "text-foreground" },
+    { name: "Delay", icon: Link2, color: "text-muted-foreground" },
     { name: "Gmail", icon: Mail, color: "text-destructive" },
-    { name: "Google Calendar", icon: Calendar, color: "text-primary" },
-    { name: "Google Drive", icon: Cloud, color: "text-primary" },
     { name: "Outlook", icon: Mail, color: "text-primary" },
-    { name: "OpenAI", icon: Brain, color: "text-success" },
-    { name: "Notion", icon: BookOpen, color: "text-foreground" },
-    { name: "Discord", icon: MessageSquare, color: "text-accent-foreground" },
-    { name: "RSS", icon: Rss, color: "text-warning" },
-    { name: "Teams", icon: Users, color: "text-primary" },
+    { name: "Google Drive", icon: Cloud, color: "text-primary" },
+    { name: "GitHub", icon: Github, color: "text-foreground" },
     { name: "Weather", icon: CloudRain, color: "text-accent-foreground" },
-    { name: "Google Translate", icon: Languages, color: "text-primary" },
-    { name: "Meta", icon: Share2, color: "text-primary" },
-    { name: "Steam", icon: Gamepad2, color: "text-foreground" },
-    { name: "SNCF", icon: Train, color: "text-destructive" }
+    { name: "OpenAI", icon: Brain, color: "text-success" },
+    { name: "Discord", icon: MessageSquare, color: "text-accent-foreground" },
+    { name: "Google Calendar", icon: Calendar, color: "text-primary" },
+    { name: "DeepL Translate", icon: Languages, color: "text-primary" }
   ];
 
   const useCases = [
     {
       trigger: "New GitHub Issue",
-      action: "Send Discord Message",
-      description: "Get notified in Discord when a new issue is created in your repository"
+      action: "Send Email",
+      description: "Get notified via email when a new issue is created in your repository"
     },
     {
-      trigger: "Gmail Attachment",
+      trigger: "New Email Received",
       action: "Save to Google Drive",
       description: "Automatically backup email attachments to Google Drive"
     },
     {
-      trigger: "Weather Alert",
-      action: "Send Teams Notification",
-      description: "Get notified in Teams when weather conditions change"
+      trigger: "Temperature Threshold",
+      action: "Get Current Weather",
+      description: "Get current weather data when temperature reaches a specified threshold"
     },
     {
-      trigger: "New RSS Feed Item",
-      action: "Translate & Save to Notion",
-      description: "Automatically translate RSS articles and save them to your Notion database"
+      trigger: "Event Created",
+      action: "Create Event",
+      description: "Automatically create a new event in Google Calendar when an event is detected"
     },
     {
-      trigger: "Calendar Event",
-      action: "Ask OpenAI Summary",
-      description: "Get AI-generated meeting summaries sent to your email"
+      trigger: "New Message in Channel",
+      action: "Send Message to Channel",
+      description: "Reply to a message in a Discord channel when a new message arrives"
     },
     {
-      trigger: "SNCF Train Delay",
-      action: "Send Outlook Email",
-      description: "Get email alerts when your train is delayed"
+      trigger: "Push to Repository",
+      action: "Create Issue",
+      description: "Create a new issue in a repository when code is pushed"
     }
   ];
 
