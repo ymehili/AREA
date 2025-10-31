@@ -670,6 +670,28 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </>
                             )}
 
+                            {/* Trigger params: Google Drive file_in_folder requires folder_id */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'file_in_folder' && (
+                              <div>
+                                <Label htmlFor="drive_trigger_folder_id">Folder ID</Label>
+                                <Input
+                                  id="drive_trigger_folder_id"
+                                  type="text"
+                                  placeholder="Google Drive folder ID"
+                                  value={(nodeConfig as TriggerNodeData).params?.folder_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as TriggerNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, folder_id: e.target.value }
+                                    } as TriggerNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">ID of the Google Drive folder to monitor for new files.</p>
+                              </div>
+                            )}
+
                             {/* Trigger params: Weather temperature_threshold requires location, threshold, and operator */}
                             {nodeConfig.serviceId === 'weather' && nodeConfig.actionId === 'temperature_threshold' && (
                               <>
@@ -2179,6 +2201,232 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                                   onFocus={handleInputFocus}
                                 />
                                 <p className="text-xs text-gray-500 mt-1">Use natural language like &ldquo;Lunch with John tomorrow at 12pm&rdquo;</p>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Drive upload_file */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'upload_file' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="drive_upload_file_name">File Name</Label>
+                                  <Input
+                                    id="drive_upload_file_name"
+                                    type="text"
+                                    placeholder="e.g., document.pdf"
+                                    value={(nodeConfig as ActionNodeData).params?.file_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, file_name: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Name for the uploaded file (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_upload_file_content">File Content</Label>
+                                  <textarea
+                                    id="drive_upload_file_content"
+                                    className="w-full p-2 border rounded mt-1 min-h-[100px]"
+                                    placeholder="Content of the file (supports variables like {{gmail.body}})"
+                                    value={(nodeConfig as ActionNodeData).params?.file_content as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, file_content: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">File content (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_upload_folder_id">Folder ID (optional)</Label>
+                                  <Input
+                                    id="drive_upload_folder_id"
+                                    type="text"
+                                    placeholder="Leave empty for root folder"
+                                    value={(nodeConfig as ActionNodeData).params?.folder_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, folder_id: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Google Drive folder ID (optional)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_upload_mime_type">MIME Type (optional)</Label>
+                                  <Input
+                                    id="drive_upload_mime_type"
+                                    type="text"
+                                    placeholder="e.g., application/pdf"
+                                    value={(nodeConfig as ActionNodeData).params?.mime_type as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, mime_type: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">MIME type (e.g., text/plain, application/pdf)</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Drive create_folder */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'create_folder' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="drive_create_folder_name">Folder Name</Label>
+                                  <Input
+                                    id="drive_create_folder_name"
+                                    type="text"
+                                    placeholder="e.g., New Folder"
+                                    value={(nodeConfig as ActionNodeData).params?.folder_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, folder_name: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Name for the new folder (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_create_parent_folder_id">Parent Folder ID (optional)</Label>
+                                  <Input
+                                    id="drive_create_parent_folder_id"
+                                    type="text"
+                                    placeholder="Leave empty for root folder"
+                                    value={(nodeConfig as ActionNodeData).params?.parent_folder_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, parent_folder_id: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Parent folder ID (leave empty to create in root)</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Drive copy_file */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'copy_file' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="drive_copy_file_id">File ID</Label>
+                                  <Input
+                                    id="drive_copy_file_id"
+                                    type="text"
+                                    placeholder="Google Drive file ID or {{drive.file_id}}"
+                                    value={(nodeConfig as ActionNodeData).params?.file_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, file_id: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">ID of the file to copy (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_copy_new_name">New Name (optional)</Label>
+                                  <Input
+                                    id="drive_copy_new_name"
+                                    type="text"
+                                    placeholder="Leave empty to use original name"
+                                    value={(nodeConfig as ActionNodeData).params?.new_name as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, new_name: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">New name for the copied file (optional)</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Drive move_file */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'move_file' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="drive_move_file_id">File ID</Label>
+                                  <Input
+                                    id="drive_move_file_id"
+                                    type="text"
+                                    placeholder="Google Drive file ID or {{drive.file_id}}"
+                                    value={(nodeConfig as ActionNodeData).params?.file_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, file_id: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">ID of the file to move (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="drive_move_destination_folder_id">Destination Folder ID</Label>
+                                  <Input
+                                    id="drive_move_destination_folder_id"
+                                    type="text"
+                                    placeholder="Google Drive folder ID"
+                                    value={(nodeConfig as ActionNodeData).params?.destination_folder_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, {
+                                        ...nodeConfig,
+                                        params: { ...currentParams, destination_folder_id: e.target.value }
+                                      } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">ID of the destination folder (supports variables)</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Drive delete_file */}
+                            {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'delete_file' && (
+                              <div>
+                                <Label htmlFor="drive_delete_file_id">File ID</Label>
+                                <Input
+                                  id="drive_delete_file_id"
+                                  type="text"
+                                  placeholder="Google Drive file ID or {{drive.file_id}}"
+                                  value={(nodeConfig as ActionNodeData).params?.file_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, {
+                                      ...nodeConfig,
+                                      params: { ...currentParams, file_id: e.target.value }
+                                    } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">ID of the file to delete/trash (supports variables)</p>
                               </div>
                             )}
 
