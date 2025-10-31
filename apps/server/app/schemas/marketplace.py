@@ -14,8 +14,8 @@ class TemplatePublishRequest(BaseModel):
     """Schema for publishing a workflow as a template."""
 
     area_id: uuid.UUID
-    title: str = Field(..., min_length=10, max_length=255)
-    description: str = Field(..., min_length=50, max_length=1000)
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str = Field(..., min_length=1, max_length=1000)
     long_description: Optional[str] = Field(None, max_length=5000)
     category: str = Field(..., min_length=1, max_length=100)
     tags: List[str] = Field(..., min_length=1, max_length=10)

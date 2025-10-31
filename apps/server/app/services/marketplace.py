@@ -177,7 +177,7 @@ def publish_template(
     # Sanitize and create template JSON
     template_json = sanitize_template(area, list(steps))
 
-    # Create published template
+    # Create published template (auto-approved for now - add admin review later if needed)
     template = PublishedTemplate(
         original_area_id=area.id,
         publisher_user_id=user_id,
@@ -186,8 +186,10 @@ def publish_template(
         long_description=request.long_description,
         category=request.category,
         template_json=template_json,
-        status="pending",
+        status="approved",  # Auto-approve templates
         visibility="public",
+        approved_at=datetime.now(),  # Set approval timestamp
+        published_at=datetime.now(),  # Set publication timestamp
     )
     db.add(template)
     db.flush()  # Get template ID

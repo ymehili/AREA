@@ -163,7 +163,7 @@ def test_publish_template_success(
     assert template.title == request.title
     assert template.description == request.description
     assert template.category == "productivity"
-    assert template.status == "pending"
+    assert template.status == "approved"  # Templates are auto-approved
     assert template.visibility == "public"
     assert template.publisher_user_id == test_user.id
     assert template.original_area_id == test_area_with_steps.id
@@ -331,10 +331,14 @@ def test_search_templates_only_approved(db_session: Session, test_user: User, te
         tags=["test"],
     )
     template = publish_template(db_session, test_user.id, request)
-    
+
+    # Manually set to pending (templates are auto-approved by default)
+    template.status = "pending"
+    db_session.commit()
+
     # Template is pending, should not appear
     results, total = search_templates(db_session, limit=10)
-    
+
     assert total == 0
     assert len(results) == 0
 
@@ -427,7 +431,7 @@ def test_clone_template_not_approved(
     test_area: Area,
 ):
     """Test cloning non-approved template raises TemplateNotApprovedError."""
-    # Publish template (status = pending)
+    # Publish template (auto-approved by default)
     request = TemplatePublishRequest(
         area_id=test_area.id,
         title="Unapproved Template",
@@ -436,7 +440,11 @@ def test_clone_template_not_approved(
         tags=["test"],
     )
     template = publish_template(db_session, test_user.id, request)
-    
+
+    # Manually set to pending (templates are auto-approved by default)
+    template.status = "pending"
+    db_session.commit()
+
     # Attempt to clone
     with pytest.raises(TemplateNotApprovedError) as exc_info:
         clone_template(
@@ -445,7 +453,7 @@ def test_clone_template_not_approved(
             user_id=test_user.id,
             area_name="Should Fail",
         )
-    
+
     assert "not approved" in str(exc_info.value)
     assert template.status in str(exc_info.value)
 
@@ -495,8 +503,8 @@ def test_approve_template(db_session: Session, test_user: User, test_area: Area)
     )
     db_session.add(admin_user)
     db_session.commit()
-    
-    # Publish template
+
+    # Publish template (auto-approved by default)
     request = TemplatePublishRequest(
         area_id=test_area.id,
         title="Pending Approval",
@@ -505,10 +513,16 @@ def test_approve_template(db_session: Session, test_user: User, test_area: Area)
         tags=["test"],
     )
     template = publish_template(db_session, test_user.id, request)
-    
+
+    # Manually set to pending to test approval flow
+    template.status = "pending"
+    template.approved_at = None
+    template.published_at = None
+    db_session.commit()
+
     # Approve
     approved = approve_template(db_session, template.id, admin_user.id)
-    
+
     assert approved.status == "approved"
     assert approved.approved_by_user_id == admin_user.id
     assert approved.approved_at is not None
