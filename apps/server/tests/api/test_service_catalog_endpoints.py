@@ -10,7 +10,20 @@ def test_about_includes_service_catalog(client: SyncASGITestClient) -> None:
     response = client.get("/about.json")
     assert response.status_code == 200
     about = response.json()
-    assert about["services"] == service_catalog_payload()
+    
+    # Verify spec-compliant structure
+    assert "client" in about
+    assert "host" in about["client"]
+    
+    assert "server" in about
+    assert "current_time" in about["server"]
+    assert "services" in about["server"]
+    
+    # current_time should be Unix timestamp (integer)
+    assert isinstance(about["server"]["current_time"], int)
+    
+    # services should be in simplified format
+    assert about["server"]["services"] == service_catalog_payload(simplified=True)
 
 
 def test_actions_reactions_endpoint_matches_catalog(
