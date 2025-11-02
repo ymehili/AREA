@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from fastapi_pagination import Page, Params
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import require_active_user, require_admin_user
+from app.api.dependencies import require_active_user, require_admin_user, get_optional_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.marketplace import (
@@ -28,12 +28,15 @@ from app.services.marketplace import (
     UnauthorizedError,
     approve_template,
     clone_template,
+    delete_template,
     get_template_by_id,
     list_categories,
     list_tags,
     publish_template,
     reject_template,
     search_templates,
+    search_templates_admin,
+    update_template_admin,
 )
 from app.services.user_activity_logs import log_user_activity_task
 
@@ -98,11 +101,14 @@ async def list_marketplace_templates(
 async def get_template_detail(
     template_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ) -> TemplateResponse:
     """
-    Get template details by ID (PUBLIC).
+    Get template details by ID.
     
-    No authentication required for viewing approved templates.
+    Public endpoint - no authentication required for approved public templates.
+    If authenticated, template owners can view their own templates regardless of status/visibility.
+    Admins can view any template.
     """
     template = get_template_by_id(db, template_id)
     
@@ -112,8 +118,16 @@ async def get_template_detail(
             detail=f"Template with id '{template_id}' not found",
         )
     
-    # Only return approved and public templates to unauthenticated users
-    if template.status != "approved" or template.visibility != "public":
+    # Check if user has permission to view this template
+    is_owner = current_user and template.publisher_user_id == current_user.id
+    is_admin = current_user and current_user.is_admin
+    is_public_approved = template.status == "approved" and template.visibility == "public"
+    
+    # Allow access if:
+    # 1. Template is approved and public (anyone can view)
+    # 2. User is the owner (can view their own templates)
+    # 3. User is an admin (can view any template)
+    if not (is_public_approved or is_owner or is_admin):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Template with id '{template_id}' not found",
@@ -246,6 +260,48 @@ async def clone_template_to_account(
         )
 
 
+@router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template_from_marketplace(
+    template_id: uuid.UUID,
+    current_user: Annotated[User, Depends(require_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+):
+    """
+    Delete a template from the marketplace.
+    
+    Requires authentication. User can only delete their own templates.
+    Returns 204 No Content on success.
+    """
+    try:
+        delete_template(
+            db=db,
+            template_id=template_id,
+            user_id=current_user.id,
+        )
+        
+        # Log user activity
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
+            action_type="template_deleted",
+            details=f"Deleted template: {template_id}",
+            service_name="Marketplace",
+            status="success",
+        )
+    
+    except TemplateNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except UnauthorizedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+
 # ============================================================================
 # ADMIN ENDPOINTS (Require admin user)
 # ============================================================================
@@ -314,6 +370,103 @@ async def reject_template_submission(
             user_id=str(current_admin.id),
             action_type="template_rejected",
             details=f"Rejected template: {template.title}",
+            service_name="Marketplace Admin",
+            status="success",
+        )
+        
+        return TemplateResponse.model_validate(template)
+    
+    except TemplateNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
+@router.get("/admin/templates", response_model=Page[TemplateResponse])
+async def list_all_templates_admin(
+    db: Annotated[Session, Depends(get_db)],
+    current_admin: Annotated[User, Depends(require_admin_user)],
+    q: str = Query(None, max_length=100, description="Search query"),
+    category: str = Query(None, description="Filter by category"),
+    tags: List[str] = Query(default=[], description="Filter by tags"),
+    status_filter: str = Query(None, description="Filter by status (pending, approved, rejected, archived)"),
+    visibility_filter: str = Query(None, description="Filter by visibility (public, private, unlisted)"),
+    min_rating: float = Query(None, ge=0, le=5, description="Minimum rating"),
+    sort_by: str = Query(
+        "created_at",
+        pattern="^(created_at|usage_count|rating_average|title)$",
+        description="Sort field",
+    ),
+    order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    params: Params = Depends(),
+) -> Page[TemplateResponse]:
+    """
+    List ALL marketplace templates (ADMIN ONLY).
+    
+    Returns all templates regardless of approval status or visibility.
+    Supports filtering by status and visibility.
+    """
+    templates, total = search_templates_admin(
+        db=db,
+        query=q,
+        category=category,
+        tags=tags,
+        status_filter=status_filter,
+        visibility_filter=visibility_filter,
+        min_rating=min_rating,
+        sort_by=sort_by,
+        order=order,
+        offset=(params.page - 1) * params.size,
+        limit=params.size,
+    )
+    
+    items = [TemplateResponse.model_validate(t) for t in templates]
+    
+    return Page(
+        items=items,
+        total=total,
+        page=params.page,
+        size=params.size,
+        pages=(total + params.size - 1) // params.size if total > 0 else 0,
+    )
+
+
+@router.patch("/admin/templates/{template_id}", response_model=TemplateResponse)
+async def update_template_admin_endpoint(
+    template_id: uuid.UUID,
+    current_admin: Annotated[User, Depends(require_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+    status: str = Query(None, description="New status (pending, approved, rejected, archived)"),
+    visibility: str = Query(None, description="New visibility (public, private, unlisted)"),
+) -> TemplateResponse:
+    """
+    Update template status or visibility (ADMIN ONLY).
+    
+    Allows admins to change template status and visibility settings.
+    """
+    try:
+        template = update_template_admin(
+            db=db,
+            template_id=template_id,
+            admin_user_id=current_admin.id,
+            status=status,
+            visibility=visibility,
+        )
+        
+        # Log admin activity
+        details = []
+        if status:
+            details.append(f"status={status}")
+        if visibility:
+            details.append(f"visibility={visibility}")
+        
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_admin.id),
+            action_type="template_updated",
+            details=f"Updated template {template.title}: {', '.join(details)}",
             service_name="Marketplace Admin",
             status="success",
         )

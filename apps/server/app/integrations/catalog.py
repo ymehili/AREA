@@ -600,12 +600,14 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                     "model": {
                         "type": "text",
                         "label": "Model (optional)",
-                        "placeholder": "gpt-3.5-turbo-instruct"
+                        "placeholder": "gpt-3.5-turbo-instruct",
+                        "optional": True
                     },
                     "max_tokens": {
                         "type": "number",
                         "label": "Max Tokens (optional)",
-                        "placeholder": "256"
+                        "placeholder": "256",
+                        "optional": True
                     }
                 },
             ),
@@ -622,22 +624,26 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                     "model": {
                         "type": "select",
                         "label": "Model (optional)",
-                        "options": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"]
+                        "options": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+                        "optional": True
                     },
                     "max_tokens": {
                         "type": "number",
                         "label": "Max Tokens (optional)",
-                        "placeholder": "500"
+                        "placeholder": "500",
+                        "optional": True
                     },
                     "temperature": {
                         "type": "number",
                         "label": "Temperature (optional)",
-                        "placeholder": "0.7"
+                        "placeholder": "0.7",
+                        "optional": True
                     },
                     "system_prompt": {
                         "type": "text",
                         "label": "System Prompt (optional)",
-                        "placeholder": "You are a helpful assistant..."
+                        "placeholder": "You are a helpful assistant...",
+                        "optional": True
                     }
                 },
             ),
@@ -654,12 +660,14 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                     "size": {
                         "type": "select",
                         "label": "Image Size",
-                        "options": ["256x256", "512x512", "1024x1024"]
+                        "options": ["256x256", "512x512", "1024x1024"],
+                        "optional": True
                     },
                     "n": {
                         "type": "number",
                         "label": "Number of Images",
-                        "placeholder": "1"
+                        "placeholder": "1",
+                        "optional": True
                     }
                 },
             ),
