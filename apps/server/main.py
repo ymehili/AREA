@@ -253,7 +253,16 @@ app.add_middleware(
 
 # Add Session middleware for OAuth
 logger.info("Configuring Session middleware for OAuth callbacks")
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie="oauth_session",  # Explicit cookie name
+    # Configure cookie settings for mobile browser compatibility
+    same_site="lax",  # Allow cookies on top-level navigation (OAuth callbacks)
+    https_only=False,  # Set to True in production with HTTPS
+    max_age=1800,  # 30 minutes - enough time to complete OAuth flow
+    path="/",  # Cookie available for all paths
+)
 
 
 @app.get("/")

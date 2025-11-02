@@ -142,7 +142,7 @@ function AuthPageContent() {
                 <div className="space-y-3">
                   <OAuthButton
                     provider="google"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google?client_type=web`}
                   />
                 </div>
               </form>
@@ -192,7 +192,7 @@ function AuthPageContent() {
                   <OAuthButton
                     provider="google"
                     action="signup"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google`}
+                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google?client_type=web`}
                   />
                 </div>
               </form>
