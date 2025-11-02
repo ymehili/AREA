@@ -259,10 +259,14 @@ async def health_check():
 
 @app.get("/about.json")
 async def about(request: Request):
+    """Return application info in spec-compliant format."""
+    import time
     return {
         "client": {"host": request.client.host},
-        "server": {"current_time": datetime.now().isoformat()},
-        "services": service_catalog_payload(),
+        "server": {
+            "current_time": int(time.time()),
+            "services": service_catalog_payload(simplified=True)
+        },
     }
 
 logger.info("Registering API routers")

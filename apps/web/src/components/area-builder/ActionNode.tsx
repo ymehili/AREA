@@ -7,33 +7,49 @@ import { ActionNodeData } from './node-types';
 
 const ActionNode: React.FC<NodeProps<ActionNodeData>> = ({ data, isConnectable, selected }) => {
   return (
-    <Card className={`w-64 ${selected ? 'border-2 border-primary shadow-lg ring-2 ring-ring' : 'border-2 border-green-500'} bg-green-50 dark:bg-green-950/30`}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200">
-            Action
-          </Badge>
+    <div className="relative">
+      <Card className={`w-72 ${selected ? 'ring-2 ring-primary shadow-xl' : 'shadow-md'} border-2 border-green-500 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/40 dark:to-green-900/30 overflow-visible`}>
+        <CardContent className="p-4 px-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="secondary" className="bg-green-500 text-white">
+              Action
+            </Badge>
+          </div>
+          <h3 className="font-semibold text-lg break-words text-green-900 dark:text-green-100">{data.label}</h3>
+          <p className="text-sm text-green-700 dark:text-green-300 mt-1 break-words">{data.description || data.serviceId}</p>
+        </CardContent>
+        
+        {/* Input handle - integrated into the card edge */}
+        <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            {/* Glow ring effect */}
+            <div className="absolute inset-0 bg-green-500/30 rounded-full blur-sm"></div>
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="action-input"
+              isConnectable={isConnectable}
+              className="!w-8 !h-8 !bg-green-500 !border-4 !border-white dark:!border-gray-800 hover:!bg-green-600 hover:scale-110 transition-all cursor-crosshair !static !transform-none shadow-lg"
+            />
+          </div>
         </div>
-        <h3 className="font-semibold text-lg break-words">{data.label}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">{data.description || data.serviceId}</p>
-      </CardContent>
-      {/* Input handle positioned at the left side */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="action-input"
-        isConnectable={isConnectable}
-        className="w-3 h-3 bg-green-500"
-      />
-      {/* Output handle positioned at the right side */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="action-output"
-        isConnectable={isConnectable}
-        className="w-3 h-3 bg-green-500"
-      />
-    </Card>
+        
+        {/* Output handle - integrated into the card edge */}
+        <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-10">
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            {/* Glow ring effect */}
+            <div className="absolute inset-0 bg-green-500/30 rounded-full blur-sm"></div>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="action-output"
+              isConnectable={isConnectable}
+              className="!w-8 !h-8 !bg-green-500 !border-4 !border-white dark:!border-gray-800 hover:!bg-green-600 hover:scale-110 transition-all cursor-crosshair !static !transform-none shadow-lg"
+            />
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 };
 
