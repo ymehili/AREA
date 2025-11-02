@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -41,8 +41,8 @@ class Area(Base):
     trigger_action: Mapped[str] = mapped_column(String(255), nullable=False)
     reaction_service: Mapped[str] = mapped_column(String(255), nullable=False)
     reaction_action: Mapped[str] = mapped_column(String(255), nullable=False)
-    trigger_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    reaction_params: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    trigger_params: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    reaction_params: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     enabled: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
