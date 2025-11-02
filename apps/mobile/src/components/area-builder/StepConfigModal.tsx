@@ -424,10 +424,170 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
           </View>
         )}
 
+        {/* OpenAI - Chat Completion */}
+        {serviceId === 'openai' && actionId === 'chat' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Prompt *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="Enter your prompt (supports variables like {{gmail.subject}})"
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>The message or question to send to ChatGPT</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Model (optional)</Text>
+              <Input
+                value={params.model || ''}
+                onChangeText={(value) => setParams({...params, model: value})}
+                placeholder="gpt-3.5-turbo"
+              />
+              <Text style={styles.smallText}>Default: gpt-3.5-turbo</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Max Tokens (optional)</Text>
+              <Input
+                value={params.max_tokens?.toString() || ''}
+                onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
+                placeholder="500"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Maximum length of the response (default: 500)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Temperature (optional)</Text>
+              <Input
+                value={params.temperature?.toString() || ''}
+                onChangeText={(value) => setParams({...params, temperature: parseFloat(value) || undefined})}
+                placeholder="0.7"
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.smallText}>0 = focused, 2 = creative (default: 0.7)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>System Prompt (optional)</Text>
+              <Input
+                value={params.system_prompt || ''}
+                onChangeText={(value) => setParams({...params, system_prompt: value})}
+                placeholder="You are a helpful assistant..."
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.smallText}>Set the AI's behavior and context</Text>
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Text Completion */}
+        {serviceId === 'openai' && actionId === 'complete_text' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Prompt *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="Enter text to complete..."
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Model (optional)</Text>
+              <Input
+                value={params.model || ''}
+                onChangeText={(value) => setParams({...params, model: value})}
+                placeholder="gpt-3.5-turbo-instruct"
+              />
+              <Text style={styles.smallText}>Default: gpt-3.5-turbo-instruct</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Max Tokens (optional)</Text>
+              <Input
+                value={params.max_tokens?.toString() || ''}
+                onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
+                placeholder="256"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Generate Image */}
+        {serviceId === 'openai' && actionId === 'generate_image' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Image Description *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="A cute cat playing with a ball of yarn..."
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>Describe the image you want to generate</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Image Size</Text>
+              <View style={styles.buttonGroup}>
+                {['256x256', '512x512', '1024x1024'].map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.optionButton,
+                      params.size === size && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, size})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.size === size && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.smallText}>Select the size of the generated image</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Number of Images</Text>
+              <Input
+                value={params.n?.toString() || '1'}
+                onChangeText={(value) => setParams({...params, n: parseInt(value) || 1})}
+                placeholder="1"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Generate 1-10 images (default: 1)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Content Moderation */}
+        {serviceId === 'openai' && actionId === 'analyze_text' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Content to Moderate *</Text>
+              <Input
+                value={params.input || ''}
+                onChangeText={(value) => setParams({...params, input: value})}
+                placeholder="Enter content to analyze (supports variables like {{gmail.body}})"
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>Text to check for policy violations</Text>
+            </View>
+          </View>
+        )}
+
         {/* Add all other service configurations here - I'll include the most common ones */}
         
         {/* For all other services, show a generic message */}
-        {!['time', 'weather', 'gmail'].includes(serviceId) && (
+        {!['time', 'weather', 'gmail', 'openai'].includes(serviceId) && (
           <Text style={styles.smallText}>
             Parameters for {serviceId} - {actionId}:{'\n\n'}
             You can configure this service's parameters. The values will be saved with your configuration.
