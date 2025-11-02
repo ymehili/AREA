@@ -35,6 +35,9 @@ import HistoryScreen from './src/components/HistoryScreen';
 import ActivityLogScreen from './src/components/ActivityLogScreen';
 import ConfirmScreen from './src/components/ConfirmScreen';
 import AdvancedAreaBuilderScreen from './src/components/AdvancedAreaBuilderScreen';
+import MarketplaceScreen from './src/components/MarketplaceScreen';
+import TemplateDetailScreen from './src/components/TemplateDetailScreen';
+import PublishTemplateScreen from './src/components/PublishTemplateScreen';
 
 // Import design system
 import { Colors } from './src/constants/colors';
@@ -609,10 +612,18 @@ function DashboardScreen() {
               />
             </View>
             <View style={{ height: 8 }} />
-            <Switch 
-              value={area.enabled} 
-              onValueChange={(value) => void toggleArea(area.id, value)} 
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <CustomButton
+                title="Publish to Marketplace"
+                onPress={() => navigation.navigate("PublishTemplate", { areaId: area.id })}
+                variant="default"
+                style={{ flex: 1, marginRight: 12 }}
+              />
+              <Switch 
+                value={area.enabled} 
+                onValueChange={(value) => void toggleArea(area.id, value)} 
+              />
+            </View>
           </Card>
         ))}
       </ScrollView>
@@ -1974,6 +1985,23 @@ function ProfileScreen() {
   );
 }
 
+// Wrapper for MarketplaceScreen that provides API base URL
+function MarketplaceScreenWrapper() {
+  return <MarketplaceScreen apiBaseUrl={API_BASE_URL} />;
+}
+
+// Wrapper for TemplateDetailScreen that provides API base URL and token
+function TemplateDetailScreenWrapper() {
+  const auth = useAuth();
+  return <TemplateDetailScreen apiBaseUrl={API_BASE_URL} token={auth.token} />;
+}
+
+// Wrapper for PublishTemplateScreen that provides API base URL and token
+function PublishTemplateScreenWrapper() {
+  const auth = useAuth();
+  return <PublishTemplateScreen apiBaseUrl={API_BASE_URL} token={auth.token} />;
+}
+
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
 
@@ -1987,6 +2015,8 @@ function TabsNavigator() {
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Marketplace') {
+            iconName = focused ? 'storefront' : 'storefront-outline';
           } else if (route.name === 'History') {
             iconName = focused ? 'time' : 'time-outline';
           } else if (route.name === 'Connections') {
@@ -2017,6 +2047,7 @@ function TabsNavigator() {
       })}
     >
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
+      <Tabs.Screen name="Marketplace" component={MarketplaceScreenWrapper} />
       <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
       <Tabs.Screen name="Wizard" component={WizardTabScreen} />
@@ -2033,6 +2064,8 @@ function AuthenticatedNavigator() {
       <Stack.Screen name="Confirm" component={ConfirmScreen} />
       <Stack.Screen name="AdvancedAreaBuilder" component={AdvancedAreaBuilderScreen} />
       <Stack.Screen name="SimpleWizard" component={WizardScreen} />
+      <Stack.Screen name="TemplateDetail" component={TemplateDetailScreenWrapper} />
+      <Stack.Screen name="PublishTemplate" component={PublishTemplateScreenWrapper} />
     </Stack.Navigator>
   );
 }
