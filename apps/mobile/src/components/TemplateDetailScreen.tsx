@@ -9,6 +9,8 @@ import {
   Alert,
   TextInput,
   Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -129,11 +131,14 @@ export default function TemplateDetailScreen({
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.header}>
-          <CustomButton
-            title="← Back"
-            onPress={() => navigation.goBack()}
-            variant="outline"
-          />
+          <View style={styles.backButtonContainer}>
+            <CustomButton
+              title="← Back"
+              onPress={() => navigation.goBack()}
+              variant="outline"
+              style={styles.backButton}
+            />
+          </View>
         </View>
         <Card style={styles.errorCard}>
           <Text style={styles.errorTitle}>Failed to load template</Text>
@@ -149,18 +154,22 @@ export default function TemplateDetailScreen({
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <CustomButton
-          title="← Back"
-          onPress={() => navigation.goBack()}
-          variant="outline"
-          style={styles.backButton}
-        />
-        <CustomButton
-          title="Clone Template"
-          onPress={() => setShowCloneModal(true)}
-          variant="default"
-          style={styles.cloneButton}
-        />
+        <View style={styles.backButtonContainer}>
+          <CustomButton
+            title="← Back"
+            onPress={() => navigation.goBack()}
+            variant="outline"
+            style={styles.backButton}
+          />
+        </View>
+        <View style={styles.cloneButtonContainer}>
+          <CustomButton
+            title="Clone Template"
+            onPress={() => setShowCloneModal(true)}
+            variant="default"
+            style={styles.cloneButton}
+          />
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
@@ -316,21 +325,32 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.backgroundLight,
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     gap: 8,
   },
+  backButtonContainer: {
+    alignItems: 'flex-start',
+  },
   backButton: {
-    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 80,
+  },
+  cloneButtonContainer: {
+    alignItems: 'flex-end',
   },
   cloneButton: {
-    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   content: {
     flex: 1,
