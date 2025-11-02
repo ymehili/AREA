@@ -304,7 +304,7 @@ export default function PublishTemplateScreen({
 
         {/* Tags */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Tags</Text>
+          <Text style={styles.label}>Tags *</Text>
           
           {/* Selected Tags */}
           {selectedTags.length > 0 && (

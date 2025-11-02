@@ -14,6 +14,7 @@ import {
   View,
   RefreshControl,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -46,6 +47,8 @@ import { TextStyles, FontFamilies } from './src/constants/typography';
 // Import auth context and API utilities
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ExecutionLog } from './src/utils/api';
+
+const SERVER_URL_STORAGE_KEY = "custom_server_url";
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -121,12 +124,48 @@ async function parseError(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`;
 }
 
+// Cache for custom server URL to avoid reading from AsyncStorage on every request
+let cachedServerUrl: string | null = null;
+let serverUrlPromise: Promise<string> | null = null;
+
+async function getActiveServerUrl(): Promise<string> {
+  // If we already have a cached URL, return it
+  if (cachedServerUrl !== null) {
+    return cachedServerUrl;
+  }
+  
+  // If there's already a pending request, wait for it
+  if (serverUrlPromise !== null) {
+    return serverUrlPromise;
+  }
+  
+  // Start a new request and cache the promise
+  serverUrlPromise = (async () => {
+    try {
+      const customUrl = await AsyncStorage.getItem(SERVER_URL_STORAGE_KEY);
+      const url = customUrl || API_BASE_URL;
+      cachedServerUrl = url;
+      return url;
+    } catch (error) {
+      console.error('Failed to load server URL from storage:', error);
+      cachedServerUrl = API_BASE_URL;
+      return API_BASE_URL;
+    } finally {
+      serverUrlPromise = null;
+    }
+  })();
+  
+  return serverUrlPromise;
+}
+
 async function requestJson<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  // Get the active server URL (either custom or default)
+  const baseUrl = await getActiveServerUrl();
+  const url = path.startsWith("http") ? path : `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -1598,6 +1637,11 @@ function ProfileScreen() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [providerPending, setProviderPending] = useState<Record<string, boolean>>({});
   const [linkIdentifiers, setLinkIdentifiers] = useState<Record<string, string>>({});
+  
+  // Server configuration state
+  const [serverUrl, setServerUrl] = useState("");
+  const [defaultServerUrl, setDefaultServerUrl] = useState("");
+  const [serverUrlSaving, setServerUrlSaving] = useState(false);
 
   const updateLoginMethod = useCallback((nextStatus: LoginMethodStatus) => {
     setProfile((prev) => {
@@ -1648,6 +1692,27 @@ function ProfileScreen() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  // Load server URL configuration on mount
+  useEffect(() => {
+    const loadServerUrl = async () => {
+      try {
+        const defaultUrl = API_BASE_URL;
+        setDefaultServerUrl(defaultUrl);
+        
+        const customUrl = await AsyncStorage.getItem(SERVER_URL_STORAGE_KEY);
+        if (customUrl) {
+          setServerUrl(customUrl);
+        } else {
+          setServerUrl(defaultUrl);
+        }
+      } catch (error) {
+        console.error('Failed to load server URL:', error);
+        setServerUrl(API_BASE_URL);
+      }
+    };
+    void loadServerUrl();
+  }, []);
 
   const handleSaveProfile = useCallback(async () => {
     if (!token || !profile) {
@@ -1794,6 +1859,59 @@ function ProfileScreen() {
     [token, profile, logout, updateLoginMethod],
   );
 
+  const handleSaveServerUrl = useCallback(async () => {
+    const trimmed = serverUrl.trim();
+    
+    if (!trimmed) {
+      Alert.alert('Invalid URL', 'Please enter a valid server URL');
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(trimmed);
+    } catch {
+      Alert.alert('Invalid URL', 'Please enter a valid URL (e.g., http://192.168.1.100:8080/api/v1)');
+      return;
+    }
+
+    setServerUrlSaving(true);
+    try {
+      await AsyncStorage.setItem(SERVER_URL_STORAGE_KEY, trimmed);
+      Alert.alert(
+        'Server URL Updated',
+        'The app will use the new server URL. Please restart the app for changes to take effect.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save server URL');
+    } finally {
+      setServerUrlSaving(false);
+    }
+  }, [serverUrl]);
+
+  const handleResetServerUrl = useCallback(async () => {
+    Alert.alert(
+      'Reset to Default',
+      'This will restore the default server URL. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(SERVER_URL_STORAGE_KEY);
+              setServerUrl(defaultServerUrl);
+              Alert.alert('Reset Complete', 'Server URL has been reset to default. Please restart the app.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reset server URL');
+            }
+          },
+        },
+      ]
+    );
+  }, [defaultServerUrl]);
+
   if (loadingProfile) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -1807,12 +1925,65 @@ function ProfileScreen() {
   if (profileError) {
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Profile</Text>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{profileError}</Text>
+        <ScrollView contentContainerStyle={styles.profileScroll}>
+          <Text style={styles.h1}>Profile</Text>
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>{profileError}</Text>
+            <View style={{ height: 12 }} />
+            <Button title="Retry" onPress={() => void loadProfile()} />
+          </View>
+          
+          <View style={{ height: 24 }} />
+          
+          {/* Server Configuration - Always available even on error */}
+          <Card>
+            <Text style={{ ...TextStyles.h3, marginBottom: 8 }}>
+              Server Configuration
+            </Text>
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginBottom: 16 }}>
+              Configure the network location of the application server.
+            </Text>
+
+            <Input
+              label="Server URL"
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="http://192.168.1.100:8080/api/v1"
+              autoCapitalize="none"
+              keyboardType="url"
+              editable={!serverUrlSaving}
+            />
+
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8, marginBottom: 16 }}>
+              Examples:{'\n'}
+              • http://192.168.1.100:8080/api/v1 (Local network){'\n'}
+              • http://10.0.2.2:8080/api/v1 (Android emulator){'\n'}
+              • http://localhost:8080/api/v1 (iOS simulator)
+            </Text>
+
+            <CustomButton
+              title={serverUrlSaving ? 'Saving...' : 'Save Server URL'}
+              onPress={handleSaveServerUrl}
+              disabled={serverUrlSaving}
+              variant="default"
+              style={{ marginBottom: 12 }}
+            />
+
+            <CustomButton
+              title="Reset to Default"
+              onPress={handleResetServerUrl}
+              variant="outline"
+              style={{ marginBottom: 8 }}
+            />
+
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8 }}>
+              Default: {defaultServerUrl || 'Not configured'}
+            </Text>
+          </Card>
+
           <View style={{ height: 12 }} />
-          <Button title="Retry" onPress={() => void loadProfile()} />
-        </View>
+          <CustomButton title="Logout" onPress={() => logout().catch(() => {})} variant="outline" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1975,6 +2146,52 @@ function ProfileScreen() {
             );
           })}
         </View>
+
+        {/* Server Configuration */}
+        <Card>
+          <Text style={{ ...TextStyles.h3, marginBottom: 8 }}>
+            Server Configuration
+          </Text>
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginBottom: 16 }}>
+            Configure the network location of the application server.
+          </Text>
+
+          <Input
+            label="Server URL"
+            value={serverUrl}
+            onChangeText={setServerUrl}
+            placeholder="http://192.168.1.100:8080/api/v1"
+            autoCapitalize="none"
+            keyboardType="url"
+            editable={!serverUrlSaving}
+          />
+
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8, marginBottom: 16 }}>
+            Examples:{'\n'}
+            • http://192.168.1.100:8080/api/v1 (Local network){'\n'}
+            • http://10.0.2.2:8080/api/v1 (Android emulator){'\n'}
+            • http://localhost:8080/api/v1 (iOS simulator)
+          </Text>
+
+          <CustomButton
+            title={serverUrlSaving ? 'Saving...' : 'Save Server URL'}
+            onPress={handleSaveServerUrl}
+            disabled={serverUrlSaving}
+            variant="default"
+            style={{ marginBottom: 12 }}
+          />
+
+          <CustomButton
+            title="Reset to Default"
+            onPress={handleResetServerUrl}
+            variant="outline"
+            style={{ marginBottom: 8 }}
+          />
+
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8 }}>
+            Default: {defaultServerUrl || 'Not configured'}
+          </Text>
+        </Card>
 
         <View style={{ height: 12 }} />
         <CustomButton title="Activity Log" onPress={() => navigation.navigate("ActivityLog" as never)} variant="default" />
