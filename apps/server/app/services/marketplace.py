@@ -249,6 +249,117 @@ def search_templates(
         PublishedTemplate.visibility == "public",
     )
 
+
+def search_templates_admin(
+    db: Session,
+    query: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    status_filter: Optional[str] = None,
+    visibility_filter: Optional[str] = None,
+    min_rating: Optional[float] = None,
+    sort_by: str = "created_at",
+    order: str = "desc",
+    offset: int = 0,
+    limit: int = 20,
+) -> Tuple[List[PublishedTemplate], int]:
+    """
+    Search and filter ALL marketplace templates (ADMIN ONLY).
+    
+    Returns templates regardless of approval status or visibility.
+    Allows filtering by status and visibility.
+    """
+    # Base query: ALL templates
+    stmt = select(PublishedTemplate)
+    
+    # Status filter (optional)
+    if status_filter:
+        stmt = stmt.where(PublishedTemplate.status == status_filter)
+    
+    # Visibility filter (optional)
+    if visibility_filter:
+        stmt = stmt.where(PublishedTemplate.visibility == visibility_filter)
+
+    # Full-text search (PostgreSQL) or LIKE search (SQLite)
+    if query:
+        clean_query = query.replace("'", "").strip()
+        if clean_query:
+            # Check if database supports TSVECTOR (PostgreSQL)
+            dialect_name = db.bind.dialect.name if db.bind else "postgresql"
+            
+            if dialect_name == "postgresql":
+                # Use full-text search with to_tsquery
+                stmt = stmt.where(
+                    PublishedTemplate.search_vector.op("@@")(
+                        func.to_tsquery("english", clean_query)
+                    )
+                )
+            else:
+                # Fallback to LIKE search for SQLite/other databases
+                search_pattern = f"%{clean_query}%"
+                stmt = stmt.where(
+                    (PublishedTemplate.title.ilike(search_pattern)) |
+                    (PublishedTemplate.description.ilike(search_pattern))
+                )
+
+    # Category filter
+    if category:
+        stmt = stmt.where(PublishedTemplate.category == category)
+
+    # Tag filter (templates must have ALL specified tags)
+    if tags and len(tags) > 0:
+        for tag_name in tags:
+            stmt = stmt.join(PublishedTemplate.tags).where(TemplateTag.name == tag_name)
+
+    # Rating filter
+    if min_rating is not None:
+        stmt = stmt.where(PublishedTemplate.rating_average >= min_rating)
+
+    # Count total matching templates (before pagination)
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = db.scalar(count_stmt) or 0
+
+    # Sorting
+    sort_column = getattr(PublishedTemplate, sort_by, PublishedTemplate.created_at)
+    if order == "desc":
+        stmt = stmt.order_by(sort_column.desc())
+    else:
+        stmt = stmt.order_by(sort_column.asc())
+
+    # Pagination
+    stmt = stmt.offset(offset).limit(limit)
+
+    # Execute query
+    result = db.execute(stmt)
+    templates = result.scalars().unique().all()  # .unique() needed after join
+
+    return list(templates), total
+
+
+def search_templates(
+    db: Session,
+    query: Optional[str] = None,
+    category: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    min_rating: Optional[float] = None,
+    sort_by: str = "usage_count",
+    order: str = "desc",
+    offset: int = 0,
+    limit: int = 20,
+) -> Tuple[List[PublishedTemplate], int]:
+    """
+    Search and filter marketplace templates.
+    
+    Uses PostgreSQL full-text search for query matching when available,
+    falls back to LIKE search for other databases (e.g., SQLite in tests).
+    Only returns approved and public templates.
+    """
+    # Base query: only approved and public templates
+    stmt = select(PublishedTemplate).where(
+        PublishedTemplate.status == "approved",
+        PublishedTemplate.visibility == "public",
+    )
+
     # Full-text search (PostgreSQL) or LIKE search (SQLite)
     if query:
         clean_query = query.replace("'", "").strip()
@@ -465,15 +576,73 @@ def reject_template(
     return template
 
 
+def delete_template(
+    db: Session,
+    template_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """
+    Delete a template from the marketplace.
+    
+    User can only delete their own templates.
+    Raises UnauthorizedError if user doesn't own the template.
+    Raises TemplateNotFoundError if template doesn't exist.
+    """
+    template = db.get(PublishedTemplate, template_id)
+    if not template:
+        raise TemplateNotFoundError(str(template_id))
+
+    # Verify ownership
+    if template.publisher_user_id != user_id:
+        raise UnauthorizedError("You can only delete your own templates")
+
+    # Delete the template (cascade will handle related records)
+    db.delete(template)
+    db.commit()
+
+
+def update_template_admin(
+    db: Session,
+    template_id: uuid.UUID,
+    admin_user_id: uuid.UUID,
+    status: Optional[str] = None,
+    visibility: Optional[str] = None,
+) -> PublishedTemplate:
+    """Update template status or visibility (ADMIN ONLY)."""
+    template = db.get(PublishedTemplate, template_id)
+    if not template:
+        raise TemplateNotFoundError(str(template_id))
+    
+    if status:
+        template.status = status
+        if status == "approved":
+            template.approved_at = datetime.now()
+            template.approved_by_user_id = admin_user_id
+            if not template.published_at:
+                template.published_at = datetime.now()
+        elif status == "rejected":
+            template.approved_by_user_id = admin_user_id
+    
+    if visibility:
+        template.visibility = visibility
+    
+    db.commit()
+    db.refresh(template)
+    return template
+
+
 __all__ = [
     "publish_template",
     "search_templates",
+    "search_templates_admin",
     "get_template_by_id",
     "list_categories",
     "list_tags",
     "clone_template",
     "approve_template",
     "reject_template",
+    "delete_template",
+    "update_template_admin",
     "sanitize_template",
     "AreaNotFoundError",
     "TemplateNotFoundError",
