@@ -337,10 +337,11 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     paramName = paramName.replace(/^outlook_/, '');
     paramName = paramName.replace(/^weather_/, '');
     paramName = paramName.replace(/^forecast_/, '');
-    paramName = paramName.replace(/^openai_/, '');
+    // OpenAI - more specific patterns first
     paramName = paramName.replace(/^openai_image_/, '');
     paramName = paramName.replace(/^openai_text_/, '');
     paramName = paramName.replace(/^openai_moderate_/, '');
+    paramName = paramName.replace(/^openai_/, '');
     // Google Drive
     paramName = paramName.replace(/^drive_copy_/, '');
     paramName = paramName.replace(/^drive_move_/, '');
