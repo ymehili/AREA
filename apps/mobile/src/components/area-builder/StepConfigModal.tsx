@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  PanResponder,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { NodeData, isTriggerNode, isActionNode, isConditionNode, isDelayNode } from '../../types/area-builder';
 import { Colors } from '../../constants/colors';
@@ -108,6 +111,8 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [params, setParams] = useState<Record<string, any>>({});
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(Dimensions.get('window').height));
 
   // Load catalog services when modal opens
   useEffect(() => {
@@ -211,6 +216,1096 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
     );
   };
 
+  const openConfigModal = () => {
+    setShowConfigModal(true);
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 8,
+    }).start();
+  };
+
+  const closeConfigModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: Dimensions.get('window').height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowConfigModal(false);
+    });
+  };
+
+  // Pan responder for swipe down gesture
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy > 5; // Only respond to downward swipes
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          slideAnim.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100) {
+          // If swiped down more than 100px, close the modal
+          closeConfigModal();
+        } else {
+          // Otherwise, spring back to open position
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 8,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Render parameter inputs based on selected service and action
+  const renderParameterInputs = () => {
+    if (!serviceId || !step) {
+      return (
+        <Text style={styles.smallText}>
+          Please select a service first.
+        </Text>
+      );
+    }
+
+    return (
+      <View style={{ gap: 16 }}>
+        {/* Trigger/Action Selection */}
+        <View>
+          <Text style={[styles.label, { fontSize: 16, fontWeight: 'bold', marginBottom: 12 }]}>
+            Select {isTriggerNode(step) ? 'Trigger' : 'Action'} *
+          </Text>
+          {availableOptions.length === 0 ? (
+            <Text style={styles.smallText}>No {isTriggerNode(step) ? 'triggers' : 'actions'} available for this service.</Text>
+          ) : (
+            <View style={styles.buttonGroup}>
+              {availableOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.optionButton,
+                    actionId === option.key && styles.optionButtonSelected,
+                  ]}
+                  onPress={() => setActionId(option.key)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        actionId === option.key && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {option.name}
+                    </Text>
+                    {option.description && (
+                      <Text
+                        style={[
+                          styles.smallText,
+                          actionId === option.key && { color: 'rgba(255, 255, 255, 0.8)' },
+                        ]}
+                      >
+                        {option.description}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Parameters Section - Only show if action is selected */}
+        {actionId && (
+          <View>
+            <Text style={[styles.label, { fontSize: 16, fontWeight: 'bold', marginBottom: 12 }]}>
+              Parameters
+            </Text>
+        {/* Time - Every Interval */}
+        {serviceId === 'time' && actionId === 'every_interval' && (
+          <View>
+            <Text style={styles.label}>Interval (seconds) *</Text>
+            <Input
+              value={params.interval_seconds?.toString() || '60'}
+              onChangeText={(value) => setParams({...params, interval_seconds: parseInt(value) || 60})}
+              placeholder="60"
+              keyboardType="numeric"
+            />
+            <Text style={styles.smallText}>How often to trigger (in seconds). Minimum: 1 second.</Text>
+          </View>
+        )}
+
+        {/* Weather - Get Current Weather */}
+        {serviceId === 'weather' && actionId === 'get_current_weather' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+              <Text style={styles.smallText}>City name with country code or leave empty to use coordinates below</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <Text style={styles.smallText}>Use either city name OR coordinates (not both)</Text>
+          </View>
+        )}
+
+        {/* Gmail - Send Email */}
+        {serviceId === 'gmail' && actionId === 'send_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Subject *</Text>
+              <Input
+                value={params.subject || ''}
+                onChangeText={(value) => setParams({...params, subject: value})}
+                placeholder="Email subject"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Body *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Message body (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gmail - New Email from Sender */}
+        {serviceId === 'gmail' && actionId === 'new_email_from_sender' && (
+          <View>
+            <Text style={styles.label}>Sender Email *</Text>
+            <Input
+              value={params.sender_email || ''}
+              onChangeText={(value) => setParams({...params, sender_email: value})}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+            />
+            <Text style={styles.smallText}>Only trigger for emails from this sender</Text>
+          </View>
+        )}
+
+        {/* OpenAI - Chat Completion */}
+        {serviceId === 'openai' && actionId === 'chat' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Prompt *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="Enter your prompt (supports variables like {{gmail.subject}})"
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>The message or question to send to ChatGPT</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Model (optional)</Text>
+              <Input
+                value={params.model || ''}
+                onChangeText={(value) => setParams({...params, model: value})}
+                placeholder="gpt-3.5-turbo"
+              />
+              <Text style={styles.smallText}>Default: gpt-3.5-turbo</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Max Tokens (optional)</Text>
+              <Input
+                value={params.max_tokens?.toString() || ''}
+                onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
+                placeholder="500"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Maximum length of the response (default: 500)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Temperature (optional)</Text>
+              <Input
+                value={params.temperature?.toString() || ''}
+                onChangeText={(value) => setParams({...params, temperature: parseFloat(value) || undefined})}
+                placeholder="0.7"
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.smallText}>0 = focused, 2 = creative (default: 0.7)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>System Prompt (optional)</Text>
+              <Input
+                value={params.system_prompt || ''}
+                onChangeText={(value) => setParams({...params, system_prompt: value})}
+                placeholder="You are a helpful assistant..."
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.smallText}>Set the AI's behavior and context</Text>
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Text Completion */}
+        {serviceId === 'openai' && actionId === 'complete_text' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Prompt *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="Enter text to complete..."
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Model (optional)</Text>
+              <Input
+                value={params.model || ''}
+                onChangeText={(value) => setParams({...params, model: value})}
+                placeholder="gpt-3.5-turbo-instruct"
+              />
+              <Text style={styles.smallText}>Default: gpt-3.5-turbo-instruct</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Max Tokens (optional)</Text>
+              <Input
+                value={params.max_tokens?.toString() || ''}
+                onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
+                placeholder="256"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Generate Image */}
+        {serviceId === 'openai' && actionId === 'generate_image' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Image Description *</Text>
+              <Input
+                value={params.prompt || ''}
+                onChangeText={(value) => setParams({...params, prompt: value})}
+                placeholder="A cute cat playing with a ball of yarn..."
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>Describe the image you want to generate</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Image Size</Text>
+              <View style={styles.buttonGroup}>
+                {['256x256', '512x512', '1024x1024'].map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.optionButton,
+                      params.size === size && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, size})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.size === size && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.smallText}>Select the size of the generated image</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Number of Images</Text>
+              <Input
+                value={params.n?.toString() || '1'}
+                onChangeText={(value) => setParams({...params, n: parseInt(value) || 1})}
+                placeholder="1"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Generate 1-10 images (default: 1)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* OpenAI - Content Moderation */}
+        {serviceId === 'openai' && actionId === 'analyze_text' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Content to Moderate *</Text>
+              <Input
+                value={params.input || ''}
+                onChangeText={(value) => setParams({...params, input: value})}
+                placeholder="Enter content to analyze (supports variables like {{gmail.body}})"
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.smallText}>Text to check for policy violations</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Send Message */}
+        {serviceId === 'discord' && actionId === 'send_message' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>The Discord channel ID where the message will be sent</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Message Content *</Text>
+              <Input
+                value={params.content || ''}
+                onChangeText={(value) => setParams({...params, content: value})}
+                placeholder="Enter message (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Send DM */}
+        {serviceId === 'discord' && actionId === 'send_dm' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>User ID *</Text>
+              <Input
+                value={params.user_id || ''}
+                onChangeText={(value) => setParams({...params, user_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>The Discord user ID to send the DM to</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Message Content *</Text>
+              <Input
+                value={params.content || ''}
+                onChangeText={(value) => setParams({...params, content: value})}
+                placeholder="Enter message (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Add Role */}
+        {serviceId === 'discord' && actionId === 'add_role' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Guild ID *</Text>
+              <Input
+                value={params.guild_id || ''}
+                onChangeText={(value) => setParams({...params, guild_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>User ID *</Text>
+              <Input
+                value={params.user_id || ''}
+                onChangeText={(value) => setParams({...params, user_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Role ID *</Text>
+              <Input
+                value={params.role_id || ''}
+                onChangeText={(value) => setParams({...params, role_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Create Channel */}
+        {serviceId === 'discord' && actionId === 'create_channel' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Guild ID *</Text>
+              <Input
+                value={params.guild_id || ''}
+                onChangeText={(value) => setParams({...params, guild_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Channel Name *</Text>
+              <Input
+                value={params.name || ''}
+                onChangeText={(value) => setParams({...params, name: value})}
+                placeholder="e.g., new-channel"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Channel Type</Text>
+              <View style={styles.buttonGroup}>
+                {['text', 'voice', 'category'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.optionButton,
+                      params.type === type && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, type})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.type === type && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Discord - New Message Trigger */}
+        {serviceId === 'discord' && actionId === 'new_message_in_channel' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>Monitor this channel for new messages</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Reaction Added Trigger */}
+        {serviceId === 'discord' && actionId === 'reaction_added' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Emoji (optional)</Text>
+              <Input
+                value={params.emoji || ''}
+                onChangeText={(value) => setParams({...params, emoji: value})}
+                placeholder="e.g., 👍 or :thumbsup:"
+              />
+              <Text style={styles.smallText}>Leave empty to trigger on any reaction</Text>
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Create Issue */}
+        {serviceId === 'github' && actionId === 'create_issue' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+              <Text style={styles.smallText}>Format: username/repo-name</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Title *</Text>
+              <Input
+                value={params.title || ''}
+                onChangeText={(value) => setParams({...params, title: value})}
+                placeholder="Issue title (supports variables)"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Body *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Issue description (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Labels (optional)</Text>
+              <Input
+                value={params.labels || ''}
+                onChangeText={(value) => setParams({...params, labels: value})}
+                placeholder="bug, enhancement (comma-separated)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Add Comment */}
+        {serviceId === 'github' && actionId === 'add_comment' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comment *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Comment text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Close Issue */}
+        {serviceId === 'github' && actionId === 'close_issue' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Add Label */}
+        {serviceId === 'github' && actionId === 'add_label' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Labels *</Text>
+              <Input
+                value={params.labels || ''}
+                onChangeText={(value) => setParams({...params, labels: value})}
+                placeholder="bug, enhancement (comma-separated)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Create Branch */}
+        {serviceId === 'github' && actionId === 'create_branch' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Branch Name *</Text>
+              <Input
+                value={params.branch_name || ''}
+                onChangeText={(value) => setParams({...params, branch_name: value})}
+                placeholder="e.g., feature/new-feature"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Source Branch (optional)</Text>
+              <Input
+                value={params.from_branch || ''}
+                onChangeText={(value) => setParams({...params, from_branch: value})}
+                placeholder="main (default: main)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Outlook - Send Email */}
+        {serviceId === 'outlook' && actionId === 'send_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Subject *</Text>
+              <Input
+                value={params.subject || ''}
+                onChangeText={(value) => setParams({...params, subject: value})}
+                placeholder="Email subject"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Body *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Message body (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Outlook - New Email from Sender */}
+        {serviceId === 'outlook' && actionId === 'new_email_from_sender' && (
+          <View>
+            <Text style={styles.label}>Sender Email *</Text>
+            <Input
+              value={params.sender_email || ''}
+              onChangeText={(value) => setParams({...params, sender_email: value})}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+            />
+            <Text style={styles.smallText}>Only trigger for emails from this sender</Text>
+          </View>
+        )}
+
+        {/* Outlook - Mark as Read */}
+        {serviceId === 'outlook' && actionId === 'mark_as_read' && (
+          <View>
+            <Text style={styles.label}>Message ID *</Text>
+            <Input
+              value={params.message_id || ''}
+              onChangeText={(value) => setParams({...params, message_id: value})}
+              placeholder="e.g., {{outlook.message_id}}"
+            />
+            <Text style={styles.smallText}>Use a variable from previous step</Text>
+          </View>
+        )}
+
+        {/* Outlook - Forward Email */}
+        {serviceId === 'outlook' && actionId === 'forward_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Message ID *</Text>
+              <Input
+                value={params.message_id || ''}
+                onChangeText={(value) => setParams({...params, message_id: value})}
+                placeholder="e.g., {{outlook.message_id}}"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Forward To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comment (optional)</Text>
+              <Input
+                value={params.comment || ''}
+                onChangeText={(value) => setParams({...params, comment: value})}
+                placeholder="Add a comment"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gmail - Mark as Read */}
+        {serviceId === 'gmail' && actionId === 'mark_as_read' && (
+          <View>
+            <Text style={styles.label}>Message ID *</Text>
+            <Input
+              value={params.message_id || ''}
+              onChangeText={(value) => setParams({...params, message_id: value})}
+              placeholder="e.g., {{gmail.message_id}}"
+            />
+            <Text style={styles.smallText}>Use a variable from previous step</Text>
+          </View>
+        )}
+
+        {/* Gmail - Forward Email */}
+        {serviceId === 'gmail' && actionId === 'forward_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Message ID *</Text>
+              <Input
+                value={params.message_id || ''}
+                onChangeText={(value) => setParams({...params, message_id: value})}
+                placeholder="e.g., {{gmail.message_id}}"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Forward To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Temperature Threshold Trigger */}
+        {serviceId === 'weather' && actionId === 'temperature_threshold' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+              <Text style={styles.smallText}>City name with country code or use coordinates below</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Threshold (°C) *</Text>
+              <Input
+                value={params.threshold?.toString() || ''}
+                onChangeText={(value) => setParams({...params, threshold: parseFloat(value) || undefined})}
+                placeholder="e.g., 25"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comparison *</Text>
+              <View style={styles.buttonGroup}>
+                {['above', 'below'].map((comp) => (
+                  <TouchableOpacity
+                    key={comp}
+                    style={[
+                      styles.optionButton,
+                      params.comparison === comp && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, comparison: comp})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.comparison === comp && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {comp.charAt(0).toUpperCase() + comp.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Weather Condition Trigger */}
+        {serviceId === 'weather' && actionId === 'weather_condition' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Condition *</Text>
+              <Input
+                value={params.condition || ''}
+                onChangeText={(value) => setParams({...params, condition: value})}
+                placeholder="e.g., Rain, Clear, Clouds"
+              />
+              <Text style={styles.smallText}>Weather condition to match (e.g., Rain, Snow, Clear)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Get Forecast */}
+        {serviceId === 'weather' && actionId === 'get_forecast' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Number of Forecasts (optional)</Text>
+              <Input
+                value={params.cnt?.toString() || ''}
+                onChangeText={(value) => setParams({...params, cnt: parseInt(value) || undefined})}
+                placeholder="e.g., 8 (default: all available)"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Max 40 entries (3-hour intervals)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Google Calendar - Quick Add Event */}
+        {serviceId === 'google_calendar' && actionId === 'quick_add_event' && (
+          <View>
+            <Text style={styles.label}>Event Text *</Text>
+            <Input
+              value={params.text || ''}
+              onChangeText={(value) => setParams({...params, text: value})}
+              placeholder="e.g., Meeting tomorrow at 3pm"
+              multiline
+              numberOfLines={2}
+            />
+            <Text style={styles.smallText}>Natural language event description</Text>
+          </View>
+        )}
+
+        {/* DeepL - Translate */}
+        {serviceId === 'deepl' && actionId === 'translate' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Text to Translate *</Text>
+              <Input
+                value={params.text || ''}
+                onChangeText={(value) => setParams({...params, text: value})}
+                placeholder="Enter text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Target Language *</Text>
+              <Input
+                value={params.target_lang || ''}
+                onChangeText={(value) => setParams({...params, target_lang: value.toUpperCase()})}
+                placeholder="e.g., EN, FR, DE, ES"
+              />
+              <Text style={styles.smallText}>Language code (EN, FR, DE, ES, IT, etc.)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Source Language (optional)</Text>
+              <Input
+                value={params.source_lang || ''}
+                onChangeText={(value) => setParams({...params, source_lang: value.toUpperCase()})}
+                placeholder="e.g., FR (auto-detect if empty)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* DeepL - Auto Translate */}
+        {serviceId === 'deepl' && actionId === 'auto_translate' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Text to Translate *</Text>
+              <Input
+                value={params.text || ''}
+                onChangeText={(value) => setParams({...params, text: value})}
+                placeholder="Enter text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Target Language *</Text>
+              <Input
+                value={params.target_lang || ''}
+                onChangeText={(value) => setParams({...params, target_lang: value.toUpperCase()})}
+                placeholder="e.g., EN"
+              />
+              <Text style={styles.smallText}>Auto-detects source language</Text>
+            </View>
+          </View>
+        )}
+
+        {/* DeepL - Detect Language */}
+        {serviceId === 'deepl' && actionId === 'detect_language' && (
+          <View>
+            <Text style={styles.label}>Text to Analyze *</Text>
+            <Input
+              value={params.text || ''}
+              onChangeText={(value) => setParams({...params, text: value})}
+              placeholder="Enter text (supports variables)"
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={styles.smallText}>Detects the language of the provided text</Text>
+          </View>
+        )}
+
+        {/* Debug - Log Message */}
+        {serviceId === 'debug' && actionId === 'log' && (
+          <View>
+            <Text style={styles.label}>Log Message *</Text>
+            <Input
+              value={params.message || ''}
+              onChangeText={(value) => setParams({...params, message: value})}
+              placeholder="e.g., Email from {{gmail.sender}}: {{gmail.subject}}"
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={styles.smallText}>Logs message to application logs (supports variables)</Text>
+          </View>
+        )}
+
+        {/* For all other services, show a generic message */}
+        {!['time', 'weather', 'gmail', 'openai', 'discord', 'github', 'outlook', 'google_calendar', 'deepl', 'debug'].includes(serviceId) && (
+          <Text style={styles.smallText}>
+            Parameters for {serviceId} - {actionId}:{'\n\n'}
+            You can configure this service's parameters. The values will be saved with your configuration.
+          </Text>
+        )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   if (!step) return null;
 
   return (
@@ -258,7 +1353,7 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
                     {(isTriggerNode(step) ? servicesWithActions : servicesWithReactions).length === 0 ? (
                       <Text style={styles.smallText}>No services available. Please check your server connection.</Text>
                     ) : (
-                      <ScrollView style={{ maxHeight: 200 }}>
+                      <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
                         <View style={styles.buttonGroup}>
                           {(isTriggerNode(step) ? servicesWithActions : servicesWithReactions).map((service) => (
                           <TouchableOpacity
@@ -272,23 +1367,36 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
                               setActionId(''); // Reset action when service changes
                             }}
                           >
-                            <Text
-                              style={[
-                                styles.optionButtonText,
-                                serviceId === service.slug && styles.optionButtonTextSelected,
-                              ]}
-                            >
-                              {service.name}
-                            </Text>
-                            {service.description && (
+                            <View style={{ flex: 1, marginRight: serviceId === service.slug ? 8 : 0 }}>
                               <Text
                                 style={[
-                                  styles.smallText,
-                                  serviceId === service.slug && { color: 'rgba(255, 255, 255, 0.8)' },
+                                  styles.optionButtonText,
+                                  serviceId === service.slug && styles.optionButtonTextSelected,
                                 ]}
                               >
-                                {service.description}
+                                {service.name}
                               </Text>
+                              {service.description && (
+                                <Text
+                                  style={[
+                                    styles.smallText,
+                                    serviceId === service.slug && { color: 'rgba(255, 255, 255, 0.8)' },
+                                  ]}
+                                >
+                                  {service.description}
+                                </Text>
+                              )}
+                            </View>
+                            {serviceId === service.slug && (
+                              <TouchableOpacity
+                                style={styles.configureButton}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  openConfigModal();
+                                }}
+                              >
+                                <Text style={styles.configureButtonText}>Configure</Text>
+                              </TouchableOpacity>
                             )}
                           </TouchableOpacity>
                         ))}
@@ -297,298 +1405,28 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
                     )}
                   </View>
 
-                  {serviceId && availableOptions.length > 0 && (
-                    <View style={styles.formGroup}>
-                      <Text style={styles.label}>
-                        {isTriggerNode(step) ? 'Trigger' : 'Action'} * ({availableOptions.length} available)
-                      </Text>
-                      <ScrollView style={{ maxHeight: 200 }}>
-                        <View style={styles.buttonGroup}>
-                          {availableOptions.map((option) => (
-                            <TouchableOpacity
-                              key={option.key}
-                              style={[
-                                styles.optionButton,
-                                actionId === option.key && styles.optionButtonSelected,
-                              ]}
-                              onPress={() => setActionId(option.key)}
-                            >
-                              <Text
-                                style={[
-                                  styles.optionButtonText,
-                                  actionId === option.key && styles.optionButtonTextSelected,
-                                ]}
-                              >
-                                {option.name}
-                              </Text>
-                              {option.description && (
-                                <Text
-                                  style={[
-                                    styles.smallText,
-                                    actionId === option.key && { color: 'rgba(255, 255, 255, 0.8)' },
-                                  ]}
-                                >
-                                  {option.description}
-                                </Text>
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </ScrollView>
-                    </View>
-                  )}
-
-                  {/* Parameter inputs for actions and triggers */}
+                  {/* Parameter inputs for actions and triggers - Only show summary when configured */}
                   {serviceId && actionId && (
                     <View style={styles.formGroup}>
-                      <Text style={[styles.label, { marginBottom: 12, fontSize: 16, fontWeight: 'bold' }]}>
-                        Parameters
+                      <Text style={[styles.label, { marginBottom: 8, fontSize: 16, fontWeight: 'bold' }]}>
+                        Configuration
                       </Text>
-
-                      {/* Weather - Get Current Weather */}
-                      {serviceId === 'weather' && actionId === 'get_current_weather' && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>Location (City)</Text>
-                            <Input
-                              value={params.location || ''}
-                              onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
-                              placeholder="e.g., Paris,FR or London,UK"
-                            />
-                            <Text style={styles.smallText}>City name with country code or leave empty to use coordinates below</Text>
-                          </View>
-                          <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.label}>Latitude</Text>
-                              <Input
-                                value={params.lat?.toString() || ''}
-                                onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
-                                placeholder="e.g., 48.8566"
-                                keyboardType="decimal-pad"
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.label}>Longitude</Text>
-                              <Input
-                                value={params.lon?.toString() || ''}
-                                onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
-                                placeholder="e.g., 2.3522"
-                                keyboardType="decimal-pad"
-                              />
-                            </View>
-                          </View>
-                          <Text style={styles.smallText}>Use either city name OR coordinates (not both)</Text>
+                      <View style={[styles.optionButton, styles.optionButtonSelected]}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.optionButtonText, styles.optionButtonTextSelected]}>
+                            {availableOptions.find(opt => opt.key === actionId)?.name || actionId}
+                          </Text>
+                          <Text style={[styles.smallText, { color: 'rgba(255, 255, 255, 0.8)', marginTop: 4 }]}>
+                            Configured with parameters - Click Edit to modify
+                          </Text>
                         </View>
-                      )}
-
-                      {/* Gmail - Send Email */}
-                      {serviceId === 'gmail' && actionId === 'send_email' && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>To *</Text>
-                            <Input
-                              value={params.to || ''}
-                              onChangeText={(value) => setParams({...params, to: value})}
-                              placeholder="recipient@example.com"
-                              keyboardType="email-address"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Subject *</Text>
-                            <Input
-                              value={params.subject || ''}
-                              onChangeText={(value) => setParams({...params, subject: value})}
-                              placeholder="Email subject"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Body *</Text>
-                            <Input
-                              value={params.body || ''}
-                              onChangeText={(value) => setParams({...params, body: value})}
-                              placeholder="Message body (supports variables)"
-                              multiline
-                              numberOfLines={4}
-                            />
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Gmail - New Email from Sender */}
-                      {serviceId === 'gmail' && actionId === 'new_email_from_sender' && (
-                        <View>
-                          <Text style={styles.label}>Sender Email *</Text>
-                          <Input
-                            value={params.sender_email || ''}
-                            onChangeText={(value) => setParams({...params, sender_email: value})}
-                            placeholder="name@example.com"
-                            keyboardType="email-address"
-                          />
-                          <Text style={styles.smallText}>Only trigger for emails from this sender</Text>
-                        </View>
-                      )}
-
-                      {/* OpenAI - Generate Text */}
-                      {serviceId === 'openai' && actionId === 'generate_text' && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>Prompt *</Text>
-                            <Input
-                              value={params.prompt || ''}
-                              onChangeText={(value) => setParams({...params, prompt: value})}
-                              placeholder="Enter your prompt (supports variables)"
-                              multiline
-                              numberOfLines={4}
-                            />
-                            <Text style={styles.smallText}>You can use variables like {`{{weather.temperature}}`}</Text>
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Max Tokens</Text>
-                            <Input
-                              value={params.max_tokens?.toString() || ''}
-                              onChangeText={(value) => setParams({...params, max_tokens: parseInt(value) || undefined})}
-                              placeholder="e.g., 100"
-                              keyboardType="numeric"
-                            />
-                            <Text style={styles.smallText}>Maximum length of the response (default: 100)</Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* GitHub - Create Issue */}
-                      {serviceId === 'github' && actionId === 'create_issue' && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>Repository Owner *</Text>
-                            <Input
-                              value={params.repo_owner || ''}
-                              onChangeText={(value) => setParams({...params, repo_owner: value})}
-                              placeholder="e.g., octocat"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Repository Name *</Text>
-                            <Input
-                              value={params.repo_name || ''}
-                              onChangeText={(value) => setParams({...params, repo_name: value})}
-                              placeholder="e.g., Hello-World"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Issue Title *</Text>
-                            <Input
-                              value={params.title || ''}
-                              onChangeText={(value) => setParams({...params, title: value})}
-                              placeholder="Issue title"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Issue Body</Text>
-                            <Input
-                              value={params.body || ''}
-                              onChangeText={(value) => setParams({...params, body: value})}
-                              placeholder="Issue description (supports variables)"
-                              multiline
-                              numberOfLines={4}
-                            />
-                          </View>
-                        </View>
-                      )}
-
-                      {/* GitHub - Triggers (new_issue, pull_request_opened, etc.) */}
-                      {serviceId === 'github' && ['new_issue', 'pull_request_opened', 'push_to_repository', 'release_published'].includes(actionId) && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>Repository Owner *</Text>
-                            <Input
-                              value={params.repo_owner || ''}
-                              onChangeText={(value) => setParams({...params, repo_owner: value})}
-                              placeholder="e.g., octocat"
-                            />
-                            <Text style={styles.smallText}>GitHub username or organization name</Text>
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Repository Name *</Text>
-                            <Input
-                              value={params.repo_name || ''}
-                              onChangeText={(value) => setParams({...params, repo_name: value})}
-                              placeholder="e.g., Hello-World"
-                            />
-                            <Text style={styles.smallText}>Name of the repository to monitor</Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Google Calendar - Event Starting Soon */}
-                      {serviceId === 'google_calendar' && actionId === 'event_starting_soon' && (
-                        <View>
-                          <Text style={styles.label}>Minutes Before Event</Text>
-                          <Input
-                            value={params.minutes_before?.toString() || '15'}
-                            onChangeText={(value) => setParams({...params, minutes_before: parseInt(value) || 15})}
-                            placeholder="15"
-                            keyboardType="numeric"
-                          />
-                          <Text style={styles.smallText}>Trigger X minutes before the event starts (default: 15)</Text>
-                        </View>
-                      )}
-
-                      {/* Google Calendar - Create Event */}
-                      {serviceId === 'google_calendar' && actionId === 'create_event' && (
-                        <View style={{ gap: 12 }}>
-                          <View>
-                            <Text style={styles.label}>Event Title *</Text>
-                            <Input
-                              value={params.summary || ''}
-                              onChangeText={(value) => setParams({...params, summary: value})}
-                              placeholder="Meeting with team"
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Description</Text>
-                            <Input
-                              value={params.description || ''}
-                              onChangeText={(value) => setParams({...params, description: value})}
-                              placeholder="Event description (supports variables)"
-                              multiline
-                              numberOfLines={3}
-                            />
-                          </View>
-                          <View>
-                            <Text style={styles.label}>Start Time *</Text>
-                            <Input
-                              value={params.start_time || ''}
-                              onChangeText={(value) => setParams({...params, start_time: value})}
-                              placeholder="2024-01-15T10:00:00"
-                            />
-                            <Text style={styles.smallText}>ISO 8601 format or use a variable</Text>
-                          </View>
-                          <View>
-                            <Text style={styles.label}>End Time *</Text>
-                            <Input
-                              value={params.end_time || ''}
-                              onChangeText={(value) => setParams({...params, end_time: value})}
-                              placeholder="2024-01-15T11:00:00"
-                            />
-                            <Text style={styles.smallText}>ISO 8601 format or use a variable</Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Debug - Log Message */}
-                      {serviceId === 'debug' && actionId === 'log' && (
-                        <View>
-                          <Text style={styles.label}>Log Message *</Text>
-                          <Input
-                            value={params.message || ''}
-                            onChangeText={(value) => setParams({...params, message: value})}
-                            placeholder="e.g., Weather: {{weather.temperature}}°C"
-                            multiline
-                            numberOfLines={4}
-                          />
-                          <Text style={styles.smallText}>Use variables like {`{{service.variable}}`}</Text>
-                        </View>
-                      )}
+                        <TouchableOpacity
+                          style={styles.configureButton}
+                          onPress={openConfigModal}
+                        >
+                          <Text style={styles.configureButtonText}>Edit</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                 </>
@@ -739,6 +1577,49 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
           />
         </View>
       </View>
+
+      {/* Slide-up Configuration Modal */}
+      {showConfigModal && (
+        <Modal
+          visible={showConfigModal}
+          animationType="none"
+          transparent={true}
+          onRequestClose={closeConfigModal}
+        >
+          <View style={styles.slideUpOverlay}>
+            <Animated.View 
+              style={[
+                styles.slideUpContainer,
+                { transform: [{ translateY: slideAnim }] }
+              ]}
+            >
+              <View 
+                {...panResponder.panHandlers}
+                style={styles.slideUpHandle}
+              >
+                <View style={styles.slideUpHandleBar} />
+              </View>
+              
+              <ScrollView style={styles.slideUpContent} showsVerticalScrollIndicator={true}>
+                <Text style={styles.slideUpTitle}>
+                  Configure {catalogServices.find(s => s.slug === serviceId)?.name || 'Service'}
+                </Text>
+                
+                {renderParameterInputs()}
+              </ScrollView>
+
+              <View style={styles.slideUpFooter}>
+                <CustomButton
+                  title="Done"
+                  onPress={closeConfigModal}
+                  variant="default"
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
     </Modal>
   );
 };
@@ -785,6 +1666,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 12,
     borderRadius: 6,
     borderWidth: 1,
@@ -799,7 +1682,6 @@ const styles = StyleSheet.create({
   optionButtonText: {
     fontSize: 14,
     color: Colors.textDark,
-    textAlign: 'center',
     fontFamily: FontFamilies.body,
   },
   optionButtonTextSelected: {
@@ -835,6 +1717,73 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     gap: 8,
+  },
+  configureButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 1)',
+    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  configureButtonText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: FontFamilies.body,
+  },
+  slideUpOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  slideUpContainer: {
+    backgroundColor: Colors.backgroundLight,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  slideUpHandle: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingTop: 16,
+  },
+  slideUpHandleBar: {
+    width: 40,
+    height: 5,
+    backgroundColor: Colors.mutedForeground,
+    borderRadius: 3,
+    opacity: 0.4,
+  },
+  slideUpContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  slideUpTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.textDark,
+    fontFamily: FontFamilies.heading,
+    marginBottom: 24,
+  },
+  slideUpFooter: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.backgroundLight,
   },
 });
 
