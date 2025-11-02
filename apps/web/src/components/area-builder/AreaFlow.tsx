@@ -13,6 +13,7 @@ import ReactFlow, {
   ConnectionLineType,
   OnSelectionChangeFunc,
   Viewport,
+  ConnectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -271,7 +272,7 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
             connectionRadius={30}
             snapToGrid={true}
             snapGrid={[15, 15]}
-            connectionMode="loose"
+            connectionMode={ConnectionMode.Loose}
           >
             <Controls />
             <Background gap={12} size={1} />
