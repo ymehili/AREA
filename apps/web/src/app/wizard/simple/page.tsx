@@ -30,6 +30,7 @@ interface ParamDefinition {
   label?: string;
   options?: string[];
   placeholder?: string;
+  optional?: boolean;
 }
 
 export default function SimpleWizardPage() {
@@ -157,7 +158,9 @@ export default function SimpleWizardPage() {
 
   function areParamsFilled(paramsDef: Record<string, ParamDefinition> | null | undefined, values: Record<string, string | number>) {
     if (!paramsDef || !Object.keys(paramsDef).length) return true;
-    return Object.entries(paramsDef).every(([key]) => {
+    return Object.entries(paramsDef).every(([key, def]) => {
+      // If parameter is optional, don't require it to be filled
+      if (def.optional) return true;
       return values[key] !== undefined && values[key] !== '';
     });
   }
