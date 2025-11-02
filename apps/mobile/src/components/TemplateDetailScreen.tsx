@@ -210,7 +210,7 @@ export default function TemplateDetailScreen({
         {/* Tags */}
         {template.tags && template.tags.length > 0 && (
           <Card style={styles.section}>
-            <Text style={styles.sectionTitle}>Tags</Text>
+            <Text style={styles.sectionTitle}>Tags *</Text>
             <View style={styles.tagsContainer}>
               {template.tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
