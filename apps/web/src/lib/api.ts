@@ -770,3 +770,26 @@ export async function cloneTemplate(
     token,
   );
 }
+
+/**
+ * Delete a marketplace template (requires auth, only owner can delete)
+ */
+export async function deleteTemplate(
+  token: string,
+  templateId: string,
+): Promise<void> {
+  const response = await authFetch(
+    `/marketplace/templates/${templateId}`,
+    {
+      method: "DELETE",
+    },
+    token,
+  );
+  
+  if (!response.ok) {
+    const message = await parseErrorMessage(response);
+    throw new ApiError(response.status, message);
+  }
+  
+  // 204 No Content - no response body to parse
+}

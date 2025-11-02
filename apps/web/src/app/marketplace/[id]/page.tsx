@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Star, Users, Calendar, Tag } from "lucide-react";
+import { ArrowLeft, Copy, Star, Users, Calendar, Tag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import AppShell from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTemplateById, cloneTemplate } from "@/lib/api";
+import { getTemplateById, cloneTemplate, deleteTemplate, fetchProfile } from "@/lib/api";
 import { loadStoredSession } from "@/lib/api";
 import type { Template } from "@/lib/types/marketplace";
 import { headingClasses } from "@/lib/utils";
@@ -47,11 +47,16 @@ export default function TemplateDetailPage() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Clone dialog state
   const [showCloneDialog, setShowCloneDialog] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [areaName, setAreaName] = useState("");
+
+  // Delete dialog state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const loadTemplate = async () => {
@@ -69,6 +74,23 @@ export default function TemplateDetailPage() {
 
     loadTemplate();
   }, [templateId]);
+
+  // Fetch current user to check ownership
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const session = loadStoredSession();
+      if (!session?.token) return;
+
+      try {
+        const profile = await fetchProfile(session.token);
+        setCurrentUserId(profile.id);
+      } catch (err) {
+        console.error("Failed to fetch user profile:", err);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
 
   const handleClone = async () => {
     const session = loadStoredSession();
@@ -96,6 +118,33 @@ export default function TemplateDetailPage() {
       setShowCloneDialog(false);
     }
   };
+
+  const handleDelete = async () => {
+    const session = loadStoredSession();
+    if (!session?.token) {
+      toast.error("Please sign in to delete templates");
+      router.push("/auth/signin");
+      return;
+    }
+
+    if (!template) return;
+
+    try {
+      setDeleting(true);
+      await deleteTemplate(session.token, template.id);
+      
+      toast.success("Template deleted successfully!");
+      router.push("/marketplace");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete template");
+    } finally {
+      setDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
+  // Check if current user is the template owner
+  const isOwner = template && currentUserId && template.publisher_user_id === currentUserId;
 
   if (loading) {
     return (
@@ -150,10 +199,23 @@ export default function TemplateDetailPage() {
               <h1 className={headingClasses(1)}>{template.title}</h1>
               <p className="text-lg text-muted-foreground">{template.description}</p>
             </div>
-            <Button size="lg" onClick={() => setShowCloneDialog(true)}>
-              <Copy className="h-4 w-4 mr-2" />
-              Clone Template
-            </Button>
+            <div className="flex gap-2">
+              {isOwner && (
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={deleting}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              <Button size="lg" onClick={() => setShowCloneDialog(true)}>
+                <Copy className="h-4 w-4 mr-2" />
+                Clone Template
+              </Button>
+            </div>
           </div>
 
           {/* Metadata */}
@@ -314,6 +376,35 @@ export default function TemplateDetailPage() {
                 disabled={cloning || !areaName.trim()}
               >
                 {cloning ? "Cloning..." : "Clone Template"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Template</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this template from the marketplace? 
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete Template"}
               </Button>
             </DialogFooter>
           </DialogContent>

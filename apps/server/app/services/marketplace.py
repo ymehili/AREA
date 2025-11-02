@@ -465,6 +465,31 @@ def reject_template(
     return template
 
 
+def delete_template(
+    db: Session,
+    template_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """
+    Delete a template from the marketplace.
+    
+    User can only delete their own templates.
+    Raises UnauthorizedError if user doesn't own the template.
+    Raises TemplateNotFoundError if template doesn't exist.
+    """
+    template = db.get(PublishedTemplate, template_id)
+    if not template:
+        raise TemplateNotFoundError(str(template_id))
+
+    # Verify ownership
+    if template.publisher_user_id != user_id:
+        raise UnauthorizedError("You can only delete your own templates")
+
+    # Delete the template (cascade will handle related records)
+    db.delete(template)
+    db.commit()
+
+
 __all__ = [
     "publish_template",
     "search_templates",
@@ -474,6 +499,7 @@ __all__ = [
     "clone_template",
     "approve_template",
     "reject_template",
+    "delete_template",
     "sanitize_template",
     "AreaNotFoundError",
     "TemplateNotFoundError",

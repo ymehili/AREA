@@ -169,3 +169,25 @@ export async function cloneTemplate(
 
   return response.json();
 }
+
+/**
+ * Delete a marketplace template (requires auth, only owner can delete)
+ */
+export async function deleteTemplate(
+  apiBaseUrl: string,
+  token: string,
+  templateId: string,
+): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/marketplace/templates/${templateId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to delete template: ${response.statusText}`);
+  }
+}
