@@ -28,6 +28,7 @@ from app.services.marketplace import (
     UnauthorizedError,
     approve_template,
     clone_template,
+    delete_template,
     get_template_by_id,
     list_categories,
     list_tags,
@@ -240,6 +241,48 @@ async def clone_template_to_account(
             detail=str(e),
         )
     except TemplateNotApprovedError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+
+
+@router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_template_from_marketplace(
+    template_id: uuid.UUID,
+    current_user: Annotated[User, Depends(require_active_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+):
+    """
+    Delete a template from the marketplace.
+    
+    Requires authentication. User can only delete their own templates.
+    Returns 204 No Content on success.
+    """
+    try:
+        delete_template(
+            db=db,
+            template_id=template_id,
+            user_id=current_user.id,
+        )
+        
+        # Log user activity
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_user.id),
+            action_type="template_deleted",
+            details=f"Deleted template: {template_id}",
+            service_name="Marketplace",
+            status="success",
+        )
+    
+    except TemplateNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except UnauthorizedError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
