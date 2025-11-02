@@ -719,7 +719,7 @@ function ConnectionsScreen() {
     // Handle OAuth services
     try {
       const data = await requestJson<{ authorization_url: string }>(
-        `/service-connections/connect/${serviceId}`,
+        `/service-connections/connect/${serviceId}?is_mobile=true`,
         { method: "POST" },
         auth.token,
       );
@@ -729,24 +729,57 @@ function ConnectionsScreen() {
         return;
       }
 
-      // Open the OAuth URL in the browser
+      // Use the custom URL scheme for mobile app redirection
+      const redirectUrl = 'areamobile://oauth/callback';
+
+      console.log('Starting service OAuth flow...');
+      console.log('OAuth URL:', data.authorization_url);
+      console.log('Redirect URL:', redirectUrl);
+
       const result = await WebBrowser.openAuthSessionAsync(
         data.authorization_url,
-        `${process.env.EXPO_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/oauth/callback`
+        redirectUrl
       );
 
-      if (result.type === 'success') {
-        // The OAuth flow completed successfully
-        Alert.alert("Success", `${serviceId} connected successfully!`);
-        // Reload services to update connection status
-        void loadServices();
-      } else if (result.type === 'dismiss') {
-        // User dismissed the browser without completing OAuth
-        Alert.alert("Connection cancelled", "Service connection was cancelled.");
+      console.log('Service OAuth result:', result);
+
+      if (result.type === 'success' && result.url) {
+        console.log('Success URL received:', result.url);
+
+        // Parse the callback URL to check for success or error
+        const url = new URL(result.url);
+        const success = url.searchParams.get('success');
+        const error = url.searchParams.get('error');
+        const service = url.searchParams.get('service');
+
+        console.log('OAuth callback params:', { success, error, service });
+
+        if (error) {
+          const errorMessages: Record<string, string> = {
+            'invalid_state': 'Invalid state parameter. Please try again.',
+            'session_expired': 'Session expired. Please try again.',
+            'already_connected': 'This service is already connected.',
+            'connection_failed': 'Failed to connect service. Please try again.',
+            'unknown': 'An unknown error occurred.',
+          };
+          Alert.alert('Connection failed', errorMessages[error] || `Error: ${error}`);
+        } else if (success === 'connected') {
+          Alert.alert('Success', `${service || serviceId} connected successfully!`);
+          // Reload services to update connection status
+          void loadServices();
+        } else {
+          console.log('Unexpected callback result');
+        }
+      } else if (result.type === 'cancel') {
+        console.log('OAuth cancelled by user');
+        Alert.alert('Connection cancelled', 'Service connection was cancelled.');
+      } else {
+        console.log('Unexpected OAuth result type:', result.type);
       }
     } catch (err) {
+      console.error('Service OAuth error:', err);
       const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
-      Alert.alert("Connection failed", message);
+      Alert.alert('Connection failed', message);
     }
   };
 
