@@ -85,4 +85,41 @@ def require_admin_user(
     return current_user
 
 
-__all__ = ["oauth2_scheme", "require_active_user", "require_admin_user"]
+def get_optional_user(
+    db: Annotated[Session, Depends(get_db)],
+    token: str | None = Depends(OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)),
+) -> User | None:
+    """
+    Optionally validate a bearer token and return the associated user.
+    Returns None if no token is provided or if token is invalid.
+    """
+    if token is None:
+        return None
+    
+    try:
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+    except JWTError:
+        return None
+
+    subject = payload.get("sub")
+    if subject is None:
+        return None
+
+    try:
+        user_id = uuid.UUID(str(subject))
+    except ValueError:
+        return None
+
+    user = db.get(User, user_id)
+    if user is None:
+        return None
+
+    # Don't enforce confirmation or suspension checks for optional auth
+    return user
+
+
+__all__ = ["oauth2_scheme", "require_active_user", "require_admin_user", "get_optional_user"]
