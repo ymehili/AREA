@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from fastapi_pagination import Page, Params
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import require_active_user, require_admin_user
+from app.api.dependencies import require_active_user, require_admin_user, get_optional_user
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.marketplace import (
@@ -101,11 +101,14 @@ async def list_marketplace_templates(
 async def get_template_detail(
     template_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User | None, Depends(get_optional_user)] = None,
 ) -> TemplateResponse:
     """
-    Get template details by ID (PUBLIC).
+    Get template details by ID.
     
-    No authentication required for viewing approved templates.
+    Public endpoint - no authentication required for approved public templates.
+    If authenticated, template owners can view their own templates regardless of status/visibility.
+    Admins can view any template.
     """
     template = get_template_by_id(db, template_id)
     
@@ -115,8 +118,16 @@ async def get_template_detail(
             detail=f"Template with id '{template_id}' not found",
         )
     
-    # Only return approved and public templates to unauthenticated users
-    if template.status != "approved" or template.visibility != "public":
+    # Check if user has permission to view this template
+    is_owner = current_user and template.publisher_user_id == current_user.id
+    is_admin = current_user and current_user.is_admin
+    is_public_approved = template.status == "approved" and template.visibility == "public"
+    
+    # Allow access if:
+    # 1. Template is approved and public (anyone can view)
+    # 2. User is the owner (can view their own templates)
+    # 3. User is an admin (can view any template)
+    if not (is_public_approved or is_owner or is_admin):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Template with id '{template_id}' not found",

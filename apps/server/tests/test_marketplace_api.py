@@ -455,3 +455,96 @@ def test_get_tags_with_limit(client: SyncASGITestClient):
     
     assert isinstance(data, list)
     assert len(data) <= 10
+
+
+def test_owner_can_view_private_template(client: SyncASGITestClient, db_session: Session, auth_token: str, test_area: Area):
+    """Test that template owner can view their own private template."""
+    from app.services import get_user_by_email
+    
+    user = get_user_by_email(db_session, "user@example.com")
+    
+    # Create a private approved template
+    private_template = PublishedTemplate(
+        original_area_id=test_area.id,
+        publisher_user_id=user.id,
+        title="Private Template",
+        description="This is a private template that only the owner should see.",
+        category="test",
+        template_json={
+            "name": "Test Private",
+            "trigger": {"service": "test", "action": "test"},
+            "reaction": {"service": "test", "action": "test"},
+            "steps": [],
+        },
+        status="approved",
+        visibility="private",
+    )
+    db_session.add(private_template)
+    db_session.commit()
+    db_session.refresh(private_template)
+    
+    # Owner should be able to view their own private template
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    response = client.get(f"/api/v1/marketplace/templates/{private_template.id}", headers=headers)
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(private_template.id)
+    assert data["visibility"] == "private"
+
+
+def test_non_owner_cannot_view_private_template(client: SyncASGITestClient, db_session: Session, test_area: Area):
+    """Test that non-owners cannot view private templates."""
+    from app.services import get_user_by_email
+    
+    user = get_user_by_email(db_session, "user@example.com")
+    
+    # Create a private template
+    private_template = PublishedTemplate(
+        original_area_id=test_area.id,
+        publisher_user_id=user.id,
+        title="Private Template",
+        description="This is a private template.",
+        category="test",
+        template_json={"name": "test"},
+        status="approved",
+        visibility="private",
+    )
+    db_session.add(private_template)
+    db_session.commit()
+    
+    # Unauthenticated user should not be able to view it
+    response = client.get(f"/api/v1/marketplace/templates/{private_template.id}")
+    
+    assert response.status_code == 404
+
+
+def test_owner_can_view_rejected_template(client: SyncASGITestClient, db_session: Session, auth_token: str, test_area: Area):
+    """Test that template owner can view their own rejected template."""
+    from app.services import get_user_by_email
+    
+    user = get_user_by_email(db_session, "user@example.com")
+    
+    # Create a rejected template
+    rejected_template = PublishedTemplate(
+        original_area_id=test_area.id,
+        publisher_user_id=user.id,
+        title="Rejected Template",
+        description="This template was rejected.",
+        category="test",
+        template_json={"name": "test"},
+        status="rejected",
+        visibility="public",
+    )
+    db_session.add(rejected_template)
+    db_session.commit()
+    db_session.refresh(rejected_template)
+    
+    # Owner should be able to view their own rejected template
+    headers = {"Authorization": f"Bearer {auth_token}"}
+    response = client.get(f"/api/v1/marketplace/templates/{rejected_template.id}", headers=headers)
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(rejected_template.id)
+    assert data["status"] == "rejected"

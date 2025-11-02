@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from pydantic import ValidationError
@@ -17,6 +19,7 @@ from app.schemas.profile import (
 
 def test_user_profile_response_contains_login_methods() -> None:
     response = UserProfileResponse(
+        id=uuid.uuid4(),
         email="user@example.com",
         full_name="Example User",
         is_confirmed=True,
