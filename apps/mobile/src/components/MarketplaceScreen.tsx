@@ -10,6 +10,8 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -372,9 +374,11 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.backgroundLight,
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   header: {
     padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
