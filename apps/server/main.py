@@ -85,6 +85,16 @@ async def lifespan(app: FastAPI):
             logger.error("Startup: migration failed", exc_info=True)
             raise migration_exc
 
+        # Seed marketplace data after migrations
+        logger.info("Startup: seeding marketplace data")
+        try:
+            from scripts.seed_marketplace import seed_marketplace_data
+            seed_marketplace_data()
+            logger.info("Startup: marketplace seeding completed")
+        except Exception as seed_exc:
+            logger.warning("Startup: marketplace seeding failed (non-fatal): %s", seed_exc)
+            # Don't fail startup if seeding fails - it's not critical
+
         # Start the background scheduler for time-based areas
         logger.info("Startup: starting scheduler")
         start_scheduler()
