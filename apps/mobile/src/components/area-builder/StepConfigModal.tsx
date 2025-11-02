@@ -584,10 +584,717 @@ const StepConfigModal: React.FC<StepConfigModalProps> = ({
           </View>
         )}
 
-        {/* Add all other service configurations here - I'll include the most common ones */}
-        
+        {/* Discord - Send Message */}
+        {serviceId === 'discord' && actionId === 'send_message' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>The Discord channel ID where the message will be sent</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Message Content *</Text>
+              <Input
+                value={params.content || ''}
+                onChangeText={(value) => setParams({...params, content: value})}
+                placeholder="Enter message (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Send DM */}
+        {serviceId === 'discord' && actionId === 'send_dm' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>User ID *</Text>
+              <Input
+                value={params.user_id || ''}
+                onChangeText={(value) => setParams({...params, user_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>The Discord user ID to send the DM to</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Message Content *</Text>
+              <Input
+                value={params.content || ''}
+                onChangeText={(value) => setParams({...params, content: value})}
+                placeholder="Enter message (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Add Role */}
+        {serviceId === 'discord' && actionId === 'add_role' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Guild ID *</Text>
+              <Input
+                value={params.guild_id || ''}
+                onChangeText={(value) => setParams({...params, guild_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>User ID *</Text>
+              <Input
+                value={params.user_id || ''}
+                onChangeText={(value) => setParams({...params, user_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Role ID *</Text>
+              <Input
+                value={params.role_id || ''}
+                onChangeText={(value) => setParams({...params, role_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Create Channel */}
+        {serviceId === 'discord' && actionId === 'create_channel' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Guild ID *</Text>
+              <Input
+                value={params.guild_id || ''}
+                onChangeText={(value) => setParams({...params, guild_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Channel Name *</Text>
+              <Input
+                value={params.name || ''}
+                onChangeText={(value) => setParams({...params, name: value})}
+                placeholder="e.g., new-channel"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Channel Type</Text>
+              <View style={styles.buttonGroup}>
+                {['text', 'voice', 'category'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.optionButton,
+                      params.type === type && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, type})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.type === type && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Discord - New Message Trigger */}
+        {serviceId === 'discord' && actionId === 'new_message_in_channel' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+              <Text style={styles.smallText}>Monitor this channel for new messages</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Discord - Reaction Added Trigger */}
+        {serviceId === 'discord' && actionId === 'reaction_added' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Channel ID *</Text>
+              <Input
+                value={params.channel_id || ''}
+                onChangeText={(value) => setParams({...params, channel_id: value})}
+                placeholder="e.g., 123456789012345678"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Emoji (optional)</Text>
+              <Input
+                value={params.emoji || ''}
+                onChangeText={(value) => setParams({...params, emoji: value})}
+                placeholder="e.g., 👍 or :thumbsup:"
+              />
+              <Text style={styles.smallText}>Leave empty to trigger on any reaction</Text>
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Create Issue */}
+        {serviceId === 'github' && actionId === 'create_issue' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+              <Text style={styles.smallText}>Format: username/repo-name</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Title *</Text>
+              <Input
+                value={params.title || ''}
+                onChangeText={(value) => setParams({...params, title: value})}
+                placeholder="Issue title (supports variables)"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Body *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Issue description (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Labels (optional)</Text>
+              <Input
+                value={params.labels || ''}
+                onChangeText={(value) => setParams({...params, labels: value})}
+                placeholder="bug, enhancement (comma-separated)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Add Comment */}
+        {serviceId === 'github' && actionId === 'add_comment' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comment *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Comment text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Close Issue */}
+        {serviceId === 'github' && actionId === 'close_issue' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Add Label */}
+        {serviceId === 'github' && actionId === 'add_label' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Issue Number *</Text>
+              <Input
+                value={params.issue_number?.toString() || ''}
+                onChangeText={(value) => setParams({...params, issue_number: parseInt(value) || undefined})}
+                placeholder="e.g., 42"
+                keyboardType="numeric"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Labels *</Text>
+              <Input
+                value={params.labels || ''}
+                onChangeText={(value) => setParams({...params, labels: value})}
+                placeholder="bug, enhancement (comma-separated)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* GitHub - Create Branch */}
+        {serviceId === 'github' && actionId === 'create_branch' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Repository *</Text>
+              <Input
+                value={params.repo || ''}
+                onChangeText={(value) => setParams({...params, repo: value})}
+                placeholder="owner/repository"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Branch Name *</Text>
+              <Input
+                value={params.branch_name || ''}
+                onChangeText={(value) => setParams({...params, branch_name: value})}
+                placeholder="e.g., feature/new-feature"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Source Branch (optional)</Text>
+              <Input
+                value={params.from_branch || ''}
+                onChangeText={(value) => setParams({...params, from_branch: value})}
+                placeholder="main (default: main)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Outlook - Send Email */}
+        {serviceId === 'outlook' && actionId === 'send_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Subject *</Text>
+              <Input
+                value={params.subject || ''}
+                onChangeText={(value) => setParams({...params, subject: value})}
+                placeholder="Email subject"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Body *</Text>
+              <Input
+                value={params.body || ''}
+                onChangeText={(value) => setParams({...params, body: value})}
+                placeholder="Message body (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Outlook - New Email from Sender */}
+        {serviceId === 'outlook' && actionId === 'new_email_from_sender' && (
+          <View>
+            <Text style={styles.label}>Sender Email *</Text>
+            <Input
+              value={params.sender_email || ''}
+              onChangeText={(value) => setParams({...params, sender_email: value})}
+              placeholder="name@example.com"
+              keyboardType="email-address"
+            />
+            <Text style={styles.smallText}>Only trigger for emails from this sender</Text>
+          </View>
+        )}
+
+        {/* Outlook - Mark as Read */}
+        {serviceId === 'outlook' && actionId === 'mark_as_read' && (
+          <View>
+            <Text style={styles.label}>Message ID *</Text>
+            <Input
+              value={params.message_id || ''}
+              onChangeText={(value) => setParams({...params, message_id: value})}
+              placeholder="e.g., {{outlook.message_id}}"
+            />
+            <Text style={styles.smallText}>Use a variable from previous step</Text>
+          </View>
+        )}
+
+        {/* Outlook - Forward Email */}
+        {serviceId === 'outlook' && actionId === 'forward_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Message ID *</Text>
+              <Input
+                value={params.message_id || ''}
+                onChangeText={(value) => setParams({...params, message_id: value})}
+                placeholder="e.g., {{outlook.message_id}}"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Forward To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comment (optional)</Text>
+              <Input
+                value={params.comment || ''}
+                onChangeText={(value) => setParams({...params, comment: value})}
+                placeholder="Add a comment"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Gmail - Mark as Read */}
+        {serviceId === 'gmail' && actionId === 'mark_as_read' && (
+          <View>
+            <Text style={styles.label}>Message ID *</Text>
+            <Input
+              value={params.message_id || ''}
+              onChangeText={(value) => setParams({...params, message_id: value})}
+              placeholder="e.g., {{gmail.message_id}}"
+            />
+            <Text style={styles.smallText}>Use a variable from previous step</Text>
+          </View>
+        )}
+
+        {/* Gmail - Forward Email */}
+        {serviceId === 'gmail' && actionId === 'forward_email' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Message ID *</Text>
+              <Input
+                value={params.message_id || ''}
+                onChangeText={(value) => setParams({...params, message_id: value})}
+                placeholder="e.g., {{gmail.message_id}}"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Forward To *</Text>
+              <Input
+                value={params.to || ''}
+                onChangeText={(value) => setParams({...params, to: value})}
+                placeholder="recipient@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Temperature Threshold Trigger */}
+        {serviceId === 'weather' && actionId === 'temperature_threshold' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+              <Text style={styles.smallText}>City name with country code or use coordinates below</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Threshold (°C) *</Text>
+              <Input
+                value={params.threshold?.toString() || ''}
+                onChangeText={(value) => setParams({...params, threshold: parseFloat(value) || undefined})}
+                placeholder="e.g., 25"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Comparison *</Text>
+              <View style={styles.buttonGroup}>
+                {['above', 'below'].map((comp) => (
+                  <TouchableOpacity
+                    key={comp}
+                    style={[
+                      styles.optionButton,
+                      params.comparison === comp && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setParams({...params, comparison: comp})}
+                  >
+                    <Text
+                      style={[
+                        styles.optionButtonText,
+                        params.comparison === comp && styles.optionButtonTextSelected,
+                      ]}
+                    >
+                      {comp.charAt(0).toUpperCase() + comp.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Weather Condition Trigger */}
+        {serviceId === 'weather' && actionId === 'weather_condition' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Condition *</Text>
+              <Input
+                value={params.condition || ''}
+                onChangeText={(value) => setParams({...params, condition: value})}
+                placeholder="e.g., Rain, Clear, Clouds"
+              />
+              <Text style={styles.smallText}>Weather condition to match (e.g., Rain, Snow, Clear)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Weather - Get Forecast */}
+        {serviceId === 'weather' && actionId === 'get_forecast' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Location (City)</Text>
+              <Input
+                value={params.location || ''}
+                onChangeText={(value) => setParams({...params, location: value, lat: undefined, lon: undefined})}
+                placeholder="e.g., Paris,FR or London,UK"
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <Input
+                  value={params.lat?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lat: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 48.8566"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <Input
+                  value={params.lon?.toString() || ''}
+                  onChangeText={(value) => setParams({...params, lon: parseFloat(value) || undefined, location: undefined})}
+                  placeholder="e.g., 2.3522"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            <View>
+              <Text style={styles.label}>Number of Forecasts (optional)</Text>
+              <Input
+                value={params.cnt?.toString() || ''}
+                onChangeText={(value) => setParams({...params, cnt: parseInt(value) || undefined})}
+                placeholder="e.g., 8 (default: all available)"
+                keyboardType="numeric"
+              />
+              <Text style={styles.smallText}>Max 40 entries (3-hour intervals)</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Google Calendar - Quick Add Event */}
+        {serviceId === 'google_calendar' && actionId === 'quick_add_event' && (
+          <View>
+            <Text style={styles.label}>Event Text *</Text>
+            <Input
+              value={params.text || ''}
+              onChangeText={(value) => setParams({...params, text: value})}
+              placeholder="e.g., Meeting tomorrow at 3pm"
+              multiline
+              numberOfLines={2}
+            />
+            <Text style={styles.smallText}>Natural language event description</Text>
+          </View>
+        )}
+
+        {/* DeepL - Translate */}
+        {serviceId === 'deepl' && actionId === 'translate' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Text to Translate *</Text>
+              <Input
+                value={params.text || ''}
+                onChangeText={(value) => setParams({...params, text: value})}
+                placeholder="Enter text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Target Language *</Text>
+              <Input
+                value={params.target_lang || ''}
+                onChangeText={(value) => setParams({...params, target_lang: value.toUpperCase()})}
+                placeholder="e.g., EN, FR, DE, ES"
+              />
+              <Text style={styles.smallText}>Language code (EN, FR, DE, ES, IT, etc.)</Text>
+            </View>
+            <View>
+              <Text style={styles.label}>Source Language (optional)</Text>
+              <Input
+                value={params.source_lang || ''}
+                onChangeText={(value) => setParams({...params, source_lang: value.toUpperCase()})}
+                placeholder="e.g., FR (auto-detect if empty)"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* DeepL - Auto Translate */}
+        {serviceId === 'deepl' && actionId === 'auto_translate' && (
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.label}>Text to Translate *</Text>
+              <Input
+                value={params.text || ''}
+                onChangeText={(value) => setParams({...params, text: value})}
+                placeholder="Enter text (supports variables)"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View>
+              <Text style={styles.label}>Target Language *</Text>
+              <Input
+                value={params.target_lang || ''}
+                onChangeText={(value) => setParams({...params, target_lang: value.toUpperCase()})}
+                placeholder="e.g., EN"
+              />
+              <Text style={styles.smallText}>Auto-detects source language</Text>
+            </View>
+          </View>
+        )}
+
+        {/* DeepL - Detect Language */}
+        {serviceId === 'deepl' && actionId === 'detect_language' && (
+          <View>
+            <Text style={styles.label}>Text to Analyze *</Text>
+            <Input
+              value={params.text || ''}
+              onChangeText={(value) => setParams({...params, text: value})}
+              placeholder="Enter text (supports variables)"
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={styles.smallText}>Detects the language of the provided text</Text>
+          </View>
+        )}
+
+        {/* Debug - Log Message */}
+        {serviceId === 'debug' && actionId === 'log' && (
+          <View>
+            <Text style={styles.label}>Log Message *</Text>
+            <Input
+              value={params.message || ''}
+              onChangeText={(value) => setParams({...params, message: value})}
+              placeholder="e.g., Email from {{gmail.sender}}: {{gmail.subject}}"
+              multiline
+              numberOfLines={4}
+            />
+            <Text style={styles.smallText}>Logs message to application logs (supports variables)</Text>
+          </View>
+        )}
+
         {/* For all other services, show a generic message */}
-        {!['time', 'weather', 'gmail', 'openai'].includes(serviceId) && (
+        {!['time', 'weather', 'gmail', 'openai', 'discord', 'github', 'outlook', 'google_calendar', 'deepl', 'debug'].includes(serviceId) && (
           <Text style={styles.smallText}>
             Parameters for {serviceId} - {actionId}:{'\n\n'}
             You can configure this service's parameters. The values will be saved with your configuration.
