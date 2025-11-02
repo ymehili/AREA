@@ -793,3 +793,57 @@ export async function deleteTemplate(
   
   // 204 No Content - no response body to parse
 }
+
+/**
+ * List ALL marketplace templates (ADMIN ONLY)
+ */
+export async function searchTemplatesAdmin(
+  token: string,
+  params?: import("./types/marketplace").AdminTemplateSearchParams,
+): Promise<PaginatedResponse<Template>> {
+  const searchParams = new URLSearchParams();
+  
+  if (params?.q) searchParams.set("q", params.q);
+  if (params?.category) searchParams.set("category", params.category);
+  if (params?.tags) params.tags.forEach(tag => searchParams.append("tags", tag));
+  if (params?.status_filter) searchParams.set("status_filter", params.status_filter);
+  if (params?.visibility_filter) searchParams.set("visibility_filter", params.visibility_filter);
+  if (params?.min_rating !== undefined) searchParams.set("min_rating", params.min_rating.toString());
+  if (params?.sort_by) searchParams.set("sort_by", params.sort_by);
+  if (params?.order) searchParams.set("order", params.order);
+  if (params?.page) searchParams.set("page", params.page.toString());
+  if (params?.size) searchParams.set("size", params.size.toString());
+  
+  const queryString = searchParams.toString();
+  const url = queryString ? `/marketplace/admin/templates?${queryString}` : "/marketplace/admin/templates";
+  
+  return requestJson<PaginatedResponse<Template>>(url, {}, token);
+}
+
+/**
+ * Update template status or visibility (ADMIN ONLY)
+ */
+export async function updateTemplateAdmin(
+  token: string,
+  templateId: string,
+  updates: import("./types/marketplace").AdminTemplateUpdateRequest,
+): Promise<Template> {
+  const searchParams = new URLSearchParams();
+  
+  if (updates.status) searchParams.set("status", updates.status);
+  if (updates.visibility) searchParams.set("visibility", updates.visibility);
+  
+  const queryString = searchParams.toString();
+  const url = queryString 
+    ? `/marketplace/admin/templates/${templateId}?${queryString}` 
+    : `/marketplace/admin/templates/${templateId}`;
+  
+  return requestJson<Template>(
+    url,
+    {
+      method: "PATCH",
+    },
+    token,
+  );
+}
+

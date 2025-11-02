@@ -42,6 +42,16 @@ export interface TemplateSearchParams {
   size?: number;
 }
 
+export interface AdminTemplateSearchParams extends TemplateSearchParams {
+  status_filter?: "pending" | "approved" | "rejected" | "archived";
+  visibility_filter?: "public" | "private" | "unlisted";
+}
+
+export interface AdminTemplateUpdateRequest {
+  status?: "pending" | "approved" | "rejected" | "archived";
+  visibility?: "public" | "private" | "unlisted";
+}
+
 export interface TemplatePublishRequest {
   area_id: string;
   title: string;
