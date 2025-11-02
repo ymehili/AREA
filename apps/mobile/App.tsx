@@ -28,6 +28,7 @@ import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
 import OAuthButton from './src/components/ui/OAuthButton';
 import ApiKeyModal from './src/components/ui/ApiKeyModal';
+import WizardSelectionModal from './src/components/ui/WizardSelectionModal';
 
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
@@ -410,6 +411,7 @@ function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [wizardModalVisible, setWizardModalVisible] = useState(false);
 
   const loadAreas = useCallback(async () => {
     if (!auth.token) {
@@ -524,17 +526,24 @@ function DashboardScreen() {
           <Text style={styles.muted}>You have no AREAs yet.</Text>
           <View style={{ height: 12 }} />
           <CustomButton
-            title="Simple Wizard"
-            onPress={() => navigation.navigate("Wizard") }
+            title="Create New AREA"
+            onPress={() => setWizardModalVisible(true)}
             variant="default"
           />
-          <View style={{ height: 8 }} />
-          <CustomButton
-            title="Advanced Builder"
-            onPress={() => navigation.navigate("AdvancedAreaBuilder") }
-            variant="outline"
-          />
         </Card>
+        
+        <WizardSelectionModal
+          visible={wizardModalVisible}
+          onClose={() => setWizardModalVisible(false)}
+          onSelectSimple={() => {
+            setWizardModalVisible(false);
+            navigation.navigate("SimpleWizard");
+          }}
+          onSelectAdvanced={() => {
+            setWizardModalVisible(false);
+            navigation.navigate("AdvancedAreaBuilder");
+          }}
+        />
       </SafeAreaView>
     );
   }
@@ -545,7 +554,7 @@ function DashboardScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
         <CustomButton
           title="+ New"
-          onPress={() => navigation.navigate("AdvancedAreaBuilder") }
+          onPress={() => setWizardModalVisible(true)}
           variant="default"
         />
       </View>
@@ -607,6 +616,19 @@ function DashboardScreen() {
           </Card>
         ))}
       </ScrollView>
+      
+      <WizardSelectionModal
+        visible={wizardModalVisible}
+        onClose={() => setWizardModalVisible(false)}
+        onSelectSimple={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("SimpleWizard");
+        }}
+        onSelectAdvanced={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("AdvancedAreaBuilder");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -968,12 +990,27 @@ function ConnectionsScreen() {
   );
 }
 
+type ParamDefinition = {
+  type: string;
+  label?: string;
+  options?: string[];
+  placeholder?: string;
+  optional?: boolean;
+};
+
+type AutomationOption = {
+  key: string;
+  name: string;
+  description: string;
+  params?: Record<string, ParamDefinition>;
+};
+
 type CatalogService = {
   slug: string;
   name: string;
   description: string;
-  actions: Array<{ key: string; name: string; description: string }>;
-  reactions: Array<{ key: string; name: string; description: string }>;
+  actions: Array<AutomationOption>;
+  reactions: Array<AutomationOption>;
 };
 
 function WizardScreen() {
@@ -988,6 +1025,8 @@ function WizardScreen() {
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [triggerParams, setTriggerParams] = useState<Record<string, string | number>>({});
+  const [actionParams, setActionParams] = useState<Record<string, string | number>>({});
 
   // Load catalog services on mount
   useEffect(() => {
@@ -1044,6 +1083,45 @@ function WizardScreen() {
     return service?.reactions ?? [];
   }, [catalogServices, actionService]);
 
+  // Helper function to render parameter input fields
+  const renderParamsFields = (
+    paramsDef: Record<string, ParamDefinition> | null | undefined,
+    values: Record<string, string | number>,
+    setValues: (v: Record<string, string | number>) => void
+  ) => {
+    if (!paramsDef || typeof paramsDef !== 'object' || Object.keys(paramsDef).length === 0) {
+      return null;
+    }
+
+    return Object.entries(paramsDef).map(([key, def]) => {
+      const label = def.label || key;
+      const placeholder = def.placeholder || '';
+      
+      // WORKAROUND: Map catalog key "interval" to backend key "interval_seconds"
+      // This handles the mismatch between catalog definition and backend implementation
+      const actualKey = key === 'interval' ? 'interval_seconds' : key;
+      
+      return (
+        <View key={key} style={{ marginBottom: 12 }}>
+          <Input
+            label={label}
+            value={values[actualKey]?.toString() || ''}
+            onChangeText={(text) => {
+              if (def.type === 'number') {
+                const numValue = parseInt(text) || 0;
+                setValues({ ...values, [actualKey]: numValue });
+              } else {
+                setValues({ ...values, [actualKey]: text });
+              }
+            }}
+            placeholder={placeholder}
+            keyboardType={def.type === 'number' ? 'numeric' : 'default'}
+          />
+        </View>
+      );
+    });
+  };
+
   const canNext = React.useMemo(() => {
     if (step === 1) return !!triggerService;
     if (step === 2) return !!trigger;
@@ -1074,8 +1152,10 @@ function WizardScreen() {
             name: `${triggerService} → ${actionService}`,
             trigger_service: triggerService,
             trigger_action: trigger,
+            trigger_params: Object.keys(triggerParams).length > 0 ? triggerParams : undefined,
             reaction_service: actionService,
             reaction_action: action,
+            reaction_params: Object.keys(actionParams).length > 0 ? actionParams : undefined,
             steps: [
               {
                 step_type: "trigger",
@@ -1084,6 +1164,7 @@ function WizardScreen() {
                 action: trigger,
                 config: {
                   position: { x: 250, y: 50 },
+                  ...triggerParams,
                 },
               },
               {
@@ -1093,6 +1174,7 @@ function WizardScreen() {
                 action: action,
                 config: {
                   position: { x: 250, y: 200 },
+                  ...actionParams,
                 },
               },
             ],
@@ -1155,7 +1237,7 @@ function WizardScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [auth, triggerService, trigger, actionService, action, navigation]);
+  }, [auth, triggerService, trigger, triggerParams, actionService, action, actionParams, navigation]);
 
   if (loadingCatalog) {
     return (
@@ -1256,7 +1338,10 @@ function WizardScreen() {
                 <View key={action.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
                     title={action.name} 
-                    onPress={() => setTrigger(action.key)} 
+                    onPress={() => {
+                      setTrigger(action.key);
+                      setTriggerParams({}); // Reset params when trigger changes
+                    }} 
                     variant={trigger === action.key ? "default" : "outline"}
                   />
                   <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
@@ -1269,6 +1354,22 @@ function WizardScreen() {
                   Selected: {availableActions.find((a) => a.key === trigger)?.name}
                 </Text>
               ) : null}
+              
+              {/* Trigger Parameter Fields - Generic rendering */}
+              {trigger && (() => {
+                const selectedAction = availableActions.find(a => a.key === trigger);
+                const paramsDef = selectedAction?.params;
+                
+                if (paramsDef && Object.keys(paramsDef).length > 0) {
+                  return (
+                    <View style={{ marginTop: 16, padding: 12, backgroundColor: Colors.cardLight, borderRadius: 8 }}>
+                      <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 8 }]}>Trigger Parameters</Text>
+                      {renderParamsFields(paramsDef, triggerParams, setTriggerParams)}
+                    </View>
+                  );
+                }
+                return null;
+              })()}
             </View>
           )}
 
@@ -1308,7 +1409,10 @@ function WizardScreen() {
                 <View key={reaction.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
                     title={reaction.name} 
-                    onPress={() => setAction(reaction.key)} 
+                    onPress={() => {
+                      setAction(reaction.key);
+                      setActionParams({}); // Reset params when action changes
+                    }} 
                     variant={action === reaction.key ? "default" : "outline"}
                   />
                   <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
@@ -1321,6 +1425,22 @@ function WizardScreen() {
                   Selected: {availableReactions.find((r) => r.key === action)?.name}
                 </Text>
               ) : null}
+              
+              {/* Action Parameter Fields - Generic rendering */}
+              {action && (() => {
+                const selectedReaction = availableReactions.find(r => r.key === action);
+                const paramsDef = selectedReaction?.params;
+                
+                if (paramsDef && Object.keys(paramsDef).length > 0) {
+                  return (
+                    <View style={{ marginTop: 16, padding: 12, backgroundColor: Colors.cardLight, borderRadius: 8 }}>
+                      <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 8 }]}>Action Parameters</Text>
+                      {renderParamsFields(paramsDef, actionParams, setActionParams)}
+                    </View>
+                  );
+                }
+                return null;
+              })()}
             </View>
           )}
 
@@ -1336,6 +1456,19 @@ function WizardScreen() {
                 <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
                   {availableActions.find((a) => a.key === trigger)?.name}
                 </Text>
+                
+                {/* Show trigger parameters if present */}
+                {Object.keys(triggerParams).length > 0 && (
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={[styles.muted, { fontSize: 12 }]}>Trigger Parameters:</Text>
+                    {Object.entries(triggerParams).map(([key, value]) => (
+                      <Text key={key} style={[styles.smallMuted, { marginLeft: 8 }]}>
+                        • {key}: {String(value)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                
                 <Text style={styles.muted}>Reaction Service:</Text>
                 <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
                   {catalogServices.find((s) => s.slug === actionService)?.name}
@@ -1344,18 +1477,37 @@ function WizardScreen() {
                 <Text style={styles.cardTitle}>
                   {availableReactions.find((r) => r.key === action)?.name}
                 </Text>
+                
+                {/* Show action parameters if present */}
+                {Object.keys(actionParams).length > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[styles.muted, { fontSize: 12 }]}>Action Parameters:</Text>
+                    {Object.entries(actionParams).map(([key, value]) => (
+                      <Text key={key} style={[styles.smallMuted, { marginLeft: 8 }]}>
+                        • {key}: {String(value)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
           )}
 
           <View style={{ height: 16 }} />
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <CustomButton 
-              title="Back" 
-              onPress={() => setStep(Math.max(1, step - 1))} 
-              variant="outline"
-              disabled={step <= 1}
-            />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+            {step === 1 ? (
+              <CustomButton 
+                title="Cancel" 
+                onPress={() => navigation.navigate("MainTabs", { screen: "Dashboard" })} 
+                variant="outline"
+              />
+            ) : (
+              <CustomButton 
+                title="Back" 
+                onPress={() => setStep(Math.max(1, step - 1))} 
+                variant="outline"
+              />
+            )}
             {step < 5 ? (
               <CustomButton 
                 title="Next" 
@@ -1372,6 +1524,48 @@ function WizardScreen() {
           </View>
         </Card>
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// Wrapper for the Wizard tab that shows the selection modal
+function WizardTabScreen() {
+  const navigation = useNavigation<any>();
+  const [wizardModalVisible, setWizardModalVisible] = useState(true);
+
+  // When the modal is closed without selection, navigate back to Dashboard
+  const handleClose = () => {
+    setWizardModalVisible(false);
+    navigation.navigate("Dashboard");
+  };
+
+  // Show the wizard selection modal
+  useFocusEffect(
+    useCallback(() => {
+      setWizardModalVisible(true);
+      return () => {};
+    }, [])
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Text style={styles.h1}>Create New AREA</Text>
+      <Card style={{ margin: 16 }}>
+        <Text style={styles.muted}>Choose how you'd like to create your automation.</Text>
+      </Card>
+      
+      <WizardSelectionModal
+        visible={wizardModalVisible}
+        onClose={handleClose}
+        onSelectSimple={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("SimpleWizard");
+        }}
+        onSelectAdvanced={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("AdvancedAreaBuilder");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1825,7 +2019,7 @@ function TabsNavigator() {
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
       <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
-      <Tabs.Screen name="Wizard" component={WizardScreen} />
+      <Tabs.Screen name="Wizard" component={WizardTabScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );
@@ -1838,6 +2032,7 @@ function AuthenticatedNavigator() {
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="Confirm" component={ConfirmScreen} />
       <Stack.Screen name="AdvancedAreaBuilder" component={AdvancedAreaBuilderScreen} />
+      <Stack.Screen name="SimpleWizard" component={WizardScreen} />
     </Stack.Navigator>
   );
 }
