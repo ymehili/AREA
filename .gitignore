@@ -63,3 +63,8 @@ CLAUDE.md
 # IDE and Android Studio
 .idea
 android-studio
+
+# Mobile build artifacts
+apps/mobile/artifacts/
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
