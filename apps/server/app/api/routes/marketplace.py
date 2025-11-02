@@ -35,6 +35,8 @@ from app.services.marketplace import (
     publish_template,
     reject_template,
     search_templates,
+    search_templates_admin,
+    update_template_admin,
 )
 from app.services.user_activity_logs import log_user_activity_task
 
@@ -357,6 +359,103 @@ async def reject_template_submission(
             user_id=str(current_admin.id),
             action_type="template_rejected",
             details=f"Rejected template: {template.title}",
+            service_name="Marketplace Admin",
+            status="success",
+        )
+        
+        return TemplateResponse.model_validate(template)
+    
+    except TemplateNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+
+
+@router.get("/admin/templates", response_model=Page[TemplateResponse])
+async def list_all_templates_admin(
+    db: Annotated[Session, Depends(get_db)],
+    current_admin: Annotated[User, Depends(require_admin_user)],
+    q: str = Query(None, max_length=100, description="Search query"),
+    category: str = Query(None, description="Filter by category"),
+    tags: List[str] = Query(default=[], description="Filter by tags"),
+    status_filter: str = Query(None, description="Filter by status (pending, approved, rejected, archived)"),
+    visibility_filter: str = Query(None, description="Filter by visibility (public, private, unlisted)"),
+    min_rating: float = Query(None, ge=0, le=5, description="Minimum rating"),
+    sort_by: str = Query(
+        "created_at",
+        pattern="^(created_at|usage_count|rating_average|title)$",
+        description="Sort field",
+    ),
+    order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    params: Params = Depends(),
+) -> Page[TemplateResponse]:
+    """
+    List ALL marketplace templates (ADMIN ONLY).
+    
+    Returns all templates regardless of approval status or visibility.
+    Supports filtering by status and visibility.
+    """
+    templates, total = search_templates_admin(
+        db=db,
+        query=q,
+        category=category,
+        tags=tags,
+        status_filter=status_filter,
+        visibility_filter=visibility_filter,
+        min_rating=min_rating,
+        sort_by=sort_by,
+        order=order,
+        offset=(params.page - 1) * params.size,
+        limit=params.size,
+    )
+    
+    items = [TemplateResponse.model_validate(t) for t in templates]
+    
+    return Page(
+        items=items,
+        total=total,
+        page=params.page,
+        size=params.size,
+        pages=(total + params.size - 1) // params.size if total > 0 else 0,
+    )
+
+
+@router.patch("/admin/templates/{template_id}", response_model=TemplateResponse)
+async def update_template_admin_endpoint(
+    template_id: uuid.UUID,
+    current_admin: Annotated[User, Depends(require_admin_user)],
+    db: Annotated[Session, Depends(get_db)],
+    background_tasks: BackgroundTasks,
+    status: str = Query(None, description="New status (pending, approved, rejected, archived)"),
+    visibility: str = Query(None, description="New visibility (public, private, unlisted)"),
+) -> TemplateResponse:
+    """
+    Update template status or visibility (ADMIN ONLY).
+    
+    Allows admins to change template status and visibility settings.
+    """
+    try:
+        template = update_template_admin(
+            db=db,
+            template_id=template_id,
+            admin_user_id=current_admin.id,
+            status=status,
+            visibility=visibility,
+        )
+        
+        # Log admin activity
+        details = []
+        if status:
+            details.append(f"status={status}")
+        if visibility:
+            details.append(f"visibility={visibility}")
+        
+        background_tasks.add_task(
+            log_user_activity_task,
+            user_id=str(current_admin.id),
+            action_type="template_updated",
+            details=f"Updated template {template.title}: {', '.join(details)}",
             service_name="Marketplace Admin",
             status="success",
         )
