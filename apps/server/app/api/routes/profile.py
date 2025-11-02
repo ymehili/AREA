@@ -54,6 +54,7 @@ def _build_login_methods(user: User) -> list[LoginMethodStatus]:
 
 def _build_profile(user: User) -> UserProfileResponse:
     return UserProfileResponse(
+        id=user.id,
         email=user.email,
         full_name=user.full_name,
         is_confirmed=user.is_confirmed,

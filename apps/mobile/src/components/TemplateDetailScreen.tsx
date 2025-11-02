@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,7 +19,7 @@ import CustomButton from './ui/Button';
 import Card from './ui/Card';
 import { Colors } from '../constants/colors';
 import { TextStyles, FontFamilies } from '../constants/typography';
-import { getTemplateById, cloneTemplate } from '../utils/marketplace';
+import { getTemplateById, cloneTemplate, deleteTemplate } from '../utils/marketplace';
 import type { Template } from '../types/marketplace';
 
 interface TemplateDetailScreenProps {
@@ -49,8 +50,34 @@ export default function TemplateDetailScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cloning, setCloning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [areaName, setAreaName] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (!token) return;
+      
+      try {
+        const response = await fetch(`${apiBaseUrl}/users/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUserId(userData.id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch current user:', err);
+      }
+    };
+
+    fetchCurrentUser();
+  }, [apiBaseUrl, token]);
 
   const loadTemplate = useCallback(async () => {
     if (!templateId) {
@@ -116,6 +143,53 @@ export default function TemplateDetailScreen({
     }
   };
 
+  const handleDelete = async () => {
+    if (!token) {
+      Alert.alert('Authentication Required', 'Please log in to delete this template.');
+      return;
+    }
+
+    if (!template) return;
+
+    Alert.alert(
+      'Delete Template',
+      'Are you sure you want to delete this template from the marketplace? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteTemplate(apiBaseUrl, token, template.id);
+              Alert.alert(
+                'Success',
+                'Template deleted successfully.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.navigate('MainTabs', { screen: 'Marketplace' }),
+                  },
+                ]
+              );
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Failed to delete template';
+              Alert.alert('Delete Failed', message);
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Check if current user is the template owner
+  const isOwner = template && currentUserId && template.publisher_user_id === currentUserId;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -162,7 +236,20 @@ export default function TemplateDetailScreen({
             style={styles.backButton}
           />
         </View>
-        <View style={styles.cloneButtonContainer}>
+        <View style={styles.headerActions}>
+          {isOwner && (
+            <TouchableOpacity
+              onPress={handleDelete}
+              disabled={deleting}
+              style={styles.deleteButton}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={20}
+                color={deleting ? Colors.mutedForeground : Colors.error}
+              />
+            </TouchableOpacity>
+          )}
           <CustomButton
             title="Clone Template"
             onPress={() => setShowCloneModal(true)}
@@ -345,8 +432,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     minWidth: 80,
   },
-  cloneButtonContainer: {
-    alignItems: 'flex-end',
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: Colors.backgroundLight,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   cloneButton: {
     paddingHorizontal: 16,
