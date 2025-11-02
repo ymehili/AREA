@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, headingClasses } from "@/lib/utils";
@@ -24,12 +24,30 @@ import {
 export default function LandingPage() {
   const router = useRouter();
   const auth = useAuth();
+  const [keySequence, setKeySequence] = useState("");
 
   useEffect(() => {
     if (!auth.initializing && auth.token) {
       router.replace("/dashboard");
     }
   }, [auth.initializing, auth.token, router]);
+
+  // Easter egg: Thierry Henry when "pipicaca" is typed
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      setKeySequence((prev: string) => {
+        const newSequence = (prev + e.key).slice(-8); // Keep only last 8 characters
+        if (newSequence.toLowerCase() === "pipicaca") {
+          window.location.href = "https://media1.tenor.com/m/4o5sb4XiQ-wAAAAd/thierry-henry-time.gif";
+
+        }
+        return newSequence;
+      });
+    };
+
+    window.addEventListener("keypress", handleKeyPress);
+    return () => window.removeEventListener("keypress", handleKeyPress);
+  }, []);
 
   // Show nothing while checking auth to prevent flash
   if (auth.initializing || auth.token) {
