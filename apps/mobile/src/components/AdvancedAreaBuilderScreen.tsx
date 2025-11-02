@@ -484,16 +484,16 @@ const AdvancedAreaBuilderScreen: React.FC = () => {
 
         <View style={styles.footer}>
           <CustomButton
+            title="Cancel"
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Dashboard' })}
+            variant="outline"
+            style={{ flex: 1, marginRight: 8 }}
+          />
+          <CustomButton
             title={saving ? 'Saving...' : (areaId ? 'Update AREA' : 'Save AREA')}
             onPress={handleSave}
             variant="default"
             disabled={saving}
-            style={{ flex: 1, marginRight: 8 }}
-          />
-          <CustomButton
-            title="Cancel"
-            onPress={() => navigation.navigate('MainTabs', { screen: 'Dashboard' })}
-            variant="outline"
             style={{ flex: 1 }}
           />
         </View>

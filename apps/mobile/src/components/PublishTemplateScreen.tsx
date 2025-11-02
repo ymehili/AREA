@@ -10,6 +10,8 @@ import {
   Alert,
   TouchableOpacity,
   Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -210,11 +212,14 @@ export default function PublishTemplateScreen({
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
-        <CustomButton
-          title="← Back"
-          onPress={() => navigation.goBack()}
-          variant="outline"
-        />
+        <View style={styles.backButtonContainer}>
+          <CustomButton
+            title="← Back"
+            onPress={() => navigation.goBack()}
+            variant="outline"
+            style={styles.backButton}
+          />
+        </View>
       </View>
 
       <ScrollView style={styles.content}>
@@ -486,11 +491,21 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.backgroundLight,
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
   },
   header: {
     padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  backButtonContainer: {
+    alignItems: 'flex-start',
+  },
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 80,
   },
   content: {
     flex: 1,
