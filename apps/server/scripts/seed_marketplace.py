@@ -98,63 +98,83 @@ DEFAULT_TAGS = [
 ]
 
 
-def main():
-    """Seed marketplace with default categories and tags."""
-    print("🌱 Seeding marketplace data...\n")
-    
-    db = SessionLocal()
+def seed_marketplace_data(db_session=None):
+    """Seed marketplace with default categories and tags.
+
+    Args:
+        db_session: Optional database session. If None, creates a new session.
+
+    Returns:
+        tuple: (created_categories, created_tags) counts
+    """
+    close_session = False
+    if db_session is None:
+        db_session = SessionLocal()
+        close_session = True
+
     try:
         # Seed categories
-        print("Seeding categories...")
         created_categories = 0
         for cat_data in DEFAULT_CATEGORIES:
-            existing = db.query(TemplateCategory).filter(
+            existing = db_session.query(TemplateCategory).filter(
                 TemplateCategory.slug == cat_data["slug"]
             ).first()
-            
+
             if existing:
-                print(f"  ⏭️  Category '{cat_data['name']}' already exists")
                 continue
-            
+
             category = TemplateCategory(**cat_data)
-            db.add(category)
+            db_session.add(category)
             created_categories += 1
-            print(f"  ✅ Created category: {cat_data['name']}")
-        
-        db.commit()
-        print(f"✨ {created_categories} categories seeded!\n")
-        
+
+        db_session.commit()
+
         # Seed tags
-        print("Seeding tags...")
         created_tags = 0
         for tag_name in DEFAULT_TAGS:
-            existing = db.query(TemplateTag).filter(
+            existing = db_session.query(TemplateTag).filter(
                 TemplateTag.name == tag_name
             ).first()
-            
+
             if existing:
                 continue
-            
+
             slug = tag_name.lower().replace(" ", "-")
             tag = TemplateTag(
                 name=tag_name,
                 slug=slug,
                 usage_count=0,
             )
-            db.add(tag)
+            db_session.add(tag)
             created_tags += 1
-        
-        db.commit()
-        print(f"✨ {created_tags} tags seeded!\n")
-        
-        print("✅ Marketplace seeding complete!")
-        
+
+        db_session.commit()
+
+        return created_categories, created_tags
+
     except Exception as e:
-        print(f"\n❌ Error seeding marketplace: {e}")
-        db.rollback()
+        db_session.rollback()
         raise
     finally:
-        db.close()
+        if close_session:
+            db_session.close()
+
+
+def main():
+    """Seed marketplace with default categories and tags (CLI entry point)."""
+    print("🌱 Seeding marketplace data...\n")
+
+    try:
+        print("Seeding categories and tags...")
+        created_categories, created_tags = seed_marketplace_data()
+
+        print(f"\n✨ {created_categories} categories seeded!")
+        print(f"✨ {created_tags} tags seeded!\n")
+        print("✅ Marketplace seeding complete!")
+
+    except Exception as e:
+        print(f"\n❌ Error seeding marketplace: {e}")
+        raise
 
 
 if __name__ == "__main__":
