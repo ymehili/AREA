@@ -10,6 +10,7 @@ type LoginMethodStatus = {
 };
 
 type UserProfile = {
+  id: string;
   email: string;
   full_name?: string | null;
   is_confirmed: boolean;
