@@ -145,7 +145,7 @@ class Settings(BaseSettings):
     google_drive_poll_interval_seconds: int = Field(
         default=15,
         alias="GOOGLE_DRIVE_POLL_INTERVAL_SECONDS",
-        description="Google Drive polling interval in seconds (default: 60). Lower values increase API usage.",
+        description="Google Drive polling interval in seconds (default: 15). Lower values increase API usage.",
     )
 
     # OpenWeatherMap API Configuration

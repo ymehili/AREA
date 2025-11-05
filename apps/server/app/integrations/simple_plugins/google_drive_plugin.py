@@ -71,6 +71,7 @@ def _get_drive_service(area: Area, db=None):
         )
 
         # Auto-refresh if expired and persist new token
+        # Note: update_service_connection performs its own commit, so token updates are persisted
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
@@ -98,6 +99,9 @@ def _get_drive_service(area: Area, db=None):
         # Build Drive service
         service = build('drive', 'v3', credentials=creds)
         return service
+    except Exception:
+        # Re-raise exceptions after cleanup
+        raise
     finally:
         if close_db:
             db.close()
@@ -108,13 +112,13 @@ def upload_file_handler(area: Area, params: dict, event: dict) -> None:
 
     Args:
         area: The Area being executed
-        params: Action parameters with 'file_name', 'content', optional 'folder_id', 'mime_type'
+        params: Action parameters with 'file_name', 'file_content', optional 'folder_id', 'mime_type'
         event: Event data from trigger
     """
     try:
         # Extract parameters
         file_name = params.get("file_name")
-        content = params.get("content", "")
+        content = params.get("file_content", "")
         folder_id = params.get("folder_id")
         mime_type = params.get("mime_type", "text/plain")
 
@@ -282,8 +286,8 @@ def copy_file_handler(area: Area, params: dict, event: dict) -> None:
         # Extract parameters
         file_id = params.get("file_id")
         if not file_id:
-            # Try to get from event
-            file_id = event.get("drive.file_id") or event.get("file_id")
+            # Only check Drive-namespaced variables
+            file_id = event.get("drive.file_id")
 
         new_name = params.get("new_name")
 
@@ -364,8 +368,8 @@ def move_file_handler(area: Area, params: dict, event: dict) -> None:
         # Extract parameters
         file_id = params.get("file_id")
         if not file_id:
-            # Try to get from event
-            file_id = event.get("drive.file_id") or event.get("file_id")
+            # Only check Drive-namespaced variables
+            file_id = event.get("drive.file_id")
 
         destination_folder_id = params.get("destination_folder_id")
 
@@ -448,8 +452,8 @@ def delete_file_handler(area: Area, params: dict, event: dict) -> None:
         # Extract parameters
         file_id = params.get("file_id")
         if not file_id:
-            # Try to get from event
-            file_id = event.get("drive.file_id") or event.get("file_id")
+            # Only check Drive-namespaced variables
+            file_id = event.get("drive.file_id")
 
         logger.info(
             "Starting Google Drive delete_file action",
