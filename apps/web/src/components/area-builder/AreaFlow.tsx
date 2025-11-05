@@ -13,6 +13,7 @@ import ReactFlow, {
   ConnectionLineType,
   OnSelectionChangeFunc,
   Viewport,
+  ConnectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -21,6 +22,8 @@ import ActionNode from './ActionNode';
 import ConditionNode from './ConditionNode';
 import DelayNode from './DelayNode';
 import ControlsPanel from './ControlsPanel';
+import CustomConnectionLine from './CustomConnectionLine';
+import AnimatedEdge from './AnimatedEdge';
 import { 
   AreaStepNodeData, 
   NodeData,
@@ -36,6 +39,11 @@ const nodeTypes: NodeTypes = {
   action: ActionNode,
   condition: ConditionNode,
   delay: DelayNode,
+};
+
+// Define custom edge types
+const edgeTypes = {
+  animated: AnimatedEdge,
 };
 
 export interface AreaFlowProps {
@@ -141,7 +149,8 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
       const newEdge = {
         ...params,
         id: `edge-${Date.now()}`,
-        type: 'smoothstep',
+        type: 'animated',
+        style: { strokeWidth: 2, stroke: '#3b82f6' },
       };
       setEdges((eds) => addEdge(newEdge, eds));
     },
@@ -240,12 +249,18 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
               }
             }}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             connectionLineType={ConnectionLineType.SmoothStep}
+            connectionLineComponent={CustomConnectionLine}
             defaultViewport={defaultViewport}
             fitViewOptions={{
               padding: 0.2,
               maxZoom: 1,
               minZoom: 0.5,
+            }}
+            defaultEdgeOptions={{
+              type: 'animated',
+              style: { strokeWidth: 2, stroke: '#3b82f6' },
             }}
             elementsSelectable={true}
             onSelectionChange={onSelectionChange}
@@ -254,6 +269,10 @@ const AreaFlow = forwardRef<AreaFlowHandles, AreaFlowProps>((props, ref) => {
             selectNodesOnDrag={false}
             minZoom={0.1}
             maxZoom={2}
+            connectionRadius={30}
+            snapToGrid={true}
+            snapGrid={[15, 15]}
+            connectionMode={ConnectionMode.Loose}
           >
             <Controls />
             <Background gap={12} size={1} />

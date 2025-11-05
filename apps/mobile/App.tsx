@@ -14,6 +14,7 @@ import {
   View,
   RefreshControl,
 } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 import { NavigationContainer, useFocusEffect, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -28,12 +29,16 @@ import Card from './src/components/ui/Card';
 import Switch from './src/components/ui/Switch';
 import OAuthButton from './src/components/ui/OAuthButton';
 import ApiKeyModal from './src/components/ui/ApiKeyModal';
+import WizardSelectionModal from './src/components/ui/WizardSelectionModal';
 
 // Import screens
 import HistoryScreen from './src/components/HistoryScreen';
 import ActivityLogScreen from './src/components/ActivityLogScreen';
 import ConfirmScreen from './src/components/ConfirmScreen';
 import AdvancedAreaBuilderScreen from './src/components/AdvancedAreaBuilderScreen';
+import MarketplaceScreen from './src/components/MarketplaceScreen';
+import TemplateDetailScreen from './src/components/TemplateDetailScreen';
+import PublishTemplateScreen from './src/components/PublishTemplateScreen';
 
 // Import design system
 import { Colors } from './src/constants/colors';
@@ -42,6 +47,8 @@ import { TextStyles, FontFamilies } from './src/constants/typography';
 // Import auth context and API utilities
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { ExecutionLog } from './src/utils/api';
+
+const SERVER_URL_STORAGE_KEY = "custom_server_url";
 
 function resolveApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_API_URL;
@@ -117,12 +124,48 @@ async function parseError(response: Response): Promise<string> {
   return `Request failed with status ${response.status}`;
 }
 
+// Cache for custom server URL to avoid reading from AsyncStorage on every request
+let cachedServerUrl: string | null = null;
+let serverUrlPromise: Promise<string> | null = null;
+
+async function getActiveServerUrl(): Promise<string> {
+  // If we already have a cached URL, return it
+  if (cachedServerUrl !== null) {
+    return cachedServerUrl;
+  }
+  
+  // If there's already a pending request, wait for it
+  if (serverUrlPromise !== null) {
+    return serverUrlPromise;
+  }
+  
+  // Start a new request and cache the promise
+  serverUrlPromise = (async () => {
+    try {
+      const customUrl = await AsyncStorage.getItem(SERVER_URL_STORAGE_KEY);
+      const url = customUrl || API_BASE_URL;
+      cachedServerUrl = url;
+      return url;
+    } catch (error) {
+      console.error('Failed to load server URL from storage:', error);
+      cachedServerUrl = API_BASE_URL;
+      return API_BASE_URL;
+    } finally {
+      serverUrlPromise = null;
+    }
+  })();
+  
+  return serverUrlPromise;
+}
+
 async function requestJson<T>(
   path: string,
   options: RequestInit = {},
   token?: string | null,
 ): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  // Get the active server URL (either custom or default)
+  const baseUrl = await getActiveServerUrl();
+  const url = path.startsWith("http") ? path : `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -159,6 +202,7 @@ type LoginMethodStatus = {
 };
 
 type UserProfile = {
+  id: string;
   email: string;
   full_name?: string | null;
   is_confirmed: boolean;
@@ -410,6 +454,7 @@ function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [wizardModalVisible, setWizardModalVisible] = useState(false);
 
   const loadAreas = useCallback(async () => {
     if (!auth.token) {
@@ -524,17 +569,24 @@ function DashboardScreen() {
           <Text style={styles.muted}>You have no AREAs yet.</Text>
           <View style={{ height: 12 }} />
           <CustomButton
-            title="Simple Wizard"
-            onPress={() => navigation.navigate("Wizard") }
+            title="Create New AREA"
+            onPress={() => setWizardModalVisible(true)}
             variant="default"
           />
-          <View style={{ height: 8 }} />
-          <CustomButton
-            title="Advanced Builder"
-            onPress={() => navigation.navigate("AdvancedAreaBuilder") }
-            variant="outline"
-          />
         </Card>
+        
+        <WizardSelectionModal
+          visible={wizardModalVisible}
+          onClose={() => setWizardModalVisible(false)}
+          onSelectSimple={() => {
+            setWizardModalVisible(false);
+            navigation.navigate("SimpleWizard");
+          }}
+          onSelectAdvanced={() => {
+            setWizardModalVisible(false);
+            navigation.navigate("AdvancedAreaBuilder");
+          }}
+        />
       </SafeAreaView>
     );
   }
@@ -545,7 +597,7 @@ function DashboardScreen() {
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
         <CustomButton
           title="+ New"
-          onPress={() => navigation.navigate("AdvancedAreaBuilder") }
+          onPress={() => setWizardModalVisible(true)}
           variant="default"
         />
       </View>
@@ -600,13 +652,34 @@ function DashboardScreen() {
               />
             </View>
             <View style={{ height: 8 }} />
-            <Switch 
-              value={area.enabled} 
-              onValueChange={(value) => void toggleArea(area.id, value)} 
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <CustomButton
+                title="Publish to Marketplace"
+                onPress={() => navigation.navigate("PublishTemplate", { areaId: area.id })}
+                variant="default"
+                style={{ flex: 1, marginRight: 12 }}
+              />
+              <Switch 
+                value={area.enabled} 
+                onValueChange={(value) => void toggleArea(area.id, value)} 
+              />
+            </View>
           </Card>
         ))}
       </ScrollView>
+      
+      <WizardSelectionModal
+        visible={wizardModalVisible}
+        onClose={() => setWizardModalVisible(false)}
+        onSelectSimple={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("SimpleWizard");
+        }}
+        onSelectAdvanced={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("AdvancedAreaBuilder");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -719,7 +792,7 @@ function ConnectionsScreen() {
     // Handle OAuth services
     try {
       const data = await requestJson<{ authorization_url: string }>(
-        `/service-connections/connect/${serviceId}`,
+        `/service-connections/connect/${serviceId}?is_mobile=true`,
         { method: "POST" },
         auth.token,
       );
@@ -729,24 +802,57 @@ function ConnectionsScreen() {
         return;
       }
 
-      // Open the OAuth URL in the browser
+      // Use the custom URL scheme for mobile app redirection
+      const redirectUrl = 'areamobile://oauth/callback';
+
+      console.log('Starting service OAuth flow...');
+      console.log('OAuth URL:', data.authorization_url);
+      console.log('Redirect URL:', redirectUrl);
+
       const result = await WebBrowser.openAuthSessionAsync(
         data.authorization_url,
-        `${process.env.EXPO_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/oauth/callback`
+        redirectUrl
       );
 
-      if (result.type === 'success') {
-        // The OAuth flow completed successfully
-        Alert.alert("Success", `${serviceId} connected successfully!`);
-        // Reload services to update connection status
-        void loadServices();
-      } else if (result.type === 'dismiss') {
-        // User dismissed the browser without completing OAuth
-        Alert.alert("Connection cancelled", "Service connection was cancelled.");
+      console.log('Service OAuth result:', result);
+
+      if (result.type === 'success' && result.url) {
+        console.log('Success URL received:', result.url);
+
+        // Parse the callback URL to check for success or error
+        const url = new URL(result.url);
+        const success = url.searchParams.get('success');
+        const error = url.searchParams.get('error');
+        const service = url.searchParams.get('service');
+
+        console.log('OAuth callback params:', { success, error, service });
+
+        if (error) {
+          const errorMessages: Record<string, string> = {
+            'invalid_state': 'Invalid state parameter. Please try again.',
+            'session_expired': 'Session expired. Please try again.',
+            'already_connected': 'This service is already connected.',
+            'connection_failed': 'Failed to connect service. Please try again.',
+            'unknown': 'An unknown error occurred.',
+          };
+          Alert.alert('Connection failed', errorMessages[error] || `Error: ${error}`);
+        } else if (success === 'connected') {
+          Alert.alert('Success', `${service || serviceId} connected successfully!`);
+          // Reload services to update connection status
+          void loadServices();
+        } else {
+          console.log('Unexpected callback result');
+        }
+      } else if (result.type === 'cancel') {
+        console.log('OAuth cancelled by user');
+        Alert.alert('Connection cancelled', 'Service connection was cancelled.');
+      } else {
+        console.log('Unexpected OAuth result type:', result.type);
       }
     } catch (err) {
+      console.error('Service OAuth error:', err);
       const message = err instanceof Error ? err.message : "Unable to initiate service connection.";
-      Alert.alert("Connection failed", message);
+      Alert.alert('Connection failed', message);
     }
   };
 
@@ -935,12 +1041,27 @@ function ConnectionsScreen() {
   );
 }
 
+type ParamDefinition = {
+  type: string;
+  label?: string;
+  options?: string[];
+  placeholder?: string;
+  optional?: boolean;
+};
+
+type AutomationOption = {
+  key: string;
+  name: string;
+  description: string;
+  params?: Record<string, ParamDefinition>;
+};
+
 type CatalogService = {
   slug: string;
   name: string;
   description: string;
-  actions: Array<{ key: string; name: string; description: string }>;
-  reactions: Array<{ key: string; name: string; description: string }>;
+  actions: Array<AutomationOption>;
+  reactions: Array<AutomationOption>;
 };
 
 function WizardScreen() {
@@ -955,6 +1076,8 @@ function WizardScreen() {
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [triggerParams, setTriggerParams] = useState<Record<string, string | number>>({});
+  const [actionParams, setActionParams] = useState<Record<string, string | number>>({});
 
   // Load catalog services on mount
   useEffect(() => {
@@ -1011,6 +1134,45 @@ function WizardScreen() {
     return service?.reactions ?? [];
   }, [catalogServices, actionService]);
 
+  // Helper function to render parameter input fields
+  const renderParamsFields = (
+    paramsDef: Record<string, ParamDefinition> | null | undefined,
+    values: Record<string, string | number>,
+    setValues: (v: Record<string, string | number>) => void
+  ) => {
+    if (!paramsDef || typeof paramsDef !== 'object' || Object.keys(paramsDef).length === 0) {
+      return null;
+    }
+
+    return Object.entries(paramsDef).map(([key, def]) => {
+      const label = def.label || key;
+      const placeholder = def.placeholder || '';
+      
+      // WORKAROUND: Map catalog key "interval" to backend key "interval_seconds"
+      // This handles the mismatch between catalog definition and backend implementation
+      const actualKey = key === 'interval' ? 'interval_seconds' : key;
+      
+      return (
+        <View key={key} style={{ marginBottom: 12 }}>
+          <Input
+            label={label}
+            value={values[actualKey]?.toString() || ''}
+            onChangeText={(text) => {
+              if (def.type === 'number') {
+                const numValue = parseInt(text) || 0;
+                setValues({ ...values, [actualKey]: numValue });
+              } else {
+                setValues({ ...values, [actualKey]: text });
+              }
+            }}
+            placeholder={placeholder}
+            keyboardType={def.type === 'number' ? 'numeric' : 'default'}
+          />
+        </View>
+      );
+    });
+  };
+
   const canNext = React.useMemo(() => {
     if (step === 1) return !!triggerService;
     if (step === 2) return !!trigger;
@@ -1041,8 +1203,10 @@ function WizardScreen() {
             name: `${triggerService} → ${actionService}`,
             trigger_service: triggerService,
             trigger_action: trigger,
+            trigger_params: Object.keys(triggerParams).length > 0 ? triggerParams : undefined,
             reaction_service: actionService,
             reaction_action: action,
+            reaction_params: Object.keys(actionParams).length > 0 ? actionParams : undefined,
             steps: [
               {
                 step_type: "trigger",
@@ -1051,6 +1215,7 @@ function WizardScreen() {
                 action: trigger,
                 config: {
                   position: { x: 250, y: 50 },
+                  ...triggerParams,
                 },
               },
               {
@@ -1060,6 +1225,7 @@ function WizardScreen() {
                 action: action,
                 config: {
                   position: { x: 250, y: 200 },
+                  ...actionParams,
                 },
               },
             ],
@@ -1122,7 +1288,7 @@ function WizardScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [auth, triggerService, trigger, actionService, action, navigation]);
+  }, [auth, triggerService, trigger, triggerParams, actionService, action, actionParams, navigation]);
 
   if (loadingCatalog) {
     return (
@@ -1223,7 +1389,10 @@ function WizardScreen() {
                 <View key={action.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
                     title={action.name} 
-                    onPress={() => setTrigger(action.key)} 
+                    onPress={() => {
+                      setTrigger(action.key);
+                      setTriggerParams({}); // Reset params when trigger changes
+                    }} 
                     variant={trigger === action.key ? "default" : "outline"}
                   />
                   <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
@@ -1236,6 +1405,22 @@ function WizardScreen() {
                   Selected: {availableActions.find((a) => a.key === trigger)?.name}
                 </Text>
               ) : null}
+              
+              {/* Trigger Parameter Fields - Generic rendering */}
+              {trigger && (() => {
+                const selectedAction = availableActions.find(a => a.key === trigger);
+                const paramsDef = selectedAction?.params;
+                
+                if (paramsDef && Object.keys(paramsDef).length > 0) {
+                  return (
+                    <View style={{ marginTop: 16, padding: 12, backgroundColor: Colors.cardLight, borderRadius: 8 }}>
+                      <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 8 }]}>Trigger Parameters</Text>
+                      {renderParamsFields(paramsDef, triggerParams, setTriggerParams)}
+                    </View>
+                  );
+                }
+                return null;
+              })()}
             </View>
           )}
 
@@ -1275,7 +1460,10 @@ function WizardScreen() {
                 <View key={reaction.key} style={{ marginBottom: 8 }}>
                   <CustomButton 
                     title={reaction.name} 
-                    onPress={() => setAction(reaction.key)} 
+                    onPress={() => {
+                      setAction(reaction.key);
+                      setActionParams({}); // Reset params when action changes
+                    }} 
                     variant={action === reaction.key ? "default" : "outline"}
                   />
                   <Text style={[styles.smallMuted, { marginTop: 4, marginLeft: 4 }]}>
@@ -1288,6 +1476,22 @@ function WizardScreen() {
                   Selected: {availableReactions.find((r) => r.key === action)?.name}
                 </Text>
               ) : null}
+              
+              {/* Action Parameter Fields - Generic rendering */}
+              {action && (() => {
+                const selectedReaction = availableReactions.find(r => r.key === action);
+                const paramsDef = selectedReaction?.params;
+                
+                if (paramsDef && Object.keys(paramsDef).length > 0) {
+                  return (
+                    <View style={{ marginTop: 16, padding: 12, backgroundColor: Colors.cardLight, borderRadius: 8 }}>
+                      <Text style={[styles.cardTitle, { fontSize: 14, marginBottom: 8 }]}>Action Parameters</Text>
+                      {renderParamsFields(paramsDef, actionParams, setActionParams)}
+                    </View>
+                  );
+                }
+                return null;
+              })()}
             </View>
           )}
 
@@ -1303,6 +1507,19 @@ function WizardScreen() {
                 <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
                   {availableActions.find((a) => a.key === trigger)?.name}
                 </Text>
+                
+                {/* Show trigger parameters if present */}
+                {Object.keys(triggerParams).length > 0 && (
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={[styles.muted, { fontSize: 12 }]}>Trigger Parameters:</Text>
+                    {Object.entries(triggerParams).map(([key, value]) => (
+                      <Text key={key} style={[styles.smallMuted, { marginLeft: 8 }]}>
+                        • {key}: {String(value)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                
                 <Text style={styles.muted}>Reaction Service:</Text>
                 <Text style={[styles.cardTitle, { marginBottom: 8 }]}>
                   {catalogServices.find((s) => s.slug === actionService)?.name}
@@ -1311,18 +1528,37 @@ function WizardScreen() {
                 <Text style={styles.cardTitle}>
                   {availableReactions.find((r) => r.key === action)?.name}
                 </Text>
+                
+                {/* Show action parameters if present */}
+                {Object.keys(actionParams).length > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={[styles.muted, { fontSize: 12 }]}>Action Parameters:</Text>
+                    {Object.entries(actionParams).map(([key, value]) => (
+                      <Text key={key} style={[styles.smallMuted, { marginLeft: 8 }]}>
+                        • {key}: {String(value)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
           )}
 
           <View style={{ height: 16 }} />
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <CustomButton 
-              title="Back" 
-              onPress={() => setStep(Math.max(1, step - 1))} 
-              variant="outline"
-              disabled={step <= 1}
-            />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+            {step === 1 ? (
+              <CustomButton 
+                title="Cancel" 
+                onPress={() => navigation.navigate("MainTabs", { screen: "Dashboard" })} 
+                variant="outline"
+              />
+            ) : (
+              <CustomButton 
+                title="Back" 
+                onPress={() => setStep(Math.max(1, step - 1))} 
+                variant="outline"
+              />
+            )}
             {step < 5 ? (
               <CustomButton 
                 title="Next" 
@@ -1339,6 +1575,48 @@ function WizardScreen() {
           </View>
         </Card>
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+// Wrapper for the Wizard tab that shows the selection modal
+function WizardTabScreen() {
+  const navigation = useNavigation<any>();
+  const [wizardModalVisible, setWizardModalVisible] = useState(true);
+
+  // When the modal is closed without selection, navigate back to Dashboard
+  const handleClose = () => {
+    setWizardModalVisible(false);
+    navigation.navigate("Dashboard");
+  };
+
+  // Show the wizard selection modal
+  useFocusEffect(
+    useCallback(() => {
+      setWizardModalVisible(true);
+      return () => {};
+    }, [])
+  );
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <Text style={styles.h1}>Create New AREA</Text>
+      <Card style={{ margin: 16 }}>
+        <Text style={styles.muted}>Choose how you'd like to create your automation.</Text>
+      </Card>
+      
+      <WizardSelectionModal
+        visible={wizardModalVisible}
+        onClose={handleClose}
+        onSelectSimple={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("SimpleWizard");
+        }}
+        onSelectAdvanced={() => {
+          setWizardModalVisible(false);
+          navigation.navigate("AdvancedAreaBuilder");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -1360,6 +1638,11 @@ function ProfileScreen() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [providerPending, setProviderPending] = useState<Record<string, boolean>>({});
   const [linkIdentifiers, setLinkIdentifiers] = useState<Record<string, string>>({});
+  
+  // Server configuration state
+  const [serverUrl, setServerUrl] = useState("");
+  const [defaultServerUrl, setDefaultServerUrl] = useState("");
+  const [serverUrlSaving, setServerUrlSaving] = useState(false);
 
   const updateLoginMethod = useCallback((nextStatus: LoginMethodStatus) => {
     setProfile((prev) => {
@@ -1410,6 +1693,27 @@ function ProfileScreen() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  // Load server URL configuration on mount
+  useEffect(() => {
+    const loadServerUrl = async () => {
+      try {
+        const defaultUrl = API_BASE_URL;
+        setDefaultServerUrl(defaultUrl);
+        
+        const customUrl = await AsyncStorage.getItem(SERVER_URL_STORAGE_KEY);
+        if (customUrl) {
+          setServerUrl(customUrl);
+        } else {
+          setServerUrl(defaultUrl);
+        }
+      } catch (error) {
+        console.error('Failed to load server URL:', error);
+        setServerUrl(API_BASE_URL);
+      }
+    };
+    void loadServerUrl();
+  }, []);
 
   const handleSaveProfile = useCallback(async () => {
     if (!token || !profile) {
@@ -1556,6 +1860,59 @@ function ProfileScreen() {
     [token, profile, logout, updateLoginMethod],
   );
 
+  const handleSaveServerUrl = useCallback(async () => {
+    const trimmed = serverUrl.trim();
+    
+    if (!trimmed) {
+      Alert.alert('Invalid URL', 'Please enter a valid server URL');
+      return;
+    }
+
+    // Validate URL format
+    try {
+      new URL(trimmed);
+    } catch {
+      Alert.alert('Invalid URL', 'Please enter a valid URL (e.g., http://192.168.1.100:8080/api/v1)');
+      return;
+    }
+
+    setServerUrlSaving(true);
+    try {
+      await AsyncStorage.setItem(SERVER_URL_STORAGE_KEY, trimmed);
+      Alert.alert(
+        'Server URL Updated',
+        'The app will use the new server URL. Please restart the app for changes to take effect.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save server URL');
+    } finally {
+      setServerUrlSaving(false);
+    }
+  }, [serverUrl]);
+
+  const handleResetServerUrl = useCallback(async () => {
+    Alert.alert(
+      'Reset to Default',
+      'This will restore the default server URL. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(SERVER_URL_STORAGE_KEY);
+              setServerUrl(defaultServerUrl);
+              Alert.alert('Reset Complete', 'Server URL has been reset to default. Please restart the app.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to reset server URL');
+            }
+          },
+        },
+      ]
+    );
+  }, [defaultServerUrl]);
+
   if (loadingProfile) {
     return (
       <SafeAreaView style={styles.screen}>
@@ -1569,12 +1926,65 @@ function ProfileScreen() {
   if (profileError) {
     return (
       <SafeAreaView style={styles.screen}>
-        <Text style={styles.h1}>Profile</Text>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{profileError}</Text>
+        <ScrollView contentContainerStyle={styles.profileScroll}>
+          <Text style={styles.h1}>Profile</Text>
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>{profileError}</Text>
+            <View style={{ height: 12 }} />
+            <Button title="Retry" onPress={() => void loadProfile()} />
+          </View>
+          
+          <View style={{ height: 24 }} />
+          
+          {/* Server Configuration - Always available even on error */}
+          <Card>
+            <Text style={{ ...TextStyles.h3, marginBottom: 8 }}>
+              Server Configuration
+            </Text>
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginBottom: 16 }}>
+              Configure the network location of the application server.
+            </Text>
+
+            <Input
+              label="Server URL"
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="http://192.168.1.100:8080/api/v1"
+              autoCapitalize="none"
+              keyboardType="url"
+              editable={!serverUrlSaving}
+            />
+
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8, marginBottom: 16 }}>
+              Examples:{'\n'}
+              • http://192.168.1.100:8080/api/v1 (Local network){'\n'}
+              • http://10.0.2.2:8080/api/v1 (Android emulator){'\n'}
+              • http://localhost:8080/api/v1 (iOS simulator)
+            </Text>
+
+            <CustomButton
+              title={serverUrlSaving ? 'Saving...' : 'Save Server URL'}
+              onPress={handleSaveServerUrl}
+              disabled={serverUrlSaving}
+              variant="default"
+              style={{ marginBottom: 12 }}
+            />
+
+            <CustomButton
+              title="Reset to Default"
+              onPress={handleResetServerUrl}
+              variant="outline"
+              style={{ marginBottom: 8 }}
+            />
+
+            <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8 }}>
+              Default: {defaultServerUrl || 'Not configured'}
+            </Text>
+          </Card>
+
           <View style={{ height: 12 }} />
-          <Button title="Retry" onPress={() => void loadProfile()} />
-        </View>
+          <CustomButton title="Logout" onPress={() => logout().catch(() => {})} variant="outline" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1738,6 +2148,52 @@ function ProfileScreen() {
           })}
         </View>
 
+        {/* Server Configuration */}
+        <Card>
+          <Text style={{ ...TextStyles.h3, marginBottom: 8 }}>
+            Server Configuration
+          </Text>
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginBottom: 16 }}>
+            Configure the network location of the application server.
+          </Text>
+
+          <Input
+            label="Server URL"
+            value={serverUrl}
+            onChangeText={setServerUrl}
+            placeholder="http://192.168.1.100:8080/api/v1"
+            autoCapitalize="none"
+            keyboardType="url"
+            editable={!serverUrlSaving}
+          />
+
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8, marginBottom: 16 }}>
+            Examples:{'\n'}
+            • http://192.168.1.100:8080/api/v1 (Local network){'\n'}
+            • http://10.0.2.2:8080/api/v1 (Android emulator){'\n'}
+            • http://localhost:8080/api/v1 (iOS simulator)
+          </Text>
+
+          <CustomButton
+            title={serverUrlSaving ? 'Saving...' : 'Save Server URL'}
+            onPress={handleSaveServerUrl}
+            disabled={serverUrlSaving}
+            variant="default"
+            style={{ marginBottom: 12 }}
+          />
+
+          <CustomButton
+            title="Reset to Default"
+            onPress={handleResetServerUrl}
+            variant="outline"
+            style={{ marginBottom: 8 }}
+          />
+
+          <Text style={{ ...TextStyles.small, color: Colors.mutedForeground, marginTop: 8 }}>
+            Default: {defaultServerUrl || 'Not configured'}
+          </Text>
+        </Card>
+
         <View style={{ height: 12 }} />
         <CustomButton title="Activity Log" onPress={() => navigation.navigate("ActivityLog" as never)} variant="default" />
         <View style={{ height: 12 }} />
@@ -1745,6 +2201,23 @@ function ProfileScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// Wrapper for MarketplaceScreen that provides API base URL
+function MarketplaceScreenWrapper() {
+  return <MarketplaceScreen apiBaseUrl={API_BASE_URL} />;
+}
+
+// Wrapper for TemplateDetailScreen that provides API base URL and token
+function TemplateDetailScreenWrapper() {
+  const auth = useAuth();
+  return <TemplateDetailScreen apiBaseUrl={API_BASE_URL} token={auth.token} />;
+}
+
+// Wrapper for PublishTemplateScreen that provides API base URL and token
+function PublishTemplateScreenWrapper() {
+  const auth = useAuth();
+  return <PublishTemplateScreen apiBaseUrl={API_BASE_URL} token={auth.token} />;
 }
 
 const Stack = createNativeStackNavigator();
@@ -1760,6 +2233,8 @@ function TabsNavigator() {
 
           if (route.name === 'Dashboard') {
             iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Marketplace') {
+            iconName = focused ? 'storefront' : 'storefront-outline';
           } else if (route.name === 'History') {
             iconName = focused ? 'time' : 'time-outline';
           } else if (route.name === 'Connections') {
@@ -1790,9 +2265,10 @@ function TabsNavigator() {
       })}
     >
       <Tabs.Screen name="Dashboard" component={DashboardScreen} />
+      <Tabs.Screen name="Marketplace" component={MarketplaceScreenWrapper} />
       <Tabs.Screen name="History" component={HistoryScreen} />
       <Tabs.Screen name="Connections" component={ConnectionsScreen} />
-      <Tabs.Screen name="Wizard" component={WizardScreen} />
+      <Tabs.Screen name="Wizard" component={WizardTabScreen} />
       <Tabs.Screen name="Profile" component={ProfileScreen} />
     </Tabs.Navigator>
   );
@@ -1805,6 +2281,9 @@ function AuthenticatedNavigator() {
       <Stack.Screen name="ActivityLog" component={ActivityLogScreen} />
       <Stack.Screen name="Confirm" component={ConfirmScreen} />
       <Stack.Screen name="AdvancedAreaBuilder" component={AdvancedAreaBuilderScreen} />
+      <Stack.Screen name="SimpleWizard" component={WizardScreen} />
+      <Stack.Screen name="TemplateDetail" component={TemplateDetailScreenWrapper} />
+      <Stack.Screen name="PublishTemplate" component={PublishTemplateScreenWrapper} />
     </Stack.Navigator>
   );
 }

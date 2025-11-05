@@ -11,6 +11,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_pagination import add_pagination
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes.auth import router as auth_router
@@ -18,6 +19,7 @@ from app.api.routes.oauth import router as oauth_router
 from app.api.routes.profile import router as profile_router
 from app.api.routes.services import router as services_router
 from app.api.routes.service_connections import router as service_connections_router
+from app.api.routes.marketplace import router as marketplace_router
 from app.api import areas_router, execution_logs_router
 from app.api.routes.admin import router as admin_router
 from app.api.routes.user_activity_logs import router as user_activity_log_router
@@ -87,6 +89,16 @@ async def lifespan(app: FastAPI):
         except Exception as migration_exc:
             logger.error("Startup: migration failed", exc_info=True)
             raise migration_exc
+
+        # Seed marketplace data after migrations
+        logger.info("Startup: seeding marketplace data")
+        try:
+            from scripts.seed_marketplace import seed_marketplace_data
+            seed_marketplace_data()
+            logger.info("Startup: marketplace seeding completed")
+        except Exception as seed_exc:
+            logger.warning("Startup: marketplace seeding failed (non-fatal): %s", seed_exc)
+            # Don't fail startup if seeding fails - it's not critical
 
         # Start the background scheduler for time-based areas
         logger.info("Startup: starting scheduler")
@@ -236,6 +248,10 @@ logger.info("Creating FastAPI application instance")
 app = FastAPI(lifespan=lifespan)
 logger.info("FastAPI application created")
 
+# Initialize fastapi-pagination
+add_pagination(app)
+logger.info("Pagination initialized")
+
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
@@ -258,7 +274,16 @@ app.add_middleware(
 
 # Add Session middleware for OAuth
 logger.info("Configuring Session middleware for OAuth callbacks")
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie="oauth_session",  # Explicit cookie name
+    # Configure cookie settings for mobile browser compatibility
+    same_site="lax",  # Allow cookies on top-level navigation (OAuth callbacks)
+    https_only=False,  # Set to True in production with HTTPS
+    max_age=1800,  # 30 minutes - enough time to complete OAuth flow
+    path="/",  # Cookie available for all paths
+)
 
 
 @app.get("/")
@@ -291,6 +316,7 @@ app.include_router(service_connections_router, prefix="/api/v1/service-connectio
 app.include_router(profile_router, prefix="/api/v1/users")
 app.include_router(services_router, prefix="/services")
 app.include_router(services_router, prefix="/api/v1/services")
+app.include_router(marketplace_router, prefix="/api/v1")
 app.include_router(areas_router, prefix="/api/v1")
 app.include_router(execution_logs_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1")

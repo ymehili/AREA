@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -20,6 +21,7 @@ class LoginMethodStatus(BaseModel):
 class UserProfileResponse(BaseModel):
     """Serialized profile data for the authenticated user."""
 
+    id: uuid.UUID
     email: EmailStr
     full_name: Optional[str] = None
     is_confirmed: bool

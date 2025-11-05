@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -42,8 +42,8 @@ class UserActivityLog(Base):
         server_default=func.now(),
         nullable=False,
     )
-    details: Mapped[str | None] = mapped_column(String(5000), nullable=True)
-    service_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    details: Mapped[Optional[str]] = mapped_column(String(5000), nullable=True)
+    service_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="success")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

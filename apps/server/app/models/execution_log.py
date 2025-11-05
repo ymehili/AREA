@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import DateTime, String, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -45,9 +45,9 @@ class ExecutionLog(Base):
         String(50),
         nullable=False,
     )
-    output: Mapped[str | None] = mapped_column(String(5000), nullable=True)
-    error_message: Mapped[str | None] = mapped_column(String(5000), nullable=True)
-    step_details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    output: Mapped[Optional[str]] = mapped_column(String(5000), nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(String(5000), nullable=True)
+    step_details: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

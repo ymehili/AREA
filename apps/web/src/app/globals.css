@@ -181,3 +181,137 @@ a {
   white-space: nowrap;
   border: 0;
 }
+
+/* React Flow handle enhancements for better UX */
+.react-flow__handle {
+  border-radius: 50%;
+  transition: all 0.2s ease-in-out;
+  z-index: 10;
+}
+
+/* Remove the default React Flow handle styles to use our custom ones */
+.react-flow__handle.react-flow__handle-left,
+.react-flow__handle.react-flow__handle-right {
+  border-radius: 50%;
+}
+
+/* Make the connection line more visible and smooth */
+.react-flow__connection-path {
+  stroke-width: 2.5px;
+  stroke: #3b82f6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.react-flow__connectionline {
+  stroke-width: 2.5px;
+  stroke: #3b82f6;
+  stroke-linecap: round;
+}
+
+/* Edge styling - clean and professional */
+.react-flow__edge-path {
+  stroke-width: 2px;
+  stroke: #3b82f6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+  transition: all 0.2s ease-in-out;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3px;
+  stroke: #2563eb;
+  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.3));
+}
+
+/* Selected edge styling */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #2563eb;
+  stroke-width: 3px;
+  filter: drop-shadow(0 2px 6px rgba(37, 99, 235, 0.4));
+  animation: edgeGlow 2s ease-in-out infinite;
+}
+
+@keyframes edgeGlow {
+  0%, 100% {
+    filter: drop-shadow(0 2px 6px rgba(37, 99, 235, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 2px 8px rgba(37, 99, 235, 0.6));
+  }
+}
+
+/* Highlight compatible handles when dragging */
+.react-flow.connecting .react-flow__handle-valid {
+  background-color: var(--success) !important;
+  transform: scale(1.5);
+  box-shadow: 0 0 0 8px rgba(0, 200, 83, 0.4);
+  animation: pulseGreen 1.5s infinite;
+}
+
+@keyframes pulseGreen {
+  0%, 100% {
+    box-shadow: 0 0 0 8px rgba(0, 200, 83, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(0, 200, 83, 0.2);
+  }
+}
+
+/* Improve edge interaction area - wider clickable zone */
+.react-flow__edge-interaction {
+  stroke-width: 20px;
+  stroke: transparent;
+}
+
+/* Add subtle animations to nodes */
+.react-flow__node {
+  transition: transform 0.1s ease-in-out;
+}
+
+.react-flow__node:hover {
+  transform: translateY(-2px);
+}
+
+.react-flow__node.selected {
+  transform: translateY(-2px);
+}
+
+/* Smooth edge markers (arrows) */
+.react-flow__arrowhead {
+  fill: #3b82f6;
+}
+
+.react-flow__edge.selected .react-flow__arrowhead {
+  fill: #2563eb;
+}
+
+/* Dark mode adjustments */
+.dark .react-flow__edge-path {
+  stroke: #60a5fa;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+}
+
+.dark .react-flow__edge:hover .react-flow__edge-path {
+  stroke: #93c5fd;
+  filter: drop-shadow(0 2px 4px rgba(147, 197, 253, 0.4));
+}
+
+.dark .react-flow__edge.selected .react-flow__edge-path {
+  stroke: #93c5fd;
+  filter: drop-shadow(0 2px 6px rgba(147, 197, 253, 0.5));
+}
+
+.dark .react-flow__connection-path,
+.dark .react-flow__connectionline {
+  stroke: #60a5fa;
+}
+
+.dark .react-flow__arrowhead {
+  fill: #60a5fa;
+}
+
+.dark .react-flow__edge.selected .react-flow__arrowhead {
+  fill: #93c5fd;
+}

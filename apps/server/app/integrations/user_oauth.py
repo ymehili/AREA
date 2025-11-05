@@ -193,19 +193,58 @@ class OAuthService:
         return user
     
     @staticmethod
+    def generate_redirect_url_by_client_type(access_token: str, client_type: str) -> str:
+        """Generate appropriate redirect URL based on explicit client type.
+
+        Args:
+            access_token: JWT access token to include in redirect
+            client_type: Either 'web' or 'mobile'
+
+        Returns:
+            Redirect URL with token
+        """
+        if client_type == "mobile":
+            # For mobile apps, redirect to mobile URL (may be custom scheme or http/https)
+            parsed_mobile_url = urlparse(settings.frontend_redirect_url_mobile)
+            mobile_path = parsed_mobile_url.path
+
+            if not mobile_path or mobile_path == "/":
+                mobile_path = "/oauth/callback"
+
+            query_params = dict(parse_qsl(parsed_mobile_url.query, keep_blank_values=True))
+            query_params["access_token"] = access_token
+
+            mobile_redirect_url = urlunparse(
+                parsed_mobile_url._replace(
+                    path=mobile_path,
+                    query=urlencode(query_params)
+                )
+            )
+
+            print(f"Mobile app (explicit client_type={client_type})")
+            print(f"Redirecting to {mobile_redirect_url}")
+            return mobile_redirect_url
+
+        # For web apps (default), use URL hash
+        print(f"Web app (explicit client_type={client_type})")
+        print(f"Redirecting to {settings.frontend_redirect_url_web}#access_token={access_token}")
+        return f"{settings.frontend_redirect_url_web}#access_token={access_token}"
+
+    @staticmethod
     def generate_redirect_url(access_token: str, user_agent: str) -> str:
-        """Generate appropriate redirect URL based on client type (user agent detection)."""
+        """Generate appropriate redirect URL based on client type (user agent detection).
+
+        Deprecated: Use generate_redirect_url_by_client_type with explicit client_type instead.
+        This method is kept for backward compatibility only.
+        """
         user_agent_lower = user_agent.lower()
 
         # Detect if this is a mobile app based ONLY on user agent
         # Common mobile user agent indicators
+        # NOTE: This incorrectly detects mobile web browsers as mobile apps
+        # Use explicit client_type parameter instead
         is_mobile = (
-            "mobile" in user_agent_lower or
-            "android" in user_agent_lower or
-            "iphone" in user_agent_lower or
-            "ipad" in user_agent_lower or
-            "ipod" in user_agent_lower or
-            # React Native / Expo user agent patterns
+            # React Native / Expo user agent patterns (more specific first)
             "expo" in user_agent_lower or
             "reactnative" in user_agent_lower
         )

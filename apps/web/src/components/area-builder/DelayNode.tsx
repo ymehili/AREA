@@ -7,38 +7,54 @@ import { DelayNodeData } from './node-types';
 
 const DelayNode: React.FC<NodeProps<DelayNodeData>> = ({ data, isConnectable, selected }) => {
   return (
-    <Card className={`w-64 ${selected ? 'border-2 border-primary shadow-lg ring-2 ring-ring' : 'border-2 border-purple-500'} bg-purple-50 dark:bg-purple-950/30`}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200">
-            Delay
-          </Badge>
+    <div className="relative">
+      <Card className={`w-72 ${selected ? 'ring-2 ring-primary shadow-xl' : 'shadow-md'} border-2 border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/40 dark:to-purple-900/30 overflow-visible`}>
+        <CardContent className="p-4 px-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="secondary" className="bg-purple-500 text-white">
+              Delay
+            </Badge>
+          </div>
+          <h3 className="font-semibold text-lg break-words text-purple-900 dark:text-purple-100">{data.label}</h3>
+          <p className="text-sm text-purple-700 dark:text-purple-300 mt-1 break-words">
+            {data.description || `${data.duration} ${data.unit}`}
+          </p>
+          <div className="mt-2 text-xs text-purple-600 dark:text-purple-400 break-words">
+            Duration: {data.duration} {data.unit}
+          </div>
+        </CardContent>
+        
+        {/* Input handle - integrated into the card edge */}
+        <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            {/* Glow ring effect */}
+            <div className="absolute inset-0 bg-purple-500/30 rounded-full blur-sm"></div>
+            <Handle
+              type="target"
+              position={Position.Left}
+              id="delay-input"
+              isConnectable={isConnectable}
+              className="!w-8 !h-8 !bg-purple-500 !border-4 !border-white dark:!border-gray-800 hover:!bg-purple-600 hover:scale-110 transition-all cursor-crosshair !static !transform-none shadow-lg"
+            />
+          </div>
         </div>
-        <h3 className="font-semibold text-lg break-words">{data.label}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">
-          {data.description || `${data.duration} ${data.unit}`}
-        </p>
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 break-words">
-          Duration: {data.duration} {data.unit}
+        
+        {/* Output handle - integrated into the card edge */}
+        <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-10">
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            {/* Glow ring effect */}
+            <div className="absolute inset-0 bg-purple-500/30 rounded-full blur-sm"></div>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="delay-output"
+              isConnectable={isConnectable}
+              className="!w-8 !h-8 !bg-purple-500 !border-4 !border-white dark:!border-gray-800 hover:!bg-purple-600 hover:scale-110 transition-all cursor-crosshair !static !transform-none shadow-lg"
+            />
+          </div>
         </div>
-      </CardContent>
-      {/* Input handle positioned at the left side */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="delay-input"
-        isConnectable={isConnectable}
-        className="w-3 h-3 bg-purple-500"
-      />
-      {/* Output handle positioned at the right side */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="delay-output"
-        isConnectable={isConnectable}
-        className="w-3 h-3 bg-purple-500"
-      />
-    </Card>
+      </Card>
+    </div>
   );
 };
 

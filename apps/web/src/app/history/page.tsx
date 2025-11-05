@@ -677,17 +677,17 @@ export default function HistoryPage() {
                       // Get action emoji and title
                       const getActionEmoji = (action: string) => {
                         if (action === 'complete_text') return '✍️';
-                        if (action === 'chat_completion') return '💬';
-                        if (action === 'image_generation') return '🖼️';
-                        if (action === 'content_moderation') return '🛡️';
+                        if (action === 'chat') return '💬';
+                        if (action === 'generate_image') return '🖼️';
+                        if (action === 'analyze_text') return '🛡️';
                         return '🤖';
                       };
                       
                       const getActionTitle = (action: string) => {
                         if (action === 'complete_text') return 'Text Completion';
-                        if (action === 'chat_completion') return 'Chat Completion';
-                        if (action === 'image_generation') return 'Image Generation';
-                        if (action === 'content_moderation') return 'Content Moderation';
+                        if (action === 'chat') return 'Chat Completion';
+                        if (action === 'generate_image') return 'Image Generation';
+                        if (action === 'analyze_text') return 'Content Moderation';
                         return 'OpenAI Response';
                       };
                       
@@ -755,10 +755,10 @@ export default function HistoryPage() {
                         );
                       }
                       
-                      // Chat Completion Display
-                      if (action === 'chat_completion' && openaiData.response) {
+                      // Chat Completion Display (action key is 'chat')
+                      if (action === 'chat' && openaiData.response) {
                         return (
-                          <Card className="border-2 border-blue-200 dark:border-blue-800">
+                          <Card className="border-2 border-purple-200 dark:border-purple-800">
                             <CardHeader className="pb-3">
                               <CardTitle className="text-base flex items-center gap-2">
                                 {getActionEmoji(action)} OpenAI {getActionTitle(action)}
@@ -766,7 +766,7 @@ export default function HistoryPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                               {/* Response Display */}
-                              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                                 <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">AI Response</p>
                                 <div className="text-sm leading-relaxed whitespace-pre-wrap bg-white dark:bg-gray-900 rounded p-3 border">
                                   {openaiData.response}
@@ -819,10 +819,10 @@ export default function HistoryPage() {
                         );
                       }
                       
-                      // Image Generation Display
-                      if (action === 'image_generation' && openaiData.image_urls) {
+                      // Image Generation Display (action key is 'generate_image')
+                      if (action === 'generate_image' && openaiData.image_urls) {
                         return (
-                          <Card className="border-2 border-purple-200 dark:border-purple-800">
+                          <Card className="border-2 border-orange-200 dark:border-orange-800">
                             <CardHeader className="pb-3">
                               <CardTitle className="text-base flex items-center gap-2">
                                 {getActionEmoji(action)} OpenAI {getActionTitle(action)}
@@ -830,7 +830,7 @@ export default function HistoryPage() {
                             </CardHeader>
                             <CardContent className="space-y-4">
                               {/* Images Display */}
-                              <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                              <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
                                 <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Generated Images</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   {openaiData.image_urls.map((url: string, index: number) => (
@@ -876,8 +876,8 @@ export default function HistoryPage() {
                         );
                       }
                       
-                      // Content Moderation Display
-                      if (action === 'content_moderation' && openaiData.moderation_result) {
+                      // Content Moderation Display (action key is 'analyze_text')
+                      if (action === 'analyze_text' && openaiData.moderation_result) {
                         const moderation = openaiData.moderation_result;
                         const isFlagged = moderation.flagged;
                         
