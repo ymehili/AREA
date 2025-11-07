@@ -45,5 +45,24 @@ services:
     ports:
       - "3000:3000"
 
+  mobile-builder:
+    platform: linux/amd64
+    build:
+      context: ./apps/mobile
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    volumes:
+      - ./apps/mobile:/project
+      - mobile_node_modules:/project/node_modules
+      - mobile_gradle_cache:/root/.gradle
+      - ./apps/mobile/artifacts:/artifacts
+    environment:
+      - ANDROID_SDK_ROOT=/opt/android-sdk
+      - CI=1
+    command: bash scripts/docker-build.sh
+
 volumes:
   postgres_data:
+  mobile_node_modules:
+  mobile_gradle_cache:
