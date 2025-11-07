@@ -147,8 +147,20 @@ class CalendarConnectionError(CalendarError):
     pass
 
 
+class GoogleDriveError(Exception):
+    """Base exception for Google Drive operations."""
+
+    pass
+
+
 class DeepLError(Exception):
     """Base exception for DeepL operations."""
+
+    pass
+
+
+class GoogleDriveAuthError(GoogleDriveError):
+    """Google Drive authentication/authorization failed."""
 
     pass
 
@@ -159,8 +171,20 @@ class DeepLAuthError(DeepLError):
     pass
 
 
+class GoogleDriveAPIError(GoogleDriveError):
+    """Google Drive API request failed."""
+
+    pass
+
+
 class DeepLAPIError(DeepLError):
     """DeepL API request failed."""
+
+    pass
+
+
+class GoogleDriveConnectionError(GoogleDriveError):
+    """Google Drive service connection not found or invalid."""
 
     pass
 
@@ -202,6 +226,10 @@ __all__ = [
     "CalendarAuthError",
     "CalendarAPIError",
     "CalendarConnectionError",
+    "GoogleDriveError",
+    "GoogleDriveAuthError",
+    "GoogleDriveAPIError",
+    "GoogleDriveConnectionError",
     "DeepLError",
     "DeepLAuthError",
     "DeepLAPIError",

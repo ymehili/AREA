@@ -12,6 +12,7 @@ from app.integrations.oauth.providers.gmail import GmailOAuth2Provider
 from app.integrations.oauth.providers.discord import DiscordOAuth2Provider
 from app.integrations.oauth.providers.outlook import OutlookOAuth2Provider
 from app.integrations.oauth.providers.google_calendar import GoogleCalendarOAuth2Provider
+from app.integrations.oauth.providers.google_drive import GoogleDriveOAuth2Provider
 
 
 class OAuth2ProviderFactory:
@@ -22,6 +23,7 @@ class OAuth2ProviderFactory:
         "gmail": GmailOAuth2Provider,
         "discord": DiscordOAuth2Provider,
         "google_calendar": GoogleCalendarOAuth2Provider,
+        "google_drive": GoogleDriveOAuth2Provider,
         "outlook": OutlookOAuth2Provider,
     }
 
@@ -124,6 +126,22 @@ class OAuth2ProviderFactory:
                 ],
                 redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/google_calendar",
             )
+        elif provider_name == "google_drive":
+            # Google Drive API scopes:
+            # - userinfo.email/profile: Get user identity for account linking
+            # - drive: Full access to Google Drive (read, write, delete files/folders)
+            return OAuth2Config(
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+                authorization_url="https://accounts.google.com/o/oauth2/v2/auth",
+                token_url="https://oauth2.googleapis.com/token",
+                scopes=[
+                    "https://www.googleapis.com/auth/userinfo.email",
+                    "https://www.googleapis.com/auth/userinfo.profile",
+                    "https://www.googleapis.com/auth/drive",
+                ],
+                redirect_uri=f"{settings.oauth_redirect_base_url.replace('/oauth', '')}/service-connections/callback/google_drive",
+            )
 
         raise UnsupportedProviderError(f"No configuration for provider: {provider_name}")
 
@@ -142,6 +160,8 @@ class OAuth2ProviderFactory:
         elif provider_name == "discord":
             return bool(settings.discord_client_id and settings.discord_client_secret)
         elif provider_name == "google_calendar":
+            return bool(settings.google_client_id and settings.google_client_secret)
+        elif provider_name == "google_drive":
             return bool(settings.google_client_id and settings.google_client_secret)
         elif provider_name == "outlook":
             return bool(settings.microsoft_client_id and settings.microsoft_client_secret)

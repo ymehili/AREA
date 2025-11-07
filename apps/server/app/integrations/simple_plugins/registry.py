@@ -109,6 +109,20 @@ class PluginsRegistry:
         self._handlers[("google_calendar", "create_all_day_event")] = create_all_day_event_handler
         self._handlers[("google_calendar", "quick_add_event")] = quick_add_event_handler
 
+        # Google Drive handlers
+        from app.integrations.simple_plugins.google_drive_plugin import (
+            upload_file_handler,
+            create_folder_handler,
+            copy_file_handler,
+            move_file_handler,
+            delete_file_handler,
+        )
+        self._handlers[("google_drive", "upload_file")] = upload_file_handler
+        self._handlers[("google_drive", "create_folder")] = create_folder_handler
+        self._handlers[("google_drive", "copy_file")] = copy_file_handler
+        self._handlers[("google_drive", "move_file")] = move_file_handler
+        self._handlers[("google_drive", "delete_file")] = delete_file_handler
+
         # DeepL handlers
         from app.integrations.simple_plugins.deepl_plugin import (
             translate_text_handler,

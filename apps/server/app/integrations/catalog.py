@@ -245,29 +245,44 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
         description="Manage files and folders stored in Google Drive.",
         actions=(
             AutomationOption(
-                key="file_created",
-                name="File Created",
-                description="Triggers when a new file is added to the drive.",
-                params=None,
+                key="new_file",
+                name="New File Created",
+                description="Triggers when any new file is created in your Drive.",
             ),
             AutomationOption(
-                key="file_deleted",
-                name="File Deleted",
-                description="Triggers when a file is deleted from the drive.",
-                params=None,
+                key="file_modified",
+                name="File Modified",
+                description="Triggers when an existing file is modified in your Drive.",
+            ),
+            AutomationOption(
+                key="file_in_folder",
+                name="New File in Folder",
+                description="Triggers when a new file is added to a specific folder.",
+                params={
+                    "folder_id": {
+                        "type": "text",
+                        "label": "Folder ID",
+                        "placeholder": "Google Drive folder ID"
+                    }
+                },
+            ),
+            AutomationOption(
+                key="file_shared_with_me",
+                name="File Shared With Me",
+                description="Triggers when someone shares a file with you.",
+            ),
+            AutomationOption(
+                key="file_trashed",
+                name="File Trashed",
+                description="Triggers when a file is moved to trash.",
             ),
         ),
         reactions=(
             AutomationOption(
                 key="upload_file",
                 name="Upload File",
-                description="Upload a new file into a specified folder.",
+                description="Upload a new file to Drive.",
                 params={
-                    "folder_id": {
-                        "type": "text",
-                        "label": "Folder ID",
-                        "placeholder": "Google Drive folder ID"
-                    },
                     "file_name": {
                         "type": "text",
                         "label": "File Name",
@@ -277,23 +292,79 @@ SERVICE_CATALOG: Final[tuple[ServiceIntegration, ...]] = (
                         "type": "text",
                         "label": "File Content",
                         "placeholder": "Content of the file"
+                    },
+                    "folder_id": {
+                        "type": "text",
+                        "label": "Folder ID (optional)",
+                        "placeholder": "Leave empty for root folder"
+                    },
+                    "mime_type": {
+                        "type": "text",
+                        "label": "MIME Type (optional)",
+                        "placeholder": "e.g., application/pdf"
                     }
                 },
             ),
             AutomationOption(
                 key="create_folder",
                 name="Create Folder",
-                description="Create a folder at the root or within another folder.",
+                description="Create a new folder in Drive.",
                 params={
-                    "name": {
+                    "folder_name": {
                         "type": "text",
                         "label": "Folder Name",
                         "placeholder": "e.g., New Folder"
                     },
-                    "parent_id": {
+                    "parent_folder_id": {
                         "type": "text",
                         "label": "Parent Folder ID (optional)",
                         "placeholder": "Leave empty for root folder"
+                    }
+                },
+            ),
+            AutomationOption(
+                key="copy_file",
+                name="Copy File",
+                description="Create a copy of an existing file.",
+                params={
+                    "file_id": {
+                        "type": "text",
+                        "label": "File ID",
+                        "placeholder": "Google Drive file ID"
+                    },
+                    "new_name": {
+                        "type": "text",
+                        "label": "New Name (optional)",
+                        "placeholder": "Leave empty to use original name"
+                    }
+                },
+            ),
+            AutomationOption(
+                key="move_file",
+                name="Move File",
+                description="Move a file to another folder.",
+                params={
+                    "file_id": {
+                        "type": "text",
+                        "label": "File ID",
+                        "placeholder": "Google Drive file ID"
+                    },
+                    "destination_folder_id": {
+                        "type": "text",
+                        "label": "Destination Folder ID",
+                        "placeholder": "Google Drive folder ID"
+                    }
+                },
+            ),
+            AutomationOption(
+                key="delete_file",
+                name="Delete File",
+                description="Move a file to trash.",
+                params={
+                    "file_id": {
+                        "type": "text",
+                        "label": "File ID",
+                        "placeholder": "Google Drive file ID"
                     }
                 },
             ),
