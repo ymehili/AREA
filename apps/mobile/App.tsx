@@ -341,7 +341,7 @@ function LoginScreen() {
       console.log('Redirect URL:', redirectUrl);
       
       const result = await WebBrowser.openAuthSessionAsync(
-        `${apiUrl}/oauth/google`,
+        `${apiUrl}/oauth/google?client_type=mobile`,
         redirectUrl
       );
 

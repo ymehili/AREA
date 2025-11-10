@@ -90,3 +90,8 @@ expo: ## Start Expo locally for the mobile app
 .PHONY: expo-web
 expo-web: ## Start Expo in web mode locally
 	cd $(MOBILE_DIR) && npm install && npm run web
+
+.PHONY: build-apk
+build-apk: ## Build the APK for the mobile app
+	$(DOCKER) -f $(COMPOSE_BASE) run --rm mobile-builder
+
