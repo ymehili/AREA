@@ -43,6 +43,9 @@ jobs:
           GOOGLE_CLIENT_SECRET=dummy-client-secret
           GITHUB_CLIENT_ID=dummy-github-client-id
           GITHUB_CLIENT_SECRET=dummy-github-client-secret
+          DISCORD_CLIENT_ID="1234567890"
+          DISCORD_CLIENT_SECRET="1234567890AZERTY"
+          DISCORD_BOT_TOKEN="1234567890AZERTY"
           EOF
 
       - name: Build images
