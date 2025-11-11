@@ -12,7 +12,7 @@ MOBILE_DIR := apps/mobile
 # Services managed by docker compose (includes mobile-builder for APK)
 SERVICES := client_mobile server client_web
 # Services for dev mode (no mobile-builder, just server and web with hot reload)
-DEV_SERVICES := server web
+DEV_SERVICES := server client_web
 
 # Usage: make [target]
 # You can scope compose targets to a service with S=<service>
