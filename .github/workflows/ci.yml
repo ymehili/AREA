@@ -48,8 +48,8 @@ jobs:
       - name: Build images
         run: make build
 
-      - name: Start services (docker compose up)
-        run: make up
+      - name: Start services (docker compose up without mobile)
+        run: make dev
 
       - name: Run tests
         run: make test
