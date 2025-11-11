@@ -10,7 +10,7 @@ WEB_DIR := apps/web
 SERVER_DIR := apps/server
 MOBILE_DIR := apps/mobile
 # Services managed by docker compose (includes mobile-builder for APK)
-SERVICES := mobile-builder server web
+SERVICES := client_mobile server client_web
 # Services for dev mode (no mobile-builder, just server and web with hot reload)
 DEV_SERVICES := server web
 

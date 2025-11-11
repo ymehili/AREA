@@ -31,7 +31,7 @@ services:
       retries: 12
       start_period: 5s
 
-  web:
+  client_web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
@@ -41,18 +41,18 @@ services:
     depends_on:
       server:
         condition: service_started
-      mobile-builder:
+      client_mobile:
         condition: service_completed_successfully
     env_file:
       - .env
     environment:
-      - PORT=3000
+      - PORT=8081
     ports:
-      - "3000:3000"
+      - "8081:8081"
     volumes:
       - apk_volume:/apk-shared:ro
 
-  mobile-builder:
+  client_mobile:
     platform: linux/amd64
     build:
       context: ./apps/mobile
