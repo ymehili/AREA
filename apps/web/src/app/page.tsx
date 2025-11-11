@@ -6,19 +6,21 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, headingClasses } from "@/lib/utils";
-import { 
-  Zap, 
-  Link2, 
-  Sparkles, 
-  ArrowRight, 
-  Mail, 
+import {
+  Zap,
+  Link2,
+  Sparkles,
+  ArrowRight,
+  Mail,
   Cloud,
   Github,
   MessageSquare,
   Calendar,
   Brain,
   CloudRain,
-  Languages
+  Languages,
+  Download,
+  Smartphone
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -111,15 +113,25 @@ export default function LandingPage() {
             <div className={cn(headingClasses(1), "text-xl md:text-2xl text-primary")}>
               ACTION-REACTION
             </div>
-            <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = "/downloads/client.apk"}
+                className="group hidden lg:inline-flex"
+              >
+                <Smartphone className="mr-2 h-4 w-4" />
+                Download App
+                <Download className="ml-2 h-4 w-4 group-hover:translate-y-0.5 transition-transform" />
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => router.push("/auth?mode=login")}
                 className="hidden sm:inline-flex"
               >
                 Sign In
               </Button>
-              <Button 
+              <Button
                 onClick={() => router.push("/auth")}
                 className="group"
               >

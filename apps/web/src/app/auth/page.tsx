@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OAuthButton } from "@/components/ui/oauth-button";
 import { useAuth } from "@/hooks/use-auth";
 import { cn, headingClasses } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/api";
 
 function AuthPageContent() {
   const router = useRouter();
@@ -142,7 +143,7 @@ function AuthPageContent() {
                 <div className="space-y-3">
                   <OAuthButton
                     provider="google"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google?client_type=web`}
+                    onClick={() => window.location.href = `${API_BASE_URL}/oauth/google?client_type=web`}
                   />
                 </div>
               </form>
@@ -192,7 +193,7 @@ function AuthPageContent() {
                   <OAuthButton
                     provider="google"
                     action="signup"
-                    onClick={() => window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/oauth/google?client_type=web`}
+                    onClick={() => window.location.href = `${API_BASE_URL}/oauth/google?client_type=web`}
                   />
                 </div>
               </form>

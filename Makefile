@@ -9,8 +9,10 @@ COMPOSE_DEV := docker-compose.dev.yml
 WEB_DIR := apps/web
 SERVER_DIR := apps/server
 MOBILE_DIR := apps/mobile
-# Only server and web are managed by docker now
-SERVICES := server web
+# Services managed by docker compose (includes mobile-builder for APK)
+SERVICES := mobile-builder server web
+# Services for dev mode (no mobile-builder, just server and web with hot reload)
+DEV_SERVICES := server web
 
 # Usage: make [target]
 # You can scope compose targets to a service with S=<service>
@@ -26,7 +28,7 @@ help: ## Show this help
 # Docker Compose orchestration
 # -----------------------------
 .PHONY: up
-up: ## Build and start all services in background (S=<service> to scope)
+up: ## Build and start all services including mobile APK builder (S=<service> to scope)
 	$(DOCKER) -f $(COMPOSE_BASE) up -d $(if $(S),$(S),$(SERVICES)) --build
 
 .PHONY: down
@@ -65,20 +67,20 @@ test: ## Run backend test suite inside docker
 # Dev Compose (hot reload)
 # -----------------------------
 .PHONY: dev
-dev: ## Start dev stack with hot reload (S=<service> to scope)
-	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) up -d $(if $(S),$(S),$(SERVICES)) --build
+dev: ## Start dev stack with hot reload (no mobile build, S=<service> to scope)
+	$(DOCKER) -f $(COMPOSE_DEV) up -d $(if $(S),$(S),$(DEV_SERVICES)) --build
 
 .PHONY: dev-down
 dev-down: ## Stop dev stack and remove containers
-	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) down
+	$(DOCKER) -f $(COMPOSE_DEV) down
 
 .PHONY: dev-logs
 dev-logs: ## Tail dev stack logs (S=<service> to scope)
-	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) logs -f $(S)
+	$(DOCKER) -f $(COMPOSE_DEV) logs -f $(S)
 
 .PHONY: dev-restart
 dev-restart: ## Restart dev services (S=<service> to scope)
-	$(DOCKER) -f $(COMPOSE_BASE) -f $(COMPOSE_DEV) restart $(if $(S),$(S),$(SERVICES))
+	$(DOCKER) -f $(COMPOSE_DEV) restart $(if $(S),$(S),$(SERVICES))
 
 # -----------------------------
 # Mobile (Expo) — local only
