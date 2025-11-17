@@ -107,12 +107,12 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
 
     Args:
         area: The Area being executed
-        params: Action parameters with 'title', 'start_time', 'end_time', 'description', 'location', 'attendees'
+        params: Action parameters with 'summary', 'start_time', 'end_time', 'description', 'location', 'attendees'
         event: Event data from trigger
     """
     try:
         # Extract parameters
-        title = params.get("title")
+        summary = params.get("summary")
         start_time = params.get("start_time")
         end_time = params.get("end_time")
         description = params.get("description", "")
@@ -125,15 +125,15 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_id": str(area.id),
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "title": title,
+                "summary": summary,
                 "start_time": start_time,
                 "end_time": end_time,
                 "params": params,
             },
         )
 
-        if not title:
-            raise ValueError("'title' parameter is required for create_event action")
+        if not summary:
+            raise ValueError("'summary' parameter is required for create_event action")
         if not start_time:
             raise ValueError("'start_time' parameter is required for create_event action")
         if not end_time:
@@ -144,7 +144,7 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
 
         # Build event body
         event_body = {
-            "summary": title,
+            "summary": summary,
             "description": description,
             "location": location,
             "start": {
@@ -173,7 +173,7 @@ def create_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "event_id": result.get('id'),
                 "event_link": result.get('htmlLink'),
-                "title": title,
+                "summary": summary,
             }
         )
     except HttpError as e:
@@ -205,7 +205,7 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
 
     Args:
         area: The Area being executed
-        params: Action parameters with 'event_id', optional 'title', 'start_time', 'end_time', 'description', 'location'
+        params: Action parameters with 'event_id', optional 'summary', 'start_time', 'end_time', 'description', 'location'
         event: Event data from trigger
     """
     try:
@@ -235,8 +235,8 @@ def update_event_handler(area: Area, params: dict, event: dict) -> None:
         existing_event = service.events().get(calendarId='primary', eventId=event_id).execute()
 
         # Update fields if provided
-        if "title" in params and params["title"]:
-            existing_event["summary"] = params["title"]
+        if "summary" in params and params["summary"]:
+            existing_event["summary"] = params["summary"]
         if "description" in params:
             existing_event["description"] = params["description"]
         if "location" in params:
@@ -365,13 +365,14 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
 
     Args:
         area: The Area being executed
-        params: Action parameters with 'title', 'date', 'description'
+        params: Action parameters with 'summary', 'start_date', 'end_date', 'description'
         event: Event data from trigger
     """
     try:
         # Extract parameters
-        title = params.get("title")
-        date = params.get("date")
+        summary = params.get("summary")
+        start_date = params.get("start_date")
+        end_date = params.get("end_date")
         description = params.get("description", "")
 
         logger.info(
@@ -380,29 +381,38 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
                 "area_id": str(area.id),
                 "area_name": area.name,
                 "user_id": str(area.user_id),
-                "title": title,
-                "date": date,
+                "summary": summary,
+                "start_date": start_date,
+                "end_date": end_date,
                 "params": params,
             },
         )
 
-        if not title:
-            raise ValueError("'title' parameter is required for create_all_day_event action")
-        if not date:
-            raise ValueError("'date' parameter is required for create_all_day_event action")
+        if not summary:
+            raise ValueError("'summary' parameter is required for create_all_day_event action")
+        if not start_date:
+            raise ValueError("'start_date' parameter is required for create_all_day_event action")
 
         # Get Calendar service
         service = _get_calendar_service(area)
 
+        # If end_date is not provided, use start_date + 1 day
+        if not end_date:
+            # Parse start_date and add 1 day
+            from datetime import datetime, timedelta
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = start_dt + timedelta(days=1)
+            end_date = end_dt.strftime("%Y-%m-%d")
+
         # Build event body for all-day event
         event_body = {
-            "summary": title,
+            "summary": summary,
             "description": description,
             "start": {
-                "date": date,
+                "date": start_date,
             },
             "end": {
-                "date": date,
+                "date": end_date,
             },
         }
 
@@ -417,8 +427,9 @@ def create_all_day_event_handler(area: Area, params: dict, event: dict) -> None:
                 "user_id": str(area.user_id),
                 "event_id": result.get('id'),
                 "event_link": result.get('htmlLink'),
-                "title": title,
-                "date": date,
+                "summary": summary,
+                "start_date": start_date,
+                "end_date": end_date,
             }
         )
     except HttpError as e:

@@ -2205,6 +2205,283 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                               </div>
                             )}
 
+                            {/* Action params: Google Calendar create_event */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'create_event' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="calendar_summary">Event Title *</Label>
+                                  <Input
+                                    id="calendar_summary"
+                                    type="text"
+                                    placeholder="Team Meeting"
+                                    value={(nodeConfig as ActionNodeData).params?.summary as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, summary: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Required: Title of the event</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_start_time">Start Time *</Label>
+                                  <Input
+                                    id="calendar_start_time"
+                                    type="text"
+                                    placeholder="2024-12-25T10:00:00"
+                                    value={(nodeConfig as ActionNodeData).params?.start_time as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, start_time: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Required: ISO 8601 format (YYYY-MM-DDTHH:MM:SS)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_end_time">End Time *</Label>
+                                  <Input
+                                    id="calendar_end_time"
+                                    type="text"
+                                    placeholder="2024-12-25T11:00:00"
+                                    value={(nodeConfig as ActionNodeData).params?.end_time as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, end_time: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Required: ISO 8601 format (YYYY-MM-DDTHH:MM:SS)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_location">Location</Label>
+                                  <Input
+                                    id="calendar_location"
+                                    type="text"
+                                    placeholder="Conference Room A"
+                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, location: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: Event location</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_description">Description</Label>
+                                  <textarea
+                                    id="calendar_description"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="Event description"
+                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: Event description (supports variables)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_attendees">Attendees</Label>
+                                  <Input
+                                    id="calendar_attendees"
+                                    type="text"
+                                    placeholder="email1@example.com, email2@example.com"
+                                    value={(nodeConfig as ActionNodeData).params?.attendees as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, attendees: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: Comma-separated email addresses</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Calendar update_event */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'update_event' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="calendar_event_id">Event ID *</Label>
+                                  <Input
+                                    id="calendar_event_id"
+                                    type="text"
+                                    placeholder="event_id_from_trigger"
+                                    value={(nodeConfig as ActionNodeData).params?.event_id as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, event_id: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">{`Required: Use {{calendar.event_id}} from trigger`}</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_update_summary">Event Title</Label>
+                                  <Input
+                                    id="calendar_update_summary"
+                                    type="text"
+                                    placeholder="Updated Title"
+                                    value={(nodeConfig as ActionNodeData).params?.summary as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, summary: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: New title for the event</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_update_start_time">Start Time</Label>
+                                  <Input
+                                    id="calendar_update_start_time"
+                                    type="text"
+                                    placeholder="2024-12-25T10:00:00"
+                                    value={(nodeConfig as ActionNodeData).params?.start_time as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, start_time: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: ISO 8601 format</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_update_end_time">End Time</Label>
+                                  <Input
+                                    id="calendar_update_end_time"
+                                    type="text"
+                                    placeholder="2024-12-25T11:00:00"
+                                    value={(nodeConfig as ActionNodeData).params?.end_time as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, end_time: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: ISO 8601 format</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_update_location">Location</Label>
+                                  <Input
+                                    id="calendar_update_location"
+                                    type="text"
+                                    placeholder="New Location"
+                                    value={(nodeConfig as ActionNodeData).params?.location as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, location: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: New location</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_update_description">Description</Label>
+                                  <textarea
+                                    id="calendar_update_description"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="Updated description"
+                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: New description</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Calendar delete_event */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'delete_event' && (
+                              <div>
+                                <Label htmlFor="calendar_delete_event_id">Event ID *</Label>
+                                <Input
+                                  id="calendar_delete_event_id"
+                                  type="text"
+                                  placeholder="event_id_from_trigger"
+                                  value={(nodeConfig as ActionNodeData).params?.event_id as string || ''}
+                                  onChange={(e) => {
+                                    const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                    onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, event_id: e.target.value } } as ActionNodeData);
+                                  }}
+                                  onFocus={handleInputFocus}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">{`Required: Use {{calendar.event_id}} from trigger`}</p>
+                              </div>
+                            )}
+
+                            {/* Action params: Google Calendar create_all_day_event */}
+                            {nodeConfig.serviceId === 'google_calendar' && nodeConfig.actionId === 'create_all_day_event' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <Label htmlFor="calendar_all_day_summary">Event Title *</Label>
+                                  <Input
+                                    id="calendar_all_day_summary"
+                                    type="text"
+                                    placeholder="All Day Event"
+                                    value={(nodeConfig as ActionNodeData).params?.summary as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, summary: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Required: Title of the all-day event</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_start_date">Start Date *</Label>
+                                  <Input
+                                    id="calendar_start_date"
+                                    type="text"
+                                    placeholder="2024-12-25"
+                                    value={(nodeConfig as ActionNodeData).params?.start_date as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, start_date: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Required: Date in YYYY-MM-DD format</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_end_date">End Date</Label>
+                                  <Input
+                                    id="calendar_end_date"
+                                    type="text"
+                                    placeholder="2024-12-26"
+                                    value={(nodeConfig as ActionNodeData).params?.end_date as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, end_date: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: End date in YYYY-MM-DD format (defaults to start_date + 1 day)</p>
+                                </div>
+                                <div>
+                                  <Label htmlFor="calendar_all_day_description">Description</Label>
+                                  <textarea
+                                    id="calendar_all_day_description"
+                                    className="w-full p-2 border rounded mt-1 min-h-[80px]"
+                                    placeholder="Event description"
+                                    value={(nodeConfig as ActionNodeData).params?.description as string || ''}
+                                    onChange={(e) => {
+                                      const currentParams = (nodeConfig as ActionNodeData).params || {};
+                                      onNodeConfigChange(selectedNodeId, { ...nodeConfig, params: { ...currentParams, description: e.target.value } } as ActionNodeData);
+                                    }}
+                                    onFocus={handleInputFocus}
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Optional: Event description (supports variables)</p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Action params: Google Drive upload_file */}
                             {nodeConfig.serviceId === 'google_drive' && nodeConfig.actionId === 'upload_file' && (
                               <div className="space-y-3">
