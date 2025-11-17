@@ -35,11 +35,11 @@ services:
       retries: 12
       start_period: 5s
 
-  web:
+  client_web:
     image: node:20-alpine
     working_dir: /app
     environment:
-      - PORT=3000
+      - PORT=8081
       - NODE_ENV=development
     env_file:
       - .env
@@ -54,7 +54,7 @@ services:
       server:
         condition: service_started
     ports:
-      - "3000:3000"
+      - "8081:8081"
 
 volumes:
   web_node_modules:

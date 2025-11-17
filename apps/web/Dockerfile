@@ -23,6 +23,16 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
+# Create downloads directory for APK
+RUN mkdir -p ./public/downloads
+
 EXPOSE 3000
+
+# Copy APK from shared volume at runtime (if available)
+# This will be handled by an entrypoint script
+COPY --from=builder /app/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
 

@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: ["**"]
   pull_request:
     branches: ["**"]
 
@@ -45,13 +43,16 @@ jobs:
           GOOGLE_CLIENT_SECRET=dummy-client-secret
           GITHUB_CLIENT_ID=dummy-github-client-id
           GITHUB_CLIENT_SECRET=dummy-github-client-secret
+          DISCORD_CLIENT_ID="1234567890"
+          DISCORD_CLIENT_SECRET="1234567890AZERTY"
+          DISCORD_BOT_TOKEN="1234567890AZERTY"
           EOF
 
       - name: Build images
         run: make build
 
-      - name: Start services (docker compose up)
-        run: make up
+      - name: Start services (docker compose up without mobile)
+        run: make dev
 
       - name: Run tests
         run: make test

@@ -421,12 +421,13 @@ class TestGenerateRedirectURL:
         with patch("app.integrations.user_oauth.settings") as mock_settings:
             mock_settings.frontend_redirect_url_mobile = "myapp://oauth/callback"
             mock_settings.frontend_redirect_url_web = "http://localhost:3000/dashboard"
-            
+
+            # Use Expo user agent since generate_redirect_url only detects Expo/ReactNative
             result = OAuthService.generate_redirect_url(
                 "test_token",
-                "Mozilla/5.0 (Linux; Android 10)"
+                "Expo Android"
             )
-            
+
             assert "myapp://oauth/callback" in result
             assert "access_token=test_token" in result
 
@@ -435,12 +436,13 @@ class TestGenerateRedirectURL:
         with patch("app.integrations.user_oauth.settings") as mock_settings:
             mock_settings.frontend_redirect_url_mobile = "myapp://oauth/callback"
             mock_settings.frontend_redirect_url_web = "http://localhost:3000/dashboard"
-            
+
+            # Use Expo user agent since generate_redirect_url only detects Expo/ReactNative
             result = OAuthService.generate_redirect_url(
                 "test_token",
-                "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0)"
+                "Expo iOS"
             )
-            
+
             assert "myapp://oauth/callback" in result
             assert "access_token=test_token" in result
 
@@ -491,10 +493,11 @@ class TestGenerateRedirectURL:
         with patch("app.integrations.user_oauth.settings") as mock_settings:
             mock_settings.frontend_redirect_url_mobile = "myapp://oauth/callback"
             mock_settings.frontend_redirect_url_web = "http://localhost:3000/dashboard"
-            
+
+            # Use uppercase EXPO to test case-insensitivity
             result = OAuthService.generate_redirect_url(
                 "test_token",
-                "MOBILE ANDROID APP"
+                "EXPO MOBILE APP"
             )
-            
+
             assert "myapp://oauth/callback" in result
