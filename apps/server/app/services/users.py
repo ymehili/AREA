@@ -109,7 +109,7 @@ def create_user(
     user = User(
         email=normalized_email,
         hashed_password=get_password_hash(user_in.password),
-        is_confirmed=not send_email,
+        is_confirmed=True,
     )
 
     db.add(user)

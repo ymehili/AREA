@@ -48,6 +48,7 @@ def register_user(
             db,
             payload,
             background_tasks=background_tasks,
+            send_email=False,
         )
     except UserEmailAlreadyExistsError as exc:
         raise HTTPException(
